@@ -2,6 +2,7 @@ node_modules/
 .next/
 apps/web/.next-verification/
 apps/web/.next-deployment-check/
+apps/web/.next-hostinger-*/
 dist/
 coverage/
 .env

@@ -23,6 +23,8 @@ Hostinger deploys each monorepo app as a separate Node.js website. Keep the repo
 | Web (Next.js) | `./` | `npm run build:hostinger:web` | `npm run start:hostinger:web` | `apps/web/.next` |
 | API (Express) | `./` | `npm run db:migrate && npm run build:hostinger:api` | `npm run start:hostinger:api` | `apps/api/dist` |
 
+The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. Keep the web output directory relative to the repository root as `apps/web/.next`.
+
 Choose Next.js for web and Express/Other for API. If the dashboard requests output/entry settings, use the values above; the exact fields vary by plan. The API build applies committed migrations before compiling, so `DATABASE_URL` must be available during build and production releases require a database backup first. Validate root installation/build behavior in staging; local build success does not prove the Hostinger builder uses the same context.
 
 Set `API_INTERNAL_URL=https://api.example.com` in the web app before its build because rewrites are configured at build time. Set `WEB_ORIGIN=https://reviews.example.com` in the API app. The API hostname is public, but browser requests should use the web origin's rewrite. Verify cookie forwarding, Origin, CSRF, CORS, and client IP/rate-limit behavior in staging.
