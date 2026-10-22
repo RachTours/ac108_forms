@@ -1,16 +1,15 @@
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../generated/prisma/client.js";
-import { env } from "../env.js";
+import { env, mysqlConnection, mysqlSsl } from "../env.js";
 
-const databaseUrl = new URL(env.DATABASE_URL);
 const adapter = new PrismaMariaDb({
-  host: databaseUrl.hostname,
-  port: Number(databaseUrl.port || 3306),
-  user: decodeURIComponent(databaseUrl.username),
-  password: decodeURIComponent(databaseUrl.password),
-  database: decodeURIComponent(databaseUrl.pathname.slice(1)),
+  host: mysqlConnection.host,
+  port: mysqlConnection.port,
+  user: mysqlConnection.user,
+  password: mysqlConnection.password,
+  database: mysqlConnection.database,
   connectionLimit: env.DATABASE_CONNECTION_LIMIT,
-  ssl: env.NODE_ENV === "production" ? { rejectUnauthorized: true } : false,
+  ssl: mysqlSsl,
 });
 
 export const prisma = new PrismaClient({ adapter });

@@ -23,7 +23,7 @@ Session tokens and reviewer/invitation token validation values are stored as SHA
 
 ## Requirements
 
-- Node.js 24.12+ and npm
+- Node.js 22.12+ (recommended; Node.js 24 is also supported) and npm
 - A reachable MySQL 8.4 database and a database/schema plus credentials
 - phpMyAdmin is optional; install/run it separately for local database inspection if desired. Never expose it as a public production admin surface.
 
@@ -36,10 +36,14 @@ Session tokens and reviewer/invitation token validation values are stored as SHA
    Copy-Item .env.example .env
    ```
 
-2. Edit `.env` with the MySQL URL for your running MySQL server. Replace `SESSION_SECRET` with at least 32 random bytes and set unique bootstrap owner credentials. Keep `.env` out of version control. Example URL shape:
+2. Edit `.env` with the settings for your running MySQL server. Replace `SESSION_SECRET` with at least 32 random bytes and set unique bootstrap owner credentials. Keep `.env` out of version control. The app accepts these separate database settings:
 
    ```text
-   DATABASE_URL=mysql://reviewroom:your-local-password@127.0.0.1:3306/reviewroom
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_NAME=reviewroom
+   DB_USER=reviewroom_app
+   DB_PASSWORD=your-local-password
    ```
 
    Create the database first if it does not exist. No container or Redis service is started by this project.
@@ -65,11 +69,11 @@ Session tokens and reviewer/invitation token validation values are stored as SHA
    npm run dev
    ```
 
-   Web: <http://localhost:3000>. API liveness: <http://localhost:4000/api/v1/health/live>. API readiness: <http://localhost:4000/api/v1/health/ready>.
+   Web: <http://localhost:3000>. API health: <http://localhost:4000/health>. API liveness: <http://localhost:4000/api/v1/health/live>. API readiness: <http://localhost:4000/api/v1/health/ready>.
 
 ## Production deployment notes
 
-Deploy web and API as separate services behind HTTPS. Supply unique `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`, database credentials, and exact `WEB_ORIGIN` through the deployment secret manager. Set `API_INTERNAL_URL` to an API HTTPS hostname reachable from the Next.js server before building web. Configure `TRUSTED_PROXIES` only for the actual proxy layer and `DATABASE_CONNECTION_LIMIT` to fit the DB connection budget. The Next proxy issues a per-request nonce CSP and prevents HTML caching; every API response is `no-store`. Hashed Next static assets remain cacheable. Run migrations as a controlled release step, back up MySQL and the encryption key, monitor API and database health, and configure request/body limits at the edge. In-memory API rate limits are local to each process; use the gateway for shared multi-instance enforcement when needed. Production dependencies currently pass `npm audit --omit=dev`; the full audit still identifies five high findings in the development-only Next lint dependency chain, with no compatible upstream fix available at this audit. See [Hostinger deployment notes](docs/hostinger-deployment.md) and the [readiness review](docs/deployment-readiness-review.md).
+Deploy web and API as separate services behind HTTPS. Supply unique `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`, database credentials, and exact `WEB_ORIGIN` through the deployment secret manager. Set `API_INTERNAL_URL` to an API HTTPS hostname reachable from the Next.js server before building web. Configure `TRUSTED_PROXIES` only for the actual proxy layer and `DATABASE_CONNECTION_LIMIT` to fit the DB connection budget. The Next proxy issues a per-request nonce CSP and prevents HTML caching; every API response is `no-store`. Hashed Next static assets remain cacheable. Run migrations as a controlled release step, back up MySQL and the encryption key, monitor API and database health, and configure request/body limits at the edge. In-memory API rate limits are local to each process; use the gateway for shared multi-instance enforcement when needed. Production dependencies currently pass `npm audit --omit=dev`; the full audit still identifies five high findings in the development-only Next lint dependency chain, with no compatible upstream fix available at this audit. See [Hostinger deployment notes](DEPLOYMENT.md), the [detailed deployment guide](docs/hostinger-deployment.md), and the [readiness review](docs/deployment-readiness-review.md).
 
 ## Workspace map
 

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
+import { resolveServerApiOrigin } from "./server-api-origin";
 
-const apiOrigin = (process.env.API_INTERNAL_URL ?? "http://localhost:4000").replace(/\/$/, "");
+const apiOrigin = resolveServerApiOrigin(process.env.API_INTERNAL_URL, process.env.NODE_ENV);
 
 export async function serverApi(path: string, init: RequestInit = {}): Promise<Response> {
   const cookieStore = await cookies();

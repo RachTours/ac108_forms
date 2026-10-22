@@ -12,9 +12,13 @@ test("every API response disables shared and browser caching", async () => {
   try {
     const address = server.address();
     assert.ok(address && typeof address === "object");
-    for (const path of ["/api/v1/health/live", "/api/v1/unknown-private-route"]) {
+    for (const path of ["/health", "/api/v1/health/live", "/api/v1/unknown-private-route"]) {
       const response = await fetch(`http://127.0.0.1:${address.port}${path}`);
       assert.match(response.headers.get("cache-control") ?? "", /no-store/i, `${path} must not be cached`);
+      if (path === "/health") {
+        assert.equal(response.status, 200);
+        assert.deepEqual(await response.json(), { status: "ok" });
+      }
     }
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

@@ -12,20 +12,24 @@ ReviewRoom is a TypeScript monorepo with two long-running Node.js services and o
 
 The browser calls same-origin `/api/...`; Next.js rewrites that path to Express. Set API `WEB_ORIGIN` to exactly the web app's HTTPS origin. The API honors Hostinger's injected `PORT`, falling back to `API_PORT`; `DATABASE_CONNECTION_LIMIT` controls the per-process MySQL pool (default 10).
 
-Hostinger currently lists managed Node.js apps on Business/Unlimited and Cloud plans. Each app is a separate Node website and consumes an app slot. Managed limits state one long-running process per app, shared process/memory limits across the plan, 120-second request timeouts, and no inbound WebSockets or always-running workers. Confirm the chosen plan supports Node 24, two app slots, root-workspace builds, the needed resource budget, and a reachable HTTPS API hostname. Plan limits can change; verify your account's current limits. If managed hosting cannot provide the required routing or capacity, use a VPS/CloudPanel deployment with a reverse proxy.
+Hostinger currently lists managed Node.js apps on Business/Unlimited and Cloud plans. Each app is a separate Node website and consumes an app slot. Managed limits state one long-running process per app, shared process/memory limits across the plan, 120-second request timeouts, and no inbound WebSockets or always-running workers. Confirm the chosen plan supports Node 22.12 or Node 24, two app slots, root-workspace builds, the needed resource budget, and a reachable HTTPS API hostname. Plan limits can change; verify your account's current limits. If managed hosting cannot provide the required routing or capacity, use a VPS/CloudPanel deployment with a reverse proxy.
 
 ## Build and start commands
 
 Hostinger deploys each monorepo app as a separate Node.js website. Keep the repository root as the install/build context so npm can resolve the root lockfile and shared `@reviewroom/contracts` workspace. Configure two app entries from the same repository and validate in staging before switching DNS.
 
-| Hostinger app | Root directory | Build command | Start command | Output |
-|---|---|---|---|
-| Web (Next.js) | `./` | `npm run build:hostinger:web` | `npm run start:hostinger:web` | `apps/web/.next` |
-| API (Express) | `./` | `npm run db:migrate && npm run build:hostinger:api` | `npm run start:hostinger:api` | `apps/api/dist` |
+| Hostinger field | Web (`ac108.rach-tours.com`) | API (`api108.rach-tours.com`) |
+|---|---|---|
+| Framework preset | `Next.js` | `Other` or `Express.js` |
+| Root directory | `./` | `./` |
+| Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
+| Output directory | `apps/web/.next` | `apps/api/dist` |
+| Entry file | `none` | `apps/api/dist/server.js` |
+| Start command, if requested separately | `npm start` | Not needed when Hostinger runs the entry file |
 
-The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. Keep the web output directory relative to the repository root as `apps/web/.next`.
+The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. The output directory is relative to the configured root directory. Since both apps use the repository root, do not enter `.next` for the web app: the web workspace writes its build to `apps/web/.next`. The root `start` script delegates to the Next.js workspace so a preset that runs `npm start` starts the web server from the correct workspace. Do not put a shell command in an Entry file field; that field must be a real JavaScript file path.
 
-Choose Next.js for web and Express/Other for API. If the dashboard requests output/entry settings, use the values above; the exact fields vary by plan. The API build applies committed migrations before compiling, so `DATABASE_URL` must be available during build and production releases require a database backup first. Validate root installation/build behavior in staging; local build success does not prove the Hostinger builder uses the same context.
+The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. Validate root installation/build behavior in staging; local build success does not prove the Hostinger builder uses the same context.
 
 Set `API_INTERNAL_URL=https://api.example.com` in the web app before its build because rewrites are configured at build time. Set `WEB_ORIGIN=https://reviews.example.com` in the API app. The API hostname is public, but browser requests should use the web origin's rewrite. Verify cookie forwarding, Origin, CSRF, CORS, and client IP/rate-limit behavior in staging.
 
@@ -53,7 +57,7 @@ The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`;
 ## Database and release sequence
 
 1. Create a MySQL database and a least-privilege application user in Hostinger. Use the connection host Hostinger provides (its Node/MySQL guide uses `127.0.0.1` for a local database). Do not expose MySQL remote access broadly.
-2. Configure `DATABASE_URL` in the API environment. URL-encode special characters in username/password.
+2. Configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` in the API environment. Existing installations may continue using `DATABASE_URL`; the new DB fields take precedence when both are present.
 3. Before starting the API, apply committed migrations from the repo root:
 
    ```sh
@@ -71,7 +75,8 @@ Set these as application environment variables in Hostinger. Never commit produc
 
 | Variable | Service | Guidance |
 |---|---|---|
-| `DATABASE_URL` | API and migration job | Hostinger MySQL URL; use a dedicated least-privilege user. |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | API and migration job | Values from Hostinger's MySQL page; use a dedicated least-privilege user. Existing `DATABASE_URL` deployments remain supported as a compatibility fallback. |
+| `DB_SSL` | API and migration job | Optional. Loopback Hostinger MySQL does not force TLS; remote production hosts use verified TLS by default. Set `true` to force verified TLS. |
 | `SESSION_SECRET` | API | Unique high-entropy value, at least 32 characters. |
 | `TOKEN_ENCRYPTION_KEY` | API and release jobs | Exactly 32 random bytes, base64url encoded. Generate in a secure local environment and store in Hostinger secrets. Back up separately from the database. |
 | `WEB_ORIGIN` | API | Exact HTTPS origin of the web app, with no path or trailing slash. |
@@ -80,6 +85,7 @@ Set these as application environment variables in Hostinger. Never commit produc
 | `DATABASE_CONNECTION_LIMIT` | API | Start at a conservative value, and set total API instances × pool size below MySQL's connection budget with headroom for migrations and admin tools. |
 | `TRUSTED_PROXIES` | API | Configure only if needed and only for the real proxy addresses/CIDRs. Do not trust arbitrary forwarded IP headers. |
 | `NODE_ENV` | API | `production`. |
+| `HOST` | API | Optional; defaults to `0.0.0.0`. Hostinger's injected `PORT` is used when present. |
 | `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME`, `BOOTSTRAP_PASSWORD`, `BOOTSTRAP_ORGANIZATION`, `BOOTSTRAP_SLUG` | API build, first deployment only | Set only for initial owner creation on a fresh database; remove immediately after bootstrap. Password minimum is 14 characters. |
 
 One way to create the encryption key locally is `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`; copy the output directly into the host secret store and do not paste it into chat or commit it. Changing this key makes existing encrypted URLs unrevealable. Token validation remains possible because the separate hash is retained, but active links must be rotated to restore copy/reveal. Coordinate key changes as a deliberate migration.

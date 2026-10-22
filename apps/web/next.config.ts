@@ -10,7 +10,11 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async rewrites() {
-    const apiOrigin = (process.env.API_INTERNAL_URL ?? "http://localhost:4000").replace(/\/$/, "");
+    const configuredApiOrigin = process.env.API_INTERNAL_URL?.trim();
+    if (process.env.NODE_ENV === "production" && !configuredApiOrigin) {
+      throw new Error("API_INTERNAL_URL must be set to the deployed API origin before building the production web app.");
+    }
+    const apiOrigin = (configuredApiOrigin || "http://localhost:4000").replace(/\/$/, "");
     return [
       { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },
       { source: "/admin/overview", destination: "/" },

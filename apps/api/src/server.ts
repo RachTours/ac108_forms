@@ -3,8 +3,8 @@ import { app } from "./app.js";
 import { prisma } from "./db/client.js";
 import { env } from "./env.js";
 
-const server = app.listen(env.API_PORT, () => {
-  process.stdout.write(`ReviewRoom API listening on port ${env.API_PORT}\n`);
+const server = app.listen(env.API_PORT, env.HOST, () => {
+  process.stdout.write(`ReviewRoom API listening on ${env.HOST}:${env.API_PORT}\n`);
 });
 
 let shuttingDown = false;
