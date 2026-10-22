@@ -22,7 +22,7 @@ Hostinger deploys each monorepo app as a separate Node.js website. The frontend 
 |---|---|---|
 | Framework preset | `Other` | `Other` or `Express.js` |
 | Root directory | `apps/web` | `./` |
-| Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
+| Build command | `npm run build:hostinger:web` | `npm run build:hostinger:api` |
 | Output directory | `.next/hostinger` | `apps/api/dist` |
 | Entry file | `.next/hostinger/server.js` | `apps/api/dist/server.js` |
 | Start command, if requested separately | Not needed when Hostinger runs the entry file | Not needed when Hostinger runs the entry file |
