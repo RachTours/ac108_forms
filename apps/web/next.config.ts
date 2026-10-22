@@ -6,6 +6,8 @@ dotenv.config({ path: resolve(import.meta.dirname, "../../.env") });
 
 const config: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
+  output: "standalone",
+  outputFileTracingRoot: resolve(import.meta.dirname, "../.."),
   transpilePackages: ["@reviewroom/contracts"],
   poweredByHeader: false,
   reactStrictMode: true,

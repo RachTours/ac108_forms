@@ -34,7 +34,7 @@ Create two Node.js websites from the same GitHub repository and branch. The fron
 | Entry file | none | `apps/api/dist/server.js` |
 | Start command, if Hostinger asks | `npm start` | Hostinger starts the entry file |
 
-**Important:** use `apps/web` as the frontend root so both the Next.js build and Hostinger's Next.js runtime use the same working directory. The output directory is then `.next`. The web build script first compiles the shared contracts workspace and then builds Next.js. The API remains rooted at `./` because its migration and build commands use the repository workspace root.
+**Important:** use `apps/web` as the frontend root so both the Next.js build and Hostinger's Next.js runtime use the same working directory. The output directory is then `.next`. The web build uses Next.js standalone output with the monorepo root as its tracing root, then checks that React is included and copies static assets into the standalone app directory. This makes the runtime self-contained when Hostinger publishes the build output. The API remains rooted at `./` because its migration and build commands use the repository workspace root.
 
 Set `NPM_CONFIG_INCLUDE=dev` for both Hostinger websites if Hostinger installs with `NODE_ENV=production`. Build tools such as TypeScript and Tailwind CSS are development dependencies and must be present during the build. Never use `npm install --omit=dev` for these build steps.
 

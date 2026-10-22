@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "build:hostinger": "npm run build --workspace @reviewroom/contracts && npm run build",
+    "build:hostinger": "npm run build --workspace @reviewroom/contracts && npm run build && node scripts/prepare-hostinger-standalone.mjs",
     "build:hostinger:web": "npm run build:hostinger",
     "start": "next start",
     "lint": "eslint .",
