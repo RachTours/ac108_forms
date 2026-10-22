@@ -22,12 +22,12 @@ Hostinger deploys each monorepo app as a separate Node.js website. The frontend 
 |---|---|---|
 | Framework preset | `Next.js` | `Other` or `Express.js` |
 | Root directory | `apps/web` | `./` |
-| Build command | `npm run build:hostinger` | `npm run db:migrate && npm run build:hostinger:api` |
+| Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
 | Output directory | `.next` | `apps/api/dist` |
 | Entry file | `none` | `apps/api/dist/server.js` |
 | Start command, if requested separately | `npm start` | Not needed when Hostinger runs the entry file |
 
-The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. Set the web root to `apps/web` so Hostinger builds and starts Next.js from the same working directory; its `.next` output is then relative to the app root. The `build:hostinger` script compiles the shared contracts workspace before building Next.js. Keep the Next.js preset and leave the entry file empty. The API stays rooted at `./` because its migration/build commands use the repository workspace root.
+The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. Set the web root to `apps/web` so Hostinger builds and starts Next.js from the same working directory; its `.next` output is then relative to the app root. The `build:hostinger:web` script aliases `build:hostinger`, which compiles the shared contracts workspace before building Next.js. Keep the Next.js preset and leave the entry file empty. The API stays rooted at `./` because its migration/build commands use the repository workspace root.
 
 The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. The web build command is designed to run from the `apps/web` workspace and compiles `@reviewroom/contracts` before Next.js. Validate both app roots in Hostinger; a local build does not prove the hosting builder uses the same context.
 

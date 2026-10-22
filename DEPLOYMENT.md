@@ -29,7 +29,7 @@ Create two Node.js websites from the same GitHub repository and branch. The fron
 | Root directory | `apps/web` | `./` |
 | Node.js | `22.x` | `22.x` |
 | Package manager | npm | npm |
-| Build command | `npm run build:hostinger` | `npm run db:migrate && npm run build:hostinger:api` |
+| Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
 | Output directory | `.next` | `apps/api/dist` |
 | Entry file | none | `apps/api/dist/server.js` |
 | Start command, if Hostinger asks | `npm start` | Hostinger starts the entry file |
