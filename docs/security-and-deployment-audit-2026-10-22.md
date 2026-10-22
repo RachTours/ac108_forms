@@ -218,7 +218,7 @@ Official references checked 2026-10-22:
 
 - Added nonce-based Content Security Policy delivery in `apps/web/proxy.ts`, following the installed Next.js 16.4.2 docs. Production scripts require a per-request nonce and `strict-dynamic`; development additionally allows `unsafe-eval` for Next diagnostics. `style-src 'unsafe-inline'` remains because theme tokens and progress indicators currently use React style attributes. All routed HTML responses use private no-store behavior; verify CSP headers and rendering on Hostinger before treating provider behavior as tested.
 - Added global API `Cache-Control: no-store, max-age=0` and `Pragma: no-cache` in `apps/api/src/http/no-store.ts`, including success, error, health and unknown API responses. Hashed Next static files remain cacheable. A regression test checks health and 404 responses.
-- Added CSP unit tests; added root Hostinger build/start scripts, Prisma generation to root build/typecheck, a root test command, and GitHub Actions checks for typecheck/lint/tests/build/production dependency audit.
+- Added CSP unit tests; added root Hostinger build/start scripts, Prisma generation to root build/typecheck, and a root test command. A GitHub Actions workflow is prepared locally, but the GitHub OAuth token lacks the `workflow` scope needed to publish it.
 - Updated Hostinger instructions for two app slots, public HTTPS API hostname through same-origin rewrites, npm workspace root, build commands, migrations/one-time owner setup, and private cache rules.
 
 ### Open findings
@@ -240,3 +240,9 @@ Official references checked 2026-10-22:
 ### Current conclusion
 
 The source has meaningful authentication, session, CSRF, role, tenant, and token protections; production dependencies audit clean; and private response caching is now explicitly disabled. **It is not accurate to call the site fully security-certified or high-traffic ready yet.** Hostinger deployment is prepared at repository/configuration level; plan fit, provider proxy behavior, edge limits, load behavior, restore, and alerting remain pre-launch gates.
+
+### Local verification update
+
+- `npm run typecheck`, `npm run lint`, all 100 unit tests, `npm run build`, and `npm audit --omit=dev` passed on 2026-10-22. The production dependency audit reported 0 vulnerabilities.
+- A bounded local burst ran 240 API requests and 120 web login page requests with concurrency 24: API readiness p95 89.4 ms (120/120 HTTP 200), invalid public review lookup p95 41.9 ms (120/120 expected HTTP 404), and web login p95 1044.3 ms (120/120 HTTP 200). This verifies short local burst behavior only; it is not a sustained load test or a Hostinger capacity result.
+- A local production-server header check returned HTTP 200 for `/admin/login` and `/api/v1/health/live`; the HTML nonce matched the nonce in CSP, and web/API responses carried `no-store` headers.
