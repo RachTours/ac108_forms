@@ -64,7 +64,7 @@ The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`;
    npm run db:migrate
    ```
 
-4. For a fresh database only, create the initial owner once with `npm run db:bootstrap-owner --workspace @reviewroom/api` after migrations and Prisma generation. Provide `BOOTSTRAP_*` values for that one controlled build, then remove them and restore the normal API build command. Never commit bootstrap credentials. The command refuses an existing email; changing an existing account uses the password-reset flow, not bootstrap variables.
+4. For a fresh database only, keep the API build command as `npm run build:hostinger:api`. Temporarily set `BOOTSTRAP_OWNER_ON_DEPLOY=true` and all five `BOOTSTRAP_*` values in the API environment, then deploy once. The build script applies migrations, generates Prisma, creates the owner, and builds the API. After a successful deployment, immediately remove the flag and all five bootstrap variables. Never commit bootstrap credentials. The command refuses an existing email; changing an existing account uses the password-reset flow, not bootstrap variables.
 5. Verify API liveness at `/api/v1/health/live`, readiness at `/api/v1/health/ready`, login, reviewer scoping, and public form submission in staging.
 
 Use Hostinger's phpMyAdmin through its control panel for database inspection. Keep backups and test restoration. Do not make a database account available to phpMyAdmin or the public app with more privileges than needed.
@@ -86,7 +86,7 @@ Set these as application environment variables in Hostinger. Never commit produc
 | `TRUSTED_PROXIES` | API | Configure only if needed and only for the real proxy addresses/CIDRs. Do not trust arbitrary forwarded IP headers. |
 | `NODE_ENV` | API | `production`. |
 | `HOST` | API | Optional; defaults to `0.0.0.0`. Hostinger's injected `PORT` is used when present. |
-| `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME`, `BOOTSTRAP_PASSWORD`, `BOOTSTRAP_ORGANIZATION`, `BOOTSTRAP_SLUG` | API build, first deployment only | Set only for initial owner creation on a fresh database; remove immediately after bootstrap. Password minimum is 14 characters. |
+| `BOOTSTRAP_OWNER_ON_DEPLOY`, `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME`, `BOOTSTRAP_PASSWORD`, `BOOTSTRAP_ORGANIZATION`, `BOOTSTRAP_SLUG` | API build, first deployment only | Set `BOOTSTRAP_OWNER_ON_DEPLOY=true` and all five values only for initial owner creation on a fresh database; remove immediately after bootstrap. Password minimum is 14 characters. |
 
 One way to create the encryption key locally is `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`; copy the output directly into the host secret store and do not paste it into chat or commit it. Changing this key makes existing encrypted URLs unrevealable. Token validation remains possible because the separate hash is retained, but active links must be rotated to restore copy/reveal. Coordinate key changes as a deliberate migration.
 

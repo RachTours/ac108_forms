@@ -70,6 +70,7 @@ API build/runtime:
 | `WEB_ORIGIN` | `https://ac108.rach-tours.com` (origin only, no path or trailing slash) |
 | `TRUSTED_PROXIES` | Leave empty unless you know the exact trusted proxy address/CIDR |
 | `NPM_CONFIG_INCLUDE` | `dev` when production-mode installs omit development dependencies |
+| `BOOTSTRAP_OWNER_ON_DEPLOY` and five `BOOTSTRAP_*` values | First deployment only; set for a fresh database, then remove immediately |
 
 `PORT` is injected by Hostinger. Do not set it to a fixed value. The API retains `API_PORT=4000` as a local fallback. `DATABASE_URL` is still accepted for existing installations, but new setup should use all five `DB_*` values. The Prisma migration config derives its URL from those values.
 
@@ -80,7 +81,7 @@ The root `.env.example` contains safe local placeholders and all application set
 1. Create the MySQL database and a dedicated least-privilege application user in Hostinger. Use the exact connection details Hostinger displays; do not enable public remote database access unless the hosting topology requires it.
 2. Add the five `DB_*` values to the API website environment so both Prisma migrations and the API can connect.
 3. Back up the database before a release that applies migrations. Hostinger's API build command runs `prisma migrate deploy` before compiling; keep schema migrations compatible with the currently running app during rollout.
-4. For a new, empty database only, run the one-time owner bootstrap with temporary `BOOTSTRAP_*` values after migrations; remove those values immediately afterward. Do not rerun bootstrap on an existing installation.
+4. For a new, empty database only, keep the API build command as `npm run build:hostinger:api`. Temporarily set `BOOTSTRAP_OWNER_ON_DEPLOY=true` and all five `BOOTSTRAP_*` values (`BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME`, `BOOTSTRAP_PASSWORD`, `BOOTSTRAP_ORGANIZATION`, `BOOTSTRAP_SLUG`) in the API environment, then deploy once. The build script applies migrations, creates the owner, and builds the API. After a successful deployment, immediately remove the flag and all five bootstrap variables. Never rerun bootstrap on an existing installation.
 5. Deploy the API first, confirm it is healthy, then deploy/rebuild the frontend so its `API_INTERNAL_URL` rewrite is included.
 6. Verify login, reviewer access scoping, public review submission, form publishing, and database readiness on the deployed domains before sharing links.
 
