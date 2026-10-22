@@ -16,20 +16,20 @@ Hostinger currently lists managed Node.js apps on Business/Unlimited and Cloud p
 
 ## Build and start commands
 
-Hostinger deploys each monorepo app as a separate Node.js website. Keep the repository root as the install/build context so npm can resolve the root lockfile and shared `@reviewroom/contracts` workspace. Configure two app entries from the same repository and validate in staging before switching DNS.
+Hostinger deploys each monorepo app as a separate Node.js website. The frontend uses `apps/web` as its app root; the API uses `./` because its migration and build scripts run from the repository workspace. Configure both entries from the same repository and validate in staging before switching DNS.
 
 | Hostinger field | Web (`ac108.rach-tours.com`) | API (`api108.rach-tours.com`) |
 |---|---|---|
 | Framework preset | `Next.js` | `Other` or `Express.js` |
-| Root directory | `./` | `./` |
-| Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
-| Output directory | `apps/web/.next` | `apps/api/dist` |
+| Root directory | `apps/web` | `./` |
+| Build command | `npm run build:hostinger` | `npm run db:migrate && npm run build:hostinger:api` |
+| Output directory | `.next` | `apps/api/dist` |
 | Entry file | `none` | `apps/api/dist/server.js` |
 | Start command, if requested separately | `npm start` | Not needed when Hostinger runs the entry file |
 
-The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. The output directory is relative to the configured root directory. Since both apps use the repository root, do not enter `.next` for the web app: the web workspace writes its build to `apps/web/.next`. The root `start` script delegates to the Next.js workspace so a preset that runs `npm start` starts the web server from the correct workspace. Do not put a shell command in an Entry file field; that field must be a real JavaScript file path.
+The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. Set the web root to `apps/web` so Hostinger builds and starts Next.js from the same working directory; its `.next` output is then relative to the app root. The `build:hostinger` script compiles the shared contracts workspace before building Next.js. Keep the Next.js preset and leave the entry file empty. The API stays rooted at `./` because its migration/build commands use the repository workspace root.
 
-The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. Validate root installation/build behavior in staging; local build success does not prove the Hostinger builder uses the same context.
+The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. The web build command is designed to run from the `apps/web` workspace and compiles `@reviewroom/contracts` before Next.js. Validate both app roots in Hostinger; a local build does not prove the hosting builder uses the same context.
 
 Set `API_INTERNAL_URL=https://api.example.com` in the web app before its build because rewrites are configured at build time. Set `WEB_ORIGIN=https://reviews.example.com` in the API app. The API hostname is public, but browser requests should use the web origin's rewrite. Verify cookie forwarding, Origin, CSRF, CORS, and client IP/rate-limit behavior in staging.
 
@@ -52,7 +52,7 @@ Start the API app:
 npm run start --workspace @reviewroom/api
 ```
 
-The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`; do not hard-code a public port in Hostinger's app settings. If Hostinger requires a per-app subdirectory instead of a shared monorepo root, configure its documented monorepo build/start commands to install from the root, build shared contracts first, and start the selected workspace. Test this in a staging app before pointing the production domain.
+The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`; do not hard-code a public port in Hostinger's app settings. The web app root must remain `apps/web` at build and runtime so the Next.js server finds `.next`. Test this in a staging app before pointing the production domain.
 
 ## Database and release sequence
 

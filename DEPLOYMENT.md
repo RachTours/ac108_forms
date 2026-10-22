@@ -6,7 +6,7 @@ This repository is a Node.js monorepo with two separate Hostinger websites:
 - `apps/api`: Express 5 API, Prisma 7, and a pooled MySQL connection.
 - `packages/contracts`: shared TypeScript/Zod contracts built before either app.
 
-Do not deploy only `apps/web` or `apps/api`: both builds use the root npm workspace and shared package. No Docker, PM2, Nginx, Apache, or SSH command is required to start the managed Node.js apps.
+Deploy the frontend and API as separate Hostinger Node.js websites. Use `apps/web` as the frontend root so Next.js starts from the directory containing its `.next` build; keep the API rooted at `./` for its workspace migration and build commands. No Docker, PM2, Nginx, Apache, or SSH command is required to start the managed Node.js apps.
 
 ## Runtime and project commands
 
@@ -21,20 +21,20 @@ Do not deploy only `apps/web` or `apps/api`: both builds use the root npm worksp
 
 ## Hostinger website settings
 
-Create two Node.js websites from the same GitHub repository and branch. Use the repository root so npm can see the workspace lockfile and `packages/contracts`. Hostinger output paths are relative to that root.
+Create two Node.js websites from the same GitHub repository and branch. The frontend root is its app directory; the API root is the repository root. Hostinger output paths are relative to each selected root.
 
 | Setting | Frontend: `ac108.rach-tours.com` | API: `api108.rach-tours.com` |
 |---|---|---|
 | Framework | Next.js | Other or Express.js |
-| Root directory | `./` | `./` |
+| Root directory | `apps/web` | `./` |
 | Node.js | `22.x` | `22.x` |
 | Package manager | npm | npm |
-| Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
-| Output directory | `apps/web/.next` | `apps/api/dist` |
+| Build command | `npm run build:hostinger` | `npm run db:migrate && npm run build:hostinger:api` |
+| Output directory | `.next` | `apps/api/dist` |
 | Entry file | none | `apps/api/dist/server.js` |
 | Start command, if Hostinger asks | `npm start` | Hostinger starts the entry file |
 
-**Important:** with root directory `./`, the frontend output is `apps/web/.next`, not `.next`. Next.js builds inside the `apps/web` workspace. A successful build followed by “No output directory found” means the Hostinger output path does not match the repository-root-relative build path.
+**Important:** use `apps/web` as the frontend root so both the Next.js build and Hostinger's Next.js runtime use the same working directory. The output directory is then `.next`. The web build script first compiles the shared contracts workspace and then builds Next.js. The API remains rooted at `./` because its migration and build commands use the repository workspace root.
 
 Set `NPM_CONFIG_INCLUDE=dev` for both Hostinger websites if Hostinger installs with `NODE_ENV=production`. Build tools such as TypeScript and Tailwind CSS are development dependencies and must be present during the build. Never use `npm install --omit=dev` for these build steps.
 
