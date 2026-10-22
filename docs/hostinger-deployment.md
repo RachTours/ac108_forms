@@ -20,14 +20,14 @@ Hostinger deploys each monorepo app as a separate Node.js website. The frontend 
 
 | Hostinger field | Web (`ac108.rach-tours.com`) | API (`api108.rach-tours.com`) |
 |---|---|---|
-| Framework preset | `Next.js` | `Other` or `Express.js` |
+| Framework preset | `Other` | `Other` or `Express.js` |
 | Root directory | `apps/web` | `./` |
 | Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
-| Output directory | `.next` | `apps/api/dist` |
-| Entry file | `none` | `apps/api/dist/server.js` |
-| Start command, if requested separately | `npm start` | Not needed when Hostinger runs the entry file |
+| Output directory | `.next/hostinger` | `apps/api/dist` |
+| Entry file | `.next/hostinger/server.js` | `apps/api/dist/server.js` |
+| Start command, if requested separately | Not needed when Hostinger runs the entry file | Not needed when Hostinger runs the entry file |
 
-The web workspace build uses Next.js Webpack mode (`next build --webpack`) because Hostinger's Turbopack worker exited during CSS compilation in the first managed build attempt. Set the web root to `apps/web` so Hostinger builds and starts Next.js from the same working directory; its `.next` output is then relative to the app root. The web build enables Next.js standalone output and sets the tracing root to the monorepo root so runtime dependencies such as React are copied into the deployable package. A post-build step verifies React and the standalone server are present, then copies `.next/static` (and `public`, if present) into the standalone app directory. Keep the Next.js preset and leave the entry file empty. The API stays rooted at `./` because its migration/build commands use the repository workspace root.
+The web workspace build uses Next.js Webpack mode (`next build --webpack`) and standalone output. Set the web root to `apps/web`; the build then packages the standalone server, traced `node_modules` (including React), shared workspace files, and static assets into `.next/hostinger`. For this frontend choose the `Other` preset, output directory `.next/hostinger`, and entry file `.next/hostinger/server.js`. This runs the verified standalone server directly instead of relying on Hostinger's generated Next.js launcher, which failed to resolve React. The API stays rooted at `./` because its migration/build commands use the repository workspace root.
 
 The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. The web build command is designed to run from the `apps/web` workspace and compiles `@reviewroom/contracts` before Next.js. Validate both app roots in Hostinger; a local build does not prove the hosting builder uses the same context.
 

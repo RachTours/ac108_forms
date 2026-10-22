@@ -25,16 +25,16 @@ Create two Node.js websites from the same GitHub repository and branch. The fron
 
 | Setting | Frontend: `ac108.rach-tours.com` | API: `api108.rach-tours.com` |
 |---|---|---|
-| Framework | Next.js | Other or Express.js |
+| Framework | Other | Other or Express.js |
 | Root directory | `apps/web` | `./` |
 | Node.js | `22.x` | `22.x` |
 | Package manager | npm | npm |
 | Build command | `npm run build:hostinger:web` | `npm run db:migrate && npm run build:hostinger:api` |
-| Output directory | `.next` | `apps/api/dist` |
-| Entry file | none | `apps/api/dist/server.js` |
-| Start command, if Hostinger asks | `npm start` | Hostinger starts the entry file |
+| Output directory | `.next/hostinger` | `apps/api/dist` |
+| Entry file | `.next/hostinger/server.js` | `apps/api/dist/server.js` |
+| Start command, if Hostinger asks | Hostinger starts the entry file | Hostinger starts the entry file |
 
-**Important:** use `apps/web` as the frontend root so both the Next.js build and Hostinger's Next.js runtime use the same working directory. The output directory is then `.next`. The web build uses Next.js standalone output with the monorepo root as its tracing root, then checks that React is included and copies static assets into the standalone app directory. This makes the runtime self-contained when Hostinger publishes the build output. The API remains rooted at `./` because its migration and build commands use the repository workspace root.
+**Important:** use `apps/web` as the frontend root. Build Next.js in standalone mode, then package the standalone server, traced `node_modules`, shared workspace files, and static assets into `.next/hostinger`. Select Hostinger's `Other` preset for this frontend, use `.next/hostinger` as output directory, and set `.next/hostinger/server.js` as its entry file. This bypasses Hostinger's automatic Next.js runtime packaging, which omitted the React dependency. The API remains rooted at `./` because its migration and build commands use the repository workspace root.
 
 Set `NPM_CONFIG_INCLUDE=dev` for both Hostinger websites if Hostinger installs with `NODE_ENV=production`. Build tools such as TypeScript and Tailwind CSS are development dependencies and must be present during the build. Never use `npm install --omit=dev` for these build steps.
 
