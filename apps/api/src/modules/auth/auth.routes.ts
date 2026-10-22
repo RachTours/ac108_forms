@@ -7,7 +7,7 @@ import { authRateLimit } from "../../http/rate-limits.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { chooseWorkspaceMembership } from "./workspace-selection.js";
-import { clearSessionCookie, hashToken, newSessionToken, setSessionCookie, sessionLifetimeMs, createCsrfToken } from "./session.js";
+import { clearSessionCookie, hashToken, legacySessionCookieName, newSessionToken, setSessionCookie, sessionLifetimeMs, createCsrfToken } from "./session.js";
 import { authenticateMemberships, type LoginAudience } from "./auth-policy.js";
 import { assertPasswordResetTokenUsable, hashPasswordResetToken } from "./password-reset.js";
 
@@ -48,7 +48,7 @@ function login(audience?: LoginAudience) {
       tokenHash: hashToken(token), userId: user.id, organizationId: membership.organizationId,
       membershipId: membership.id, expiresAt,
     } });
-    setSessionCookie(response, token);
+    setSessionCookie(response, token, membership.role === "REVIEWER" ? "reviewer" : "admin");
     response.status(200).json({
       user: { id: user.id, email: user.email, displayName: user.displayName },
       organization: { id: membership.organization.id, name: membership.organization.name, slug: membership.organization.slug },
@@ -110,7 +110,7 @@ authRouter.get("/session", requireSession, (request, response) => {
 authRouter.post("/logout", requireSession, requireCsrf, async (request, response, next) => {
   try {
     await prisma.session.delete({ where: { id: request.auth!.sessionId } });
-    clearSessionCookie(response);
+    clearSessionCookie(response, request.authCookieName ?? legacySessionCookieName);
     response.status(204).end();
   } catch (error) { next(error); }
 });

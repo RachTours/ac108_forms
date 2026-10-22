@@ -1,12 +1,14 @@
-import { cookies } from "next/headers";
+import { cookies, headers as requestHeaders } from "next/headers";
 import { resolveServerApiOrigin } from "./server-api-origin";
 
 const apiOrigin = resolveServerApiOrigin(process.env.API_INTERNAL_URL, process.env.NODE_ENV);
 
 export async function serverApi(path: string, init: RequestInit = {}): Promise<Response> {
-  const cookieStore = await cookies();
+  const [cookieStore, incomingHeaders] = await Promise.all([cookies(), requestHeaders()]);
   const headers = new Headers(init.headers);
   headers.set("cookie", cookieStore.toString());
+  const audience = incomingHeaders.get("x-reviewroom-audience");
+  headers.set("x-reviewroom-audience", audience === "reviewer" ? "reviewer" : "admin");
   return fetch(`${apiOrigin}/api/v1${path}`, { ...init, headers, cache: "no-store" });
 }
 

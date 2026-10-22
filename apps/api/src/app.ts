@@ -26,7 +26,7 @@ app.set("trust proxy", trustedProxies.length > 0 ? trustedProxies : false);
 app.use(requestContext);
 app.use("/api/v1", noStore);
 app.use(helmet());
-app.use(cors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "X-Request-Id", "X-CSRF-Token"] }));
+app.use(cors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "X-Request-Id", "X-CSRF-Token", "X-Reviewroom-Audience"] }));
 app.use(express.json({ limit: "64kb", strict: true }));
 app.use(cookieParser());
 app.use("/api/v1", apiRateLimit);

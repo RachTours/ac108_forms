@@ -24,7 +24,7 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
   const panelName = panelNameForAudience(session.role === "REVIEWER" ? "reviewer" : "admin");
 
   async function signOut() {
-    const response = await fetch("/api/v1/auth/logout", { method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": session.csrfToken } });
+    const response = await fetch("/api/v1/auth/logout", { method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": session.csrfToken, "X-Reviewroom-Audience": session.role === "REVIEWER" ? "reviewer" : "admin" } });
     if (response.ok) {
       router.replace(signInPathForRole(session.role));
       router.refresh();

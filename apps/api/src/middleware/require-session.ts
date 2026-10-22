@@ -1,12 +1,27 @@
 import type { RequestHandler } from "express";
 import { prisma } from "../db/client.js";
 import { HttpError } from "../http/errors.js";
-import { createCsrfToken, hashToken, sessionCookieName } from "../modules/auth/session.js";
+import {
+  adminSessionCookieName,
+  createCsrfToken,
+  hasAudienceSessionCookie,
+  hashToken,
+  legacySessionCookieName,
+  reviewerSessionCookieName,
+  type SessionAudience,
+} from "../modules/auth/session.js";
 import { env } from "../env.js";
 
 export const requireSession: RequestHandler = async (request, _response, next) => {
   try {
-    const token = request.cookies[sessionCookieName] as string | undefined;
+    const audience: SessionAudience = request.get("x-reviewroom-audience") === "reviewer" ? "reviewer" : "admin";
+    const audienceCookieName = audience === "reviewer" ? reviewerSessionCookieName : adminSessionCookieName;
+    const cookieName = request.cookies[audienceCookieName]
+      ? audienceCookieName
+      : !hasAudienceSessionCookie(request.cookies) && request.cookies[legacySessionCookieName]
+        ? legacySessionCookieName
+        : audienceCookieName;
+    const token = request.cookies[cookieName] as string | undefined;
     if (!token || token.length > 128) throw new HttpError(401, "UNAUTHENTICATED", "Sign in to continue.");
     const session = await prisma.session.findUnique({
       where: { tokenHash: hashToken(token) },
@@ -17,6 +32,11 @@ export const requireSession: RequestHandler = async (request, _response, next) =
       if (session) await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
       throw new HttpError(401, "UNAUTHENTICATED", "Sign in to continue.");
     }
+    const matchesAudience = audience === "reviewer"
+      ? session.membership.role === "REVIEWER"
+      : session.membership.role === "OWNER" || session.membership.role === "ADMIN";
+    if (!matchesAudience) throw new HttpError(401, "UNAUTHENTICATED", "Sign in to continue.");
+    request.authCookieName = cookieName;
     request.auth = {
       sessionId: session.id,
       userId: session.user.id,

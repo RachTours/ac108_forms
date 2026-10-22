@@ -8,6 +8,7 @@ export function useApi() {
   const session = useWorkspaceSession();
   return useCallback(async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
+    headers.set("X-Reviewroom-Audience", session.role === "REVIEWER" ? "reviewer" : "admin");
     if (init.body) headers.set("Content-Type", "application/json");
     if (init.method && !["GET", "HEAD", "OPTIONS"].includes(init.method.toUpperCase())) headers.set("X-CSRF-Token", session.csrfToken);
     const response = await fetch(`/api/v1${path}`, { ...init, headers, credentials: "same-origin" });
@@ -18,5 +19,5 @@ export function useApi() {
       throw new Error(parsed.success ? parsed.data.error.message : "The request could not be completed.");
     }
     return body as T;
-  }, [session.csrfToken]);
+  }, [session.csrfToken, session.role]);
 }

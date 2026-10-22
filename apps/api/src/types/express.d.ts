@@ -14,6 +14,7 @@ declare global {
         displayName: string;
       };
       csrfToken?: string;
+      authCookieName?: string;
     }
   }
 }
