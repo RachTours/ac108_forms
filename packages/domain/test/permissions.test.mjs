@@ -28,6 +28,7 @@ test("sensitive member operations are owner-only and public submit has no authen
 test("every declared resource and action has an explicit role grant or denial", () => {
   const expected = new Map([
     ["workspace:read", ["OWNER", "ADMIN"]],
+    ["workspace:manage", ["OWNER", "ADMIN"]],
     ["members:read", ["OWNER", "ADMIN"]], ["members:create", ["OWNER", "ADMIN"]], ["members:update", ["OWNER", "ADMIN"]], ["members:archive", ["OWNER", "ADMIN"]], ["members:grantAdmin", ["OWNER"]],
     ["targets:read", ["OWNER", "ADMIN"]], ["targets:create", ["OWNER", "ADMIN"]], ["targets:update", ["OWNER", "ADMIN"]], ["targets:archive", ["OWNER", "ADMIN"]],
     ["assignments:read", ["OWNER", "ADMIN"]], ["assignments:manage", ["OWNER", "ADMIN"]],

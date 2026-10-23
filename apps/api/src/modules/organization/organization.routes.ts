@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { defaultWorkspaceTheme, themeSchema } from "./theme.js";
 
 export const organizationRouter = Router();
@@ -20,7 +20,7 @@ organizationRouter.get("/theme", requireSession, async (request, response, next)
   } catch (error) { next(error); }
 });
 
-organizationRouter.put("/theme", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+organizationRouter.put("/theme", requireSession, requirePermission("settings", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const input = themeSchema.parse(request.body);
     const auth = request.auth!;
@@ -33,7 +33,7 @@ organizationRouter.put("/theme", requireSession, requireRole("OWNER", "ADMIN"), 
   } catch (error) { next(error); }
 });
 
-organizationRouter.patch("/", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+organizationRouter.patch("/", requireSession, requirePermission("workspace", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const { name } = z.object({ name: z.string().trim().min(1).max(160) }).strict().parse(request.body);
     const auth = request.auth!;

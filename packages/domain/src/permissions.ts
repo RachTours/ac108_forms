@@ -18,7 +18,7 @@ export type AuthorizationResult =
   | { allowed: false; reason: "MEMBERSHIP_INACTIVE" | "TENANT_MISMATCH" | "RESOURCE_SCOPE_MISMATCH" | "ROLE_FORBIDDEN" };
 
 const grants: Partial<Record<Resource, Partial<Record<Action, readonly Role[]>>>> = {
-  workspace: { read: ["OWNER", "ADMIN"] },
+  workspace: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
   members: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], grantAdmin: ["OWNER"] },
   targets: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"] },
   assignments: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
