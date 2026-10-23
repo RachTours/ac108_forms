@@ -15,7 +15,8 @@ import { InvitationAcceptanceError, parseInvitationAcceptanceInput, resolveInvit
 import { toMemberSummary } from "./member-summary.js";
 import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
-import { invitationCreateRequestSchema } from "@reviewroom/contracts";
+import { invitationCreateRequestSchema, memberListResponseSchema } from "@reviewroom/contracts";
+import { loadMemberCounts } from "./member-counts.js";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
@@ -30,16 +31,14 @@ memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (requ
       select: {
         id: true, organizationId: true, userId: true, role: true, status: true, createdAt: true,
         user: { select: { id: true, email: true, displayName: true, status: true } },
-        _count: { select: {
-          reviewLinks: true,
-          // Reviewer/target lifecycle changes remove these rows atomically.
-          // Keep this count on the assignment table's organization key only.
-          assignments: { where: { organizationId } },
-        } },
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
     });
-    response.json({ data: members.map(toMemberSummary) });
+    const counts = await loadMemberCounts(prisma, organizationId, members.map(({ id }) => id));
+    const body = memberListResponseSchema.parse({
+      data: members.map((member) => toMemberSummary({ ...member, _count: counts.get(member.id) ?? { assignments: 0, reviewLinks: 0 } })),
+    });
+    response.json(body);
   } catch (error) { next(error); }
 });
 
