@@ -15,10 +15,10 @@ import { InvitationAcceptanceError, parseInvitationAcceptanceInput, resolveInvit
 import { toMemberSummary } from "./member-summary.js";
 import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
+import { invitationCreateRequestSchema } from "@reviewroom/contracts";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
-const invitationSchema = z.object({ role: z.enum(["ADMIN", "REVIEWER"]) }).strict();
 const invitationTokenSchema = z.string().min(40).max(100);
 const resetTokenIdSchema = z.string().uuid();
 
@@ -45,7 +45,7 @@ memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (requ
 
 memberRouter.post("/invitations", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
   try {
-    const input = invitationSchema.parse(request.body);
+    const input = invitationCreateRequestSchema.parse(request.body);
     const auth = request.auth!;
     if (input.role === "ADMIN" && auth.role !== "OWNER") throw new HttpError(403, "FORBIDDEN", "Only the owner can invite administrators.");
     const token = randomBytes(32).toString("base64url");

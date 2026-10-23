@@ -10,6 +10,8 @@ import {
   invitationAcceptRequestSchema,
   invitationAcceptInfoSchema,
   invitationAcceptResponseSchema,
+  invitationListResponseSchema,
+  invitationRevealResponseSchema,
   invitationCreateRequestSchema,
   invitationCreatedSchema,
   loginResponseSchema,
@@ -162,6 +164,12 @@ test("team invitation, role update, and membership reset contracts match current
   assert.equal(invitationCreateRequestSchema.safeParse({ role: "REVIEWER", organizationId: id }).success, false);
   assert.equal(invitationAcceptInfoSchema.safeParse({ data: { email: null, displayName: null, role: "REVIEWER", expiresAt: date } }).success, true);
   assert.equal(invitationAcceptResponseSchema.safeParse({ data: { accepted: true } }).success, true);
+  assert.equal(invitationListResponseSchema.safeParse({ data: [{ id, email: null, displayName: null, role: "REVIEWER", expiresAt: date, createdAt: date, expired: false, canReveal: true }] }).success, true);
+  assert.equal(invitationListResponseSchema.safeParse({ data: [{ id, email: null, displayName: null, role: "OWNER", expiresAt: date, createdAt: date, expired: false, canReveal: true }] }).success, false);
+  assert.equal(invitationRevealResponseSchema.safeParse({ data: { inviteUrl: `https://example.invalid/invite/${"a".repeat(48)}` } }).success, true);
+  assert.equal(invitationRevealResponseSchema.safeParse({ data: { inviteUrl: "javascript:alert(1)" } }).success, false);
+  assert.equal(invitationRevealResponseSchema.safeParse({ data: { inviteUrl: `http://example.invalid/invite/${"a".repeat(48)}` } }).success, false);
+  assert.equal(invitationRevealResponseSchema.safeParse({ data: { inviteUrl: `http://localhost:3000/invite/${"a".repeat(48)}` } }).success, true);
   assert.equal(memberUpdateRequestSchema.safeParse({ status: "ARCHIVED" }).success, true);
   assert.equal(memberUpdateRequestSchema.safeParse({}).success, false);
   assert.equal(memberUpdateResponseSchema.safeParse({ data: { id, organizationId: id, userId: id, role: "REVIEWER", status: "ACTIVE", createdAt: date } }).success, true);

@@ -49,8 +49,16 @@ export const invitationSummarySchema = z.object({
   canReveal: z.boolean(),
 }).strict();
 
-export const invitationCreatedSchema = invitationSummarySchema.extend({ inviteUrl: z.url() }).strict();
+const invitationUrl = z.url({ protocol: /^https?$/ }).refine((value) => {
+  const parsed = new URL(value);
+  return parsed.protocol === "https:" || ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname.toLowerCase());
+});
+export const invitationCreatedSchema = invitationSummarySchema.extend({ inviteUrl: invitationUrl }).strict();
 export const invitationCreateRequestSchema = z.object({ role: z.enum(["ADMIN", "REVIEWER"]) }).strict();
+export const invitationCreateResponseSchema = z.object({ data: invitationCreatedSchema }).strict();
+export const invitationListResponseSchema = z.object({ data: z.array(invitationSummarySchema).max(100) }).strict();
+export const invitationRevealResponseSchema = z.object({ data: z.object({ inviteUrl: invitationUrl }).strict() }).strict();
+export const invitationRotateResponseSchema = invitationCreateResponseSchema;
 export const invitationAcceptInfoSchema = z.object({ data: z.object({ email: email.nullable(), displayName: z.string().min(1).max(120).nullable(), role: z.enum(["ADMIN", "REVIEWER"]), expiresAt: isoDate }).strict() }).strict();
 export const invitationAcceptRequestSchema = z.object({
   email: z.union([z.string().trim().email().max(254), z.literal("")]).optional(),
