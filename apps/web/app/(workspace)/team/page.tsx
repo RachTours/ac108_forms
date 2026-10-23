@@ -5,7 +5,7 @@ import { invitationListResponseSchema, sessionResponseSchema } from "@reviewroom
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 
 export const metadata: Metadata = { title: "Team access" };
-type Member = { id: string; role: "OWNER" | "ADMIN" | "REVIEWER"; status: "ACTIVE" | "ARCHIVED"; user: { displayName: string; email: string }; assignedTargetCount: number };
+type Member = { id: string; role: "OWNER" | "ADMIN" | "REVIEWER"; status: "ACTIVE" | "ARCHIVED"; user: { displayName: string; email: string; status: "ACTIVE" | "ARCHIVED" }; assignedTargetCount: number };
 type LinkRow = { id: string; reviewer: { id: string; name: string; email: string }; form: { id: string; title: string } | null; formId: string | null; createdAt: string; expiresAt: string | null; revokedAt: string | null; active: boolean; canReveal: boolean };
 type FormSummary = { id: string; title: string; status: string };
 type Invitation = { id: string; email: string | null; displayName: string | null; role: string; expiresAt: string; createdAt: string; expired: boolean; canReveal: boolean };
