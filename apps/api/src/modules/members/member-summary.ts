@@ -16,7 +16,7 @@ export function toMemberSummary(member: MemberSummaryRecord) {
     userId: member.userId,
     role: member.role,
     status: member.status,
-    createdAt: member.createdAt,
+    createdAt: member.createdAt.toISOString(),
     user: {
       id: member.user.id,
       email: member.user.email,
