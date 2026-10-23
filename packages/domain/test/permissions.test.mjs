@@ -20,11 +20,25 @@ test("authorization denies inactive membership and cross-organization resource a
   assert.equal(authorize({ ...base, requestedOrganizationId: "org-b", resource: "targets", action: "read" }).reason, "TENANT_MISMATCH");
 });
 
-test("sensitive member operations are owner-only and public submit has no authenticated grant", () => {
+test("sensitive member operations are owner-only", () => {
   assert.equal(authorize({ ...base, role: "ADMIN", resource: "members", action: "grantAdmin" }).reason, "ROLE_FORBIDDEN");
   assert.equal(authorize({ ...base, role: "ADMIN", resource: "members", action: "permanentDelete" }).reason, "ROLE_FORBIDDEN");
   assert.equal(authorize({ ...base, role: "OWNER", resource: "members", action: "permanentDelete" }).allowed, true);
-  assert.equal(authorize({ ...base, resource: "publicReview", action: "submit" }).reason, "ROLE_FORBIDDEN");
+});
+
+test("an active public review credential permits only public review reads and submissions", () => {
+  const publicCredential = {
+    role: "PUBLIC",
+    organizationId: "org-a",
+    requestedOrganizationId: "org-a",
+    publicCredentialStatus: "ACTIVE",
+  };
+
+  assert.equal(authorize({ ...publicCredential, resource: "publicReview", action: "read" }).allowed, true);
+  assert.equal(authorize({ ...publicCredential, resource: "publicReview", action: "submit" }).allowed, true);
+  assert.equal(authorize({ ...publicCredential, resource: "targets", action: "read" }).reason, "ROLE_FORBIDDEN");
+  assert.equal(authorize({ ...publicCredential, resource: "publicReview", action: "submit", publicCredentialStatus: "INACTIVE" }).reason, "PUBLIC_CREDENTIAL_INACTIVE");
+  assert.equal(authorize({ ...publicCredential, resource: "publicReview", action: "read", requestedOrganizationId: "org-b" }).reason, "TENANT_MISMATCH");
 });
 
 test("reviewer link revocation is scoped to the caller while admins can revoke workspace links", () => {
@@ -35,7 +49,7 @@ test("reviewer link revocation is scoped to the caller while admins can revoke w
   assert.equal(authorize({ ...base, role: "REVIEWER", membershipId: "reviewer-a", resource: "reviewLinks", action: "archive", resourceMembershipId: "reviewer-a" }).reason, "ROLE_FORBIDDEN");
 });
 
-test("every declared resource and action has an explicit role grant or denial", () => {
+test("every declared resource and action has an explicit owner/admin/reviewer/public decision", () => {
   const expected = new Map([
     ["workspace:read", ["OWNER", "ADMIN"]],
     ["workspace:manage", ["OWNER", "ADMIN"]],
@@ -47,16 +61,20 @@ test("every declared resource and action has an explicit role grant or denial", 
     ["submissions:read", ["OWNER", "ADMIN"]], ["submissions:update", ["OWNER", "ADMIN"]], ["submissions:archive", ["OWNER", "ADMIN"]],
     ["settings:read", ["OWNER", "ADMIN"]], ["settings:manage", ["OWNER", "ADMIN"]], ["audit:read", ["OWNER", "ADMIN"]],
     ["reviewWork:readOwn", ["REVIEWER"]], ["reviewWork:submit", ["REVIEWER"]],
+    ["publicReview:read", ["PUBLIC"]], ["publicReview:submit", ["PUBLIC"]],
   ]);
   const resources = ["workspace", "members", "targets", "assignments", "reviewLinks", "forms", "submissions", "settings", "audit", "reviewWork", "publicReview"];
   const actions = ["read", "create", "update", "archive", "manage", "publish", "readOwn", "manageOwn", "submit", "grantAdmin", "permanentDelete"];
 
   for (const resource of resources) {
     for (const action of actions) {
-      for (const role of ["OWNER", "ADMIN", "REVIEWER"]) {
+      for (const role of ["OWNER", "ADMIN", "REVIEWER", "PUBLIC"]) {
         const key = `${resource}:${action}`;
         const expectedAllowed = expected.get(key)?.includes(role) ?? false;
-        const result = authorize({ ...base, role, resource, action, ...(["reviewWork", "reviewLinks"].includes(resource) ? { membershipId: "member-a", resourceMembershipId: "member-a" } : {}) });
+        const subject = role === "PUBLIC"
+          ? { role, organizationId: "org-a", requestedOrganizationId: "org-a", publicCredentialStatus: "ACTIVE" }
+          : { ...base, role, ...(["reviewWork", "reviewLinks"].includes(resource) ? { membershipId: "member-a", resourceMembershipId: "member-a" } : {}) };
+        const result = authorize({ ...subject, resource, action });
         assert.equal(result.allowed, expectedAllowed, `${role} ${resource}:${action}`);
       }
     }
