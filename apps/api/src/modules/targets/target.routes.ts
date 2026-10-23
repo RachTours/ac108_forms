@@ -7,7 +7,7 @@ import { requireCsrf, requireSession } from "../../middleware/require-session.js
 import { requireRole } from "../../middleware/require-role.js";
 import { assignTargets } from "./bulk-assignment.js";
 import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schemas.js";
-import { listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
+import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
 
 export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
@@ -53,7 +53,12 @@ targetRouter.post("/", requireRole("OWNER", "ADMIN"), requireCsrf, async (reques
     const target = await prisma.$transaction(async (transaction) => {
       const created = await transaction.reviewTarget.create({ data: { organizationId: auth.organizationId, displayName: input.displayName, email: input.email || null } });
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "TARGET_CREATED", entityType: "ReviewTarget", entityId: created.id } });
-      return { ...created, assignedReviewer: null, submissionCount: 0 };
+      const assignments = await autoAssignUnassignedTargets(transaction, { organizationId: auth.organizationId, actorId: auth.userId, source: "auto-balance-new-target", targetIds: [created.id] });
+      const assignment = assignments.find(({ targetId }) => targetId === created.id);
+      const reviewer = assignment
+        ? await transaction.membership.findFirst({ where: { id: assignment.reviewerId, organizationId: auth.organizationId }, select: { id: true, user: { select: { displayName: true, email: true } } } })
+        : null;
+      return { ...created, assignedReviewer: reviewer ? { membershipId: reviewer.id, ...reviewer.user } : null, submissionCount: 0 };
     });
     response.status(201).json({ data: target });
   } catch (error) { next(error); }

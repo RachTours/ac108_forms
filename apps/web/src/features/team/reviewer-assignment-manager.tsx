@@ -109,7 +109,7 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
 
   return <section className="reviewer-assignment-workspace" aria-labelledby="reviewer-assignments-heading">
     <div className="section-heading assignment-workspace-heading">
-      <div><p className="eyebrow">TEAM WORKFLOW</p><h2 id="reviewer-assignments-heading">Reviewer assignments</h2><p className="muted-caption">Find any person and set one active reviewer for each review.</p></div>
+      <div><p className="eyebrow">TEAM WORKFLOW</p><h2 id="reviewer-assignments-heading">Reviewer assignments</h2><p className="muted-caption">New people are balanced across active reviewers automatically. Change an assignment here whenever needed.</p></div>
       <div className="assignment-count-summary"><span>{counts.assigned} assigned</span><span>{counts.unassigned} unassigned</span><span>{counts.total} people</span></div>
     </div>
     {reviewers.length === 0 && <div className="permission-note" role="status"><UserRound size={16} /><span><strong>No active reviewers yet</strong><small>Add a reviewer in Members. Once they accept their access token, they will appear here.</small></span></div>}

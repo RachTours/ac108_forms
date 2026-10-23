@@ -6,6 +6,15 @@ test("requires a reachable API origin in production", () => {
   assert.throws(() => resolveServerApiOrigin(undefined, "production"), /API_INTERNAL_URL/);
 });
 
+test("rejects a loopback API origin in production because the API runs as a separate service", () => {
+  assert.throws(() => resolveServerApiOrigin("http://127.0.0.1:4000", "production"), /separate API service/);
+  assert.throws(() => resolveServerApiOrigin("http://localhost:4000", "production"), /separate API service/);
+});
+
+test("requires HTTPS for the production API origin", () => {
+  assert.throws(() => resolveServerApiOrigin("http://api.example.com", "production"), /must use HTTPS/);
+});
+
 test("keeps the localhost API default for local development", () => {
   assert.equal(resolveServerApiOrigin(undefined, "development"), "http://localhost:4000");
 });

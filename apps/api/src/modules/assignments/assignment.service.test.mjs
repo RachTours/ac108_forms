@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { listAssignments, removeAssignment, setAssignment } from "../../../dist/modules/assignments/assignment.service.js";
+import { autoAssignUnassignedTargets, listAssignments, removeAssignment, setAssignment } from "../../../dist/modules/assignments/assignment.service.js";
 
 const organizationId = "org-a";
 const targetId = "target-a";
@@ -101,4 +101,47 @@ test("unassign is retry-safe and only audits an actual removal", async () => {
   assert.equal(state.audits.length, 1);
   assert.deepEqual(await removeAssignment(tx, { organizationId, actorId, targetId, expectedUpdatedAt: null }), { removed: false });
   assert.equal(state.audits.length, 1);
+});
+
+test("auto assignment balances unassigned targets across active reviewers and preserves current assignments", async () => {
+  const targetIds = ["target-a", "target-b", "target-c", "target-d"];
+  const reviewers = [{ id: "reviewer-a" }, { id: "reviewer-b" }];
+  const assignments = new Map([["existing-target", { id: "existing-assignment", targetId: "existing-target", reviewerId: "reviewer-a", updatedAt: new Date("2026-01-01T00:00:00.000Z") }]]);
+  const audits = [];
+  const tx = {
+    $queryRaw: async () => [],
+    membership: {
+      findMany: async () => reviewers,
+      findFirst: async ({ where }) => reviewers.find((reviewer) => reviewer.id === where.id) ?? null,
+    },
+    reviewTarget: {
+      findMany: async () => targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id })),
+      findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
+    },
+    assignment: {
+      groupBy: async () => [{ reviewerId: "reviewer-a", _count: { _all: 1 } }],
+      findUnique: async ({ where }) => assignments.get(where.organizationId_targetId.targetId) ?? null,
+      create: async ({ data }) => {
+        const value = { id: `assignment-${data.targetId}`, ...data, createdAt: new Date(), updatedAt: data.updatedAt };
+        assignments.set(data.targetId, value);
+        return value;
+      },
+    },
+    auditEvent: { create: async ({ data }) => { audits.push(data); } },
+  };
+
+  const created = await autoAssignUnassignedTargets(tx, { organizationId, actorId, source: "test" });
+  assert.deepEqual(created.map(({ targetId, reviewerId }) => [targetId, reviewerId]), [
+    ["target-a", "reviewer-b"],
+    ["target-b", "reviewer-a"],
+    ["target-c", "reviewer-b"],
+    ["target-d", "reviewer-a"],
+  ]);
+  assert.equal(assignments.get("existing-target").reviewerId, "reviewer-a");
+  assert.equal(audits.length, 4);
+});
+
+test("auto assignment leaves targets alone when the workspace has no active reviewers", async () => {
+  const tx = { membership: { findMany: async () => [] }, reviewTarget: { findMany: async () => { throw new Error("should not query targets without reviewers"); } } };
+  assert.deepEqual(await autoAssignUnassignedTargets(tx, { organizationId, actorId, source: "test" }), []);
 });

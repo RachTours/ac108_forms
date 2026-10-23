@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 import dotenv from "dotenv";
 import { resolve } from "node:path";
+import { resolveServerApiOrigin } from "./src/lib/server-api-origin";
 
 dotenv.config({ path: resolve(import.meta.dirname, "../../.env") });
+const apiOrigin = resolveServerApiOrigin(process.env.API_INTERNAL_URL, process.env.NODE_ENV);
 
 const config: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
@@ -12,11 +14,6 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async rewrites() {
-    const configuredApiOrigin = process.env.API_INTERNAL_URL?.trim();
-    if (process.env.NODE_ENV === "production" && !configuredApiOrigin) {
-      throw new Error("API_INTERNAL_URL must be set to the deployed API origin before building the production web app.");
-    }
-    const apiOrigin = (configuredApiOrigin || "http://localhost:4000").replace(/\/$/, "");
     return [
       { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },
       { source: "/admin/overview", destination: "/" },

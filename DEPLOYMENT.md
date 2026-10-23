@@ -51,6 +51,8 @@ Frontend build/runtime:
 | `NPM_CONFIG_INCLUDE` | `dev` when production-mode installs omit development dependencies |
 | `PORT` | Supplied by Hostinger; do not hard-code it |
 
+`API_INTERNAL_URL` must be the HTTPS origin of the separate API website. A localhost or `127.0.0.1` value works only for local development and is rejected by the production frontend build, because the web and API run as separate Hostinger Node.js applications. If this value changes, rebuild the frontend so its same-origin API rewrite uses the new destination.
+
 API build/runtime:
 
 | Name | Value |

@@ -162,6 +162,78 @@ export async function setAssignment(
   return { assignment: saved, changed: true };
 }
 
+/** Assign every active target without an active reviewer to the least-loaded active reviewer. */
+export async function autoAssignUnassignedTargets(
+  transaction: AssignmentTransaction,
+  input: { organizationId: string; actorId: string; source: string; targetIds?: string[] },
+) {
+  if (input.targetIds && input.targetIds.length === 0) return [];
+  const reviewers = await transaction.membership.findMany({
+    where: { organizationId: input.organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  if (!reviewers.length) return [];
+
+  const targets = await transaction.reviewTarget.findMany({
+    where: {
+      organizationId: input.organizationId,
+      status: "ACTIVE",
+      archivedAt: null,
+      ...(input.targetIds ? { id: { in: input.targetIds } } : {}),
+      assignments: { none: { ...activeAssignmentWhere(input.organizationId) } },
+    },
+    orderBy: [{ id: "asc" }],
+    select: { id: true },
+  });
+  if (!targets.length) return [];
+
+  const assignmentGroups = await transaction.assignment.groupBy({
+    by: ["reviewerId"],
+    where: {
+      ...activeAssignmentWhere(input.organizationId),
+      target: { status: "ACTIVE", archivedAt: null },
+    },
+    _count: { _all: true },
+  });
+  const loadByReviewer = new Map(reviewers.map(({ id }) => [id, 0]));
+  for (const group of assignmentGroups) {
+    if (loadByReviewer.has(group.reviewerId)) loadByReviewer.set(group.reviewerId, group._count._all);
+  }
+
+  const created: Array<{ targetId: string; reviewerId: string }> = [];
+  for (const target of targets) {
+    let reviewerId = reviewers[0]!.id;
+    for (const reviewer of reviewers.slice(1)) {
+      if (loadByReviewer.get(reviewer.id)! < loadByReviewer.get(reviewerId)!) reviewerId = reviewer.id;
+    }
+    try {
+      const result = await setAssignment(transaction, {
+        organizationId: input.organizationId,
+        actorId: input.actorId,
+        targetId: target.id,
+        reviewerId,
+        expectedUpdatedAt: null,
+        source: input.source,
+      });
+      if (result.changed) created.push({ targetId: target.id, reviewerId });
+      loadByReviewer.set(reviewerId, loadByReviewer.get(reviewerId)! + 1);
+    } catch (error) {
+      // A concurrent administrator action wins. Keep balancing from the
+      // assignment that now exists instead of failing member/target creation.
+      if (!(error instanceof HttpError) || error.code !== "ASSIGNMENT_CHANGED") throw error;
+      const current = await transaction.assignment.findUnique({
+        where: { organizationId_targetId: { organizationId: input.organizationId, targetId: target.id } },
+        select: { reviewerId: true },
+      });
+      if (current && loadByReviewer.has(current.reviewerId)) {
+        loadByReviewer.set(current.reviewerId, loadByReviewer.get(current.reviewerId)! + 1);
+      }
+    }
+  }
+  return created;
+}
+
 export async function removeAssignment(
   transaction: AssignmentTransaction,
   input: { organizationId: string; actorId: string; targetId: string; expectedUpdatedAt: Date | null; source?: string },
