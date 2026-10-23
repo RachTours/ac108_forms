@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { z } from "zod";
-import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
@@ -8,6 +7,7 @@ import { requireRole } from "../../middleware/require-role.js";
 import { assignTargets } from "./bulk-assignment.js";
 import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schemas.js";
 import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
+import { countSubmissionsByTarget } from "./target-submission-counts.js";
 
 export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
@@ -34,14 +34,7 @@ targetRouter.get("/", requireRole("OWNER", "ADMIN"), async (request, response, n
     const rows = await prisma.reviewTarget.findMany({ where, orderBy: [{ displayName: "asc" }, { id: "asc" }], take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), select: { id: true, displayName: true, email: true, createdAt: true, updatedAt: true } });
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit);
-    const responseCounts = page.length ? await prisma.$queryRaw<Array<{ targetId: string; submissionCount: bigint }>>`
-      SELECT targetId, COUNT(*) AS submissionCount
-      FROM Submission
-      WHERE organizationId = ${auth.organizationId} AND archivedAt IS NULL
-        AND targetId IN (${Prisma.join(page.map((target) => target.id))})
-      GROUP BY targetId
-    ` : [];
-    const countByTarget = new Map(responseCounts.map((item) => [item.targetId, Number(item.submissionCount)]));
+    const countByTarget = await countSubmissionsByTarget(prisma, auth.organizationId, page.map((target) => target.id));
     response.json({ data: page.map((target) => ({ ...target, submissionCount: countByTarget.get(target.id) ?? 0 })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
   } catch (error) { next(error); }
 });
