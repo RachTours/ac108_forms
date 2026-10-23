@@ -65,4 +65,6 @@ The browser URL is role-scoped. Production deployments use the same paths under 
 
 ## Deployment notes
 
-Build and run the Next.js server as a Node.js application on Hostinger's supported Node.js hosting plan or VPS. Configure the reverse proxy/domain to forward HTTPS traffic to the app and keep the API/database network private. Set the production API origin, database URL, cookie/security secrets, allowed origin, and email configuration as deployment environment variables. Configure the database and backups independently from the web process. The app routes themselves are domain-relative, so replacing localhost with a production domain does not require changing route code.
+Build and run the Next.js server as a Node.js application on a supported Node.js plan or VPS. `apps/web/next.config.ts` resolves `API_INTERNAL_URL` at build time and rewrites `/api/:path*` to that API origin, so rebuild the web app after changing it. The API validates the exact `WEB_ORIGIN` and uses the Hostinger-supplied `PORT` when present. Configure the database and backups independently from the web process. The app routes themselves are domain-relative, so replacing localhost with a production domain does not require changing route code.
+
+The live staging Hostinger settings have not been confirmed: verify the two Node.js applications, selected Node version, root/output/entry paths, database version, and the actual HTTPS origins in the account before treating a deployment configuration as final.

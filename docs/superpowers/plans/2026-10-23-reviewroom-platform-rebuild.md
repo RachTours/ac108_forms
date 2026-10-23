@@ -26,7 +26,7 @@
 
 ### Task 0.1 — Record the current product and runtime baseline.
 
-- [ ] Update `docs/CONTEXT.md`, `docs/architecture.md`, `docs/routing-and-workspace-architecture.md`, and `docs/hostinger-deployment.md` only where current source has drifted. Inventory `apps/api/prisma/schema.prisma`, migrations, API routers, Next route map, deployment build scripts, environment examples, existing tests, and data constraints. Include exact commands and record pass/fail without exposing secrets. Confirm the two Hostinger apps, current Node version, entry/output paths, and DB version in staging or account settings before locking deployment parameters.
+- [x] Update `docs/CONTEXT.md`, `docs/architecture.md`, `docs/routing-and-workspace-architecture.md`, and `docs/hostinger-deployment.md` only where current source has drifted. Inventory `apps/api/prisma/schema.prisma`, migrations, API routers, Next route map, deployment build scripts, environment examples, existing tests, and data constraints. Include exact commands and record pass/fail without exposing secrets. Confirm the two Hostinger apps, current Node version, entry/output paths, and DB version in staging or account settings before locking deployment parameters.
 ### Task 0.2 — Establish a safe test environment.
 
 - [ ] Add `docs/rebuild/test-environments.md` and scripts/configuration for isolated local MySQL and staging DBs. Add an explicit guard that refuses migration/seed/cleanup when the database host/name matches configured production markers. Never use production as an integration-test target.

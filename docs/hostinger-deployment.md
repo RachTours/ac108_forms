@@ -2,6 +2,10 @@
 
 Reviewed against Hostinger's public documentation on 2026-10-22. Hostinger features and plan limits change; confirm the exact plan before purchasing or deploying. This guide does not claim that any plan has been load-tested for this application.
 
+## Deployment status
+
+The repository defines a two-app deployment, but the live staging settings have not been confirmed. The interrupted read-only connector lookup did not establish the two Hostinger apps, selected Node version, root/output/entry paths, database version, or production/staging origins. Verify those fields in the Hostinger account before locking deployment parameters or changing DNS. The example hostnames below are documentation placeholders, not confirmed live configuration.
+
 ## Recommended topology
 
 ReviewRoom is a TypeScript monorepo with two long-running Node.js services and one MySQL database:
@@ -18,7 +22,7 @@ Hostinger currently lists managed Node.js apps on Business/Unlimited and Cloud p
 
 Hostinger deploys each monorepo app as a separate Node.js website. The frontend uses `apps/web` as its app root; the API uses `./` because its migration and build scripts run from the repository workspace. Configure both entries from the same repository and validate in staging before switching DNS.
 
-| Hostinger field | Web (`ac108.rach-tours.com`) | API (`api108.rach-tours.com`) |
+| Hostinger field | Web (example `reviews.example.com`) | API (example `api.example.com`) |
 |---|---|---|
 | Framework preset | `Other` | `Other` or `Express.js` |
 | Root directory | `apps/web` | `./` |
@@ -31,7 +35,7 @@ The web workspace build uses Next.js Webpack mode (`next build --webpack`) and s
 
 The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. The web build command is designed to run from the `apps/web` workspace and compiles `@reviewroom/contracts` before Next.js. Validate both app roots in Hostinger; a local build does not prove the hosting builder uses the same context.
 
-Set `API_INTERNAL_URL=https://api.example.com` in the web app before its build because rewrites are configured at build time. Set `WEB_ORIGIN=https://reviews.example.com` in the API app. The API hostname is public, but browser requests should use the web origin's rewrite. Verify cookie forwarding, Origin, CSRF, CORS, and client IP/rate-limit behavior in staging.
+Set `API_INTERNAL_URL` to the verified API HTTPS origin in the web app before its build because rewrites are configured at build time. Set `WEB_ORIGIN` to the verified web HTTPS origin in the API app. The API hostname is public, but browser requests should use the web origin's rewrite. Verify cookie forwarding, Origin, CSRF, CORS, and client IP/rate-limit behavior in staging.
 
 For a local equivalent, install from the root lockfile and build both workspaces:
 
