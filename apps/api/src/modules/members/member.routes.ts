@@ -11,6 +11,7 @@ import { hashPassword } from "../auth/password.js";
 import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
+import { toMemberSummary } from "./member-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
 
 export const memberRouter = Router();
@@ -25,7 +26,8 @@ memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (requ
     const organizationId = request.auth!.organizationId;
     const members = await prisma.membership.findMany({
       where: { organizationId },
-      include: {
+      select: {
+        id: true, organizationId: true, userId: true, role: true, status: true, createdAt: true,
         user: { select: { id: true, email: true, displayName: true, status: true } },
         _count: { select: {
           reviewLinks: true,
@@ -36,7 +38,7 @@ memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (requ
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
     });
-    response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: _count.assignments, linkCount: _count.reviewLinks })) });
+    response.json({ data: members.map(toMemberSummary) });
   } catch (error) { next(error); }
 });
 
