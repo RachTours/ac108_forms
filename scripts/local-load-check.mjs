@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
 const apiOrigin = (process.env.LOAD_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
-const webOrigin = (process.env.LOAD_WEB_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const webOrigin = (process.env.LOAD_WEB_URL ?? "http://localhost:5000").replace(/\/$/, "");
 const concurrency = boundedInteger("LOAD_CONCURRENCY", 12, 1, 24);
 const apiRequests = boundedInteger("LOAD_API_REQUESTS", 160, 20, 240);
 const webRequests = boundedInteger("LOAD_WEB_REQUESTS", 80, 10, 120);

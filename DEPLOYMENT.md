@@ -6,11 +6,11 @@ This repository is a Node.js monorepo with two separate Hostinger websites:
 - `apps/api`: Express 5 API, Prisma 7, and a pooled MySQL connection.
 - `packages/contracts`: shared TypeScript/Zod contracts built before either app.
 
-Deploy the frontend and API as separate Hostinger Node.js websites. Use `apps/web` as the frontend root so Next.js starts from the directory containing its `.next` build; keep the API rooted at `./` for its workspace migration and build commands. No Docker, PM2, Nginx, Apache, or SSH command is required to start the managed Node.js apps.
+Deploy the frontend and API as separate Hostinger Node.js websites. Keep the root directory at `./` for both so npm workspaces and root scripts resolve consistently. No Docker, PM2, Nginx, Apache, or SSH command is required to start the managed Node.js apps.
 
 ## Runtime and project commands
 
-- Recommended runtime: Node.js `22.12.x` (also supports Node.js `24.x`). `.nvmrc` selects `22.12.0`.
+- Recommended runtime: Node.js `22.x`. `.nvmrc` selects `22.12.0`; Node.js `24.x` is also supported.
 - Package manager: npm, using the root `package-lock.json` and npm workspaces.
 - Install: `npm ci`.
 - Full build: `npm run build`.
@@ -21,20 +21,20 @@ Deploy the frontend and API as separate Hostinger Node.js websites. Use `apps/we
 
 ## Hostinger website settings
 
-Create two Node.js websites from the same GitHub repository and branch. The frontend root is its app directory; the API root is the repository root. Hostinger output paths are relative to each selected root.
+Create two Node.js websites from the same GitHub repository and branch. Set the root directory to `./` (the repository root) for both apps. Output and entry paths below are relative to that root.
 
 | Setting | Frontend: `ac108.rach-tours.com` | API: `api108.rach-tours.com` |
 |---|---|---|
 | Framework | Other | Other or Express.js |
-| Root directory | `apps/web` | `./` |
+| Root directory | `./` | `./` |
 | Node.js | `22.x` | `22.x` |
 | Package manager | npm | npm |
 | Build command | `npm run build:hostinger:web` | `npm run build:hostinger:api` |
-| Output directory | `.next/hostinger` | `apps/api/dist` |
-| Entry file | `.next/hostinger/server.js` | `apps/api/dist/server.js` |
+| Output directory | `apps/web/.next/hostinger` | `apps/api/dist` |
+| Entry file | `apps/web/.next/hostinger/server.js` | `apps/api/dist/server.js` |
 | Start command, if Hostinger asks | Hostinger starts the entry file | Hostinger starts the entry file |
 
-**Important:** use `apps/web` as the frontend root. Build Next.js in standalone mode, then package the standalone server, traced `node_modules`, shared workspace files, and static assets into `.next/hostinger`. Select Hostinger's `Other` preset for this frontend, use `.next/hostinger` as output directory, and set `.next/hostinger/server.js` as its entry file. This bypasses Hostinger's automatic Next.js runtime packaging, which omitted the React dependency. The API remains rooted at `./` because its migration and build commands use the repository workspace root.
+**Important:** keep the repository root at `./`. The web build runs the workspace build from the root and packages the standalone server, traced `node_modules` (including React), shared workspace files, and static assets into `apps/web/.next/hostinger`. Select Hostinger's `Other` preset for the web app, use `apps/web/.next/hostinger` as output directory, and set `apps/web/.next/hostinger/server.js` as its entry file. This bypasses Hostinger's automatic Next.js runtime packaging, which omitted the React dependency. The API uses the same repository root and outputs `apps/api/dist`.
 
 Set `NPM_CONFIG_INCLUDE=dev` for both Hostinger websites if Hostinger installs with `NODE_ENV=production`. Build tools such as TypeScript and Tailwind CSS are development dependencies and must be present during the build. Never use `npm install --omit=dev` for these build steps.
 
@@ -74,7 +74,7 @@ API build/runtime:
 | `NPM_CONFIG_INCLUDE` | `dev` when production-mode installs omit development dependencies |
 | `BOOTSTRAP_OWNER_ON_DEPLOY` and five `BOOTSTRAP_*` values | First deployment only; set for a fresh database, then remove immediately |
 
-`PORT` is injected by Hostinger. Do not set it to a fixed value. The API retains `API_PORT=4000` as a local fallback. `DATABASE_URL` is still accepted for existing installations, but new setup should use all five `DB_*` values. The Prisma migration config derives its URL from those values.
+`PORT` is injected by Hostinger. Do not set it to a fixed value. The API retains `API_PORT=4000` as a local fallback; the local web app uses port `5000`, and the isolated local MySQL uses port `5307`. `DATABASE_URL` is still accepted for existing installations, but new setup should use all five `DB_*` values. The Prisma migration config derives its URL from those values. Hostinger’s local MySQL port is normally `3306`.
 
 The root `.env.example` contains safe local placeholders and all application settings. Copy it to `.env` for local work, then replace the placeholders. Production secrets belong only in Hostinger's environment-variable manager.
 

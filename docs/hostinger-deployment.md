@@ -12,24 +12,24 @@ ReviewRoom is a TypeScript monorepo with two long-running Node.js services and o
 
 The browser calls same-origin `/api/...`; Next.js rewrites that path to Express. Set API `WEB_ORIGIN` to exactly the web app's HTTPS origin. The API honors Hostinger's injected `PORT`, falling back to `API_PORT`; `DATABASE_CONNECTION_LIMIT` controls the per-process MySQL pool (default 10).
 
-Hostinger currently lists managed Node.js apps on Business/Unlimited and Cloud plans. Each app is a separate Node website and consumes an app slot. Managed limits state one long-running process per app, shared process/memory limits across the plan, 120-second request timeouts, and no inbound WebSockets or always-running workers. Confirm the chosen plan supports Node 22.12 or Node 24, two app slots, root-workspace builds, the needed resource budget, and a reachable HTTPS API hostname. Plan limits can change; verify your account's current limits. If managed hosting cannot provide the required routing or capacity, use a VPS/CloudPanel deployment with a reverse proxy.
+Hostinger's managed Node.js limits and plan matrix can change; verify your account's current plan, two-app allowance, runtime, process/memory budget, request timeout, and routing before the release. If managed hosting cannot provide the required routing or capacity, use a VPS/CloudPanel deployment with a reverse proxy.
 
 ## Build and start commands
 
-Hostinger deploys each monorepo app as a separate Node.js website. The frontend uses `apps/web` as its app root; the API uses `./` because its migration and build scripts run from the repository workspace. Configure both entries from the same repository and validate in staging before switching DNS.
+Hostinger deploys each monorepo app as a separate Node.js website. Keep both app roots at `./` (the repository root) so workspace scripts, lockfile, and build context are consistent. Configure both entries from the same repository and validate in staging before switching DNS.
 
 | Hostinger field | Web (`ac108.rach-tours.com`) | API (`api108.rach-tours.com`) |
 |---|---|---|
 | Framework preset | `Other` | `Other` or `Express.js` |
-| Root directory | `apps/web` | `./` |
+| Root directory | `./` | `./` |
 | Build command | `npm run build:hostinger:web` | `npm run build:hostinger:api` |
-| Output directory | `.next/hostinger` | `apps/api/dist` |
-| Entry file | `.next/hostinger/server.js` | `apps/api/dist/server.js` |
+| Output directory | `apps/web/.next/hostinger` | `apps/api/dist` |
+| Entry file | `apps/web/.next/hostinger/server.js` | `apps/api/dist/server.js` |
 | Start command, if requested separately | Not needed when Hostinger runs the entry file | Not needed when Hostinger runs the entry file |
 
-The web workspace build uses Next.js Webpack mode (`next build --webpack`) and standalone output. Set the web root to `apps/web`; the build then packages the standalone server, traced `node_modules` (including React), shared workspace files, and static assets into `.next/hostinger`. For this frontend choose the `Other` preset, output directory `.next/hostinger`, and entry file `.next/hostinger/server.js`. This runs the verified standalone server directly instead of relying on Hostinger's generated Next.js launcher, which failed to resolve React. The API stays rooted at `./` because its migration/build commands use the repository workspace root.
+The web workspace build uses Next.js Webpack mode (`next build --webpack`) and standalone output. With the root set to `./`, the build packages the standalone server, traced `node_modules` (including React), shared workspace files, and static assets into `apps/web/.next/hostinger`. Choose the `Other` preset, output directory `apps/web/.next/hostinger`, and entry file `apps/web/.next/hostinger/server.js`. This runs the verified standalone server directly instead of relying on Hostinger's generated Next.js launcher, which failed to resolve React. The API uses the same repository root because its migration/build commands use the npm workspace.
 
-The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. The web build command is designed to run from the `apps/web` workspace and compiles `@reviewroom/contracts` before Next.js. Validate both app roots in Hostinger; a local build does not prove the hosting builder uses the same context.
+The API build applies committed migrations before compiling, so the `DB_*` variables must be available during build and production releases require a database backup first. The web build command is designed to run from the repository root and compiles `@reviewroom/contracts` before Next.js. Validate both app roots in Hostinger; a local build does not prove the hosting builder uses the same context.
 
 Set `API_INTERNAL_URL=https://api.example.com` in the web app before its build because rewrites are configured at build time. Set `WEB_ORIGIN=https://reviews.example.com` in the API app. The API hostname is public, but browser requests should use the web origin's rewrite. Verify cookie forwarding, Origin, CSRF, CORS, and client IP/rate-limit behavior in staging.
 
@@ -52,7 +52,7 @@ Start the API app:
 npm run start --workspace @reviewroom/api
 ```
 
-The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`; do not hard-code a public port in Hostinger's app settings. The web app root must remain `apps/web` at build and runtime so the Next.js server finds `.next`. Test this in a staging app before pointing the production domain.
+The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`; do not hard-code a public port in Hostinger's app settings. The web entry is the self-contained server at `apps/web/.next/hostinger/server.js`. Test both entries in a staging app before pointing the production domain.
 
 ## Database and release sequence
 

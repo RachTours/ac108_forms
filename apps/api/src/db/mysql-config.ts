@@ -36,16 +36,17 @@ export function readMysqlConnection(source: MysqlEnvironment): MysqlConnection {
     };
   }
 
-  if (!source.DATABASE_URL?.trim()) throw new Error("Configure MySQL with DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD.");
+  const configuredUrl = source.DATABASE_URL?.trim();
+  if (!configuredUrl) throw new Error("Configure MySQL with DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD, or provide DATABASE_URL.");
 
   let url: URL;
   try {
-    url = new URL(source.DATABASE_URL);
+    url = new URL(configuredUrl);
   } catch {
-    throw new Error("DATABASE_URL must be a valid MySQL connection URL.");
+    throw new Error("The configured MySQL connection URL must be valid.");
   }
   if (url.protocol !== "mysql:" || !url.hostname || !url.username || !url.password || !url.pathname.slice(1)) {
-    throw new Error("DATABASE_URL must include MySQL host, database, username, and password.");
+    throw new Error("The configured MySQL URL must include MySQL host, database, username, and password.");
   }
 
   return {

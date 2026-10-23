@@ -51,6 +51,21 @@ test("accepts a valid response for every supported field type", () => {
   assert.deepEqual(validateAnswers(definition, answers), { ...answers, [uuid(3)]: "student@example.com", [uuid(13)]: "+15551234567" });
 });
 
+test("section headings are valid form content and never become submitted answers", () => {
+  const definition = {
+    title: "Review",
+    description: "",
+    fields: [
+      field(17, "heading", { label: "Teamwork" }),
+      field(2, "shortText", { label: "What went well?" }, true),
+    ],
+  };
+
+  assert.equal(formDefinitionSchema.safeParse(definition).success, true);
+  assert.deepEqual(validateAnswers(definition, { [uuid(2)]: "Clear communication" }), { [uuid(2)]: "Clear communication" });
+  assert.throws(() => validateAnswers(definition, { [uuid(17)]: "not an answer" }), (error) => error.code === "INVALID_ANSWER");
+});
+
 test("name answers require a string and enforce name length limits", () => {
   const definition = { title: "Review", description: "", fields: [field(1, "name", { minLength: 2, maxLength: 20 }, true)] };
   assert.deepEqual(validateAnswers(definition, { [uuid(1)]: "  Ada Lovelace  " }), { [uuid(1)]: "Ada Lovelace" });

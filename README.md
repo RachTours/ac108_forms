@@ -40,7 +40,7 @@ Session tokens and reviewer/invitation token validation values are stored as SHA
 
    ```text
    DB_HOST=127.0.0.1
-   DB_PORT=3306
+   DB_PORT=5307
    DB_NAME=reviewroom
    DB_USER=reviewroom_app
    DB_PASSWORD=your-local-password
@@ -69,11 +69,11 @@ Session tokens and reviewer/invitation token validation values are stored as SHA
    npm run dev
    ```
 
-   Web: <http://localhost:3000>. API health: <http://localhost:4000/health>. API liveness: <http://localhost:4000/api/v1/health/live>. API readiness: <http://localhost:4000/api/v1/health/ready>.
+   Web: <http://localhost:5000>. API health: <http://localhost:4000/health>. API liveness: <http://localhost:4000/api/v1/health/live>. API readiness: <http://localhost:4000/api/v1/health/ready>.
 
 ## Production deployment notes
 
-Deploy web and API as separate services behind HTTPS. Supply unique `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`, database credentials, and exact `WEB_ORIGIN` through the deployment secret manager. Set `API_INTERNAL_URL` to an API HTTPS hostname reachable from the Next.js server before building web. Configure `TRUSTED_PROXIES` only for the actual proxy layer and `DATABASE_CONNECTION_LIMIT` to fit the DB connection budget. The Next proxy issues a per-request nonce CSP and prevents HTML caching; every API response is `no-store`. Hashed Next static assets remain cacheable. Run migrations as a controlled release step, back up MySQL and the encryption key, monitor API and database health, and configure request/body limits at the edge. In-memory API rate limits are local to each process; use the gateway for shared multi-instance enforcement when needed. Production dependencies currently pass `npm audit --omit=dev`; the full audit still identifies five high findings in the development-only Next lint dependency chain, with no compatible upstream fix available at this audit. See [Hostinger deployment notes](DEPLOYMENT.md), the [detailed deployment guide](docs/hostinger-deployment.md), and the [readiness review](docs/deployment-readiness-review.md).
+Deploy web and API as separate Hostinger Node.js websites behind HTTPS. Supply unique `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`, database credentials, and exact `WEB_ORIGIN` through Hostinger's environment settings. Set `API_INTERNAL_URL` to an API HTTPS hostname reachable from the Next.js server before building web. Configure `TRUSTED_PROXIES` only for the actual proxy layer and `DATABASE_CONNECTION_LIMIT` to fit the DB connection budget. The Next proxy issues a per-request nonce CSP and prevents HTML caching; every API response is `no-store`. Hashed Next static assets remain cacheable. Run migrations as a controlled release step, back up MySQL and the encryption key, monitor API and database health, and configure request/body limits at the edge. In-memory API rate limits are local to each process; use the gateway for shared multi-instance enforcement when needed. The full and production dependency audits reported zero known vulnerabilities on 2026-10-23. See [Hostinger deployment notes](DEPLOYMENT.md), the [detailed deployment guide](docs/hostinger-deployment.md), and the [readiness review](docs/deployment-readiness-review.md).
 
 ## Workspace map
 

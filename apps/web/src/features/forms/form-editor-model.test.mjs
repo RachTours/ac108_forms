@@ -15,3 +15,13 @@ test("editor exposes the signature field in the existing field catalog", () => {
   const signature = makeField("signature", () => "00000000-0000-4000-8000-000000000002");
   assert.equal(signature.type, "signature");
 });
+
+test("editor offers a non-required section heading for organizing long forms", () => {
+  const heading = makeField("heading", () => "00000000-0000-4000-8000-000000000003");
+
+  assert.equal(fieldPalette.find((item) => item.type === "heading")?.label, "Section heading");
+  assert.equal(heading.type, "heading");
+  assert.equal(heading.label, "Section heading");
+  assert.equal(heading.required, false);
+  assert.equal(formDefinitionWriteSchema.safeParse({ title: "Review", description: "", fields: [heading] }).success, true);
+});

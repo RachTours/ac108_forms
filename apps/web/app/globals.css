@@ -389,7 +389,7 @@ td { font-size: 11px; }
 .form-field label, .settings-panel label { font-size: 10px; }
 .settings-panel input, .settings-panel select, .settings-panel textarea { font-size: 12px; }
 .public-step-label { font-size: 9px; }
-.signature-pad { touch-action: none; touch-action: pinch-zoom; }
+.signature-pad { touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 620px) {
   input, textarea, select { font-size: 16px !important; }
@@ -507,4 +507,101 @@ td { font-size: 11px; }
   .mobile-nav a { font-size: 7px; }
   .team-page .team-member-table tr { grid-template-columns: minmax(0,1fr); }
   .team-page .team-member-table td:nth-child(n) { grid-column: 1; }
+}
+
+/* Public review: compact context, clear privacy cue, and comfortable response rhythm. */
+.public-wrap { width: min(100% - 36px, 720px); padding-top: clamp(30px, 5vw, 52px); }
+.public-intro { max-width: 610px; margin-bottom: 25px; }
+.public-intro .eyebrow { margin-bottom: 11px; color: #557864; font-size: 10px; letter-spacing: .14em; }
+.public-intro h1 { max-width: 600px; font-size: clamp(36px, 5.6vw, 52px); letter-spacing: -1.8px; }
+.public-intro>p:last-child { margin-top: 11px; font-size: 13px; line-height: 1.65; }
+.public-form { gap: 0; padding: clamp(22px, 4vw, 34px); border-radius: 16px; box-shadow: 0 20px 55px #233b2d0b; }
+.public-form-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-bottom: 17px; margin-bottom: 17px; border-bottom: 1px solid var(--form-border, var(--line)); }
+.public-meta-chip { display: inline-flex; min-height: 30px; align-items: center; gap: 7px; padding: 0 11px; border: 1px solid #e4ebe5; border-radius: 999px; background: #f8faf8; color: #65796d; font-size: 10px; font-weight: 650; letter-spacing: .02em; }
+.public-meta-dot { width: 7px; height: 7px; border-radius: 50%; background: #3a8b63; box-shadow: 0 0 0 3px #e4f2e9; }
+.public-private-chip { border-color: #d8e9dd; background: #f2f8f4; color: #2f7553; }
+.public-private-chip svg { flex: 0 0 auto; }
+.public-target-context { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 11px 14px; border: 1px solid #e5ece6; border-radius: 11px; background: linear-gradient(110deg,#f7faf7,#fff 74%); }
+.public-target-icon { display: grid; flex: 0 0 auto; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: #e7f2ea; color: #28704f; }
+.public-target-context>span:last-child { display: grid; gap: 3px; }
+.public-target-context small { color: #73847a; font-size: 10px; }
+.public-target-context strong { color: var(--ink); font-size: 14px; font-weight: 650; }
+.public-target-picker,.public-form-picker { display: grid; gap: 8px; margin-bottom: 13px; }
+.public-target-picker label,.public-form-picker label { color: #3e5046; font-size: 12px; font-weight: 650; }
+.public-form-picker { margin-top: 13px; }
+.public-form .public-input { min-height: 48px; padding: 11px 14px; border-color: #dce6de; border-radius: 9px; font-size: 15px; }
+.public-form .select-wrap>svg { top: 16px; right: 14px; }
+.public-form .public-divider { width: 100%; margin: 20px 0 18px; }
+.public-form-heading { margin-bottom: 11px; }
+.public-form-kicker { margin: 0 0 6px; color: #71847a; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.public-form-heading h2 { margin: 0; font-size: 27px; line-height: 1.2; }
+.public-form-description { margin-top: 7px; font-size: 13px; line-height: 1.65; }
+.public-fields { display: grid; }
+.public-field { padding: 17px 0; border-color: #edf1ee; }
+.public-label { gap: 9px; font-size: 13px; line-height: 1.45; }
+.required-mark { padding: 3px 7px; border-radius: 999px; background: #fbf3ed; color: #9a6040; font-size: 9px; }
+.public-help { margin: 6px 0 10px; font-size: 12px; line-height: 1.55; }
+.public-field>.public-input,.public-field>.select-wrap { margin-top: 9px; }
+.public-field .public-input { min-height: 48px; font-size: 16px; }
+.public-field .public-textarea { min-height: 112px; line-height: 1.6; }
+.public-form .public-option { min-height: 46px; padding: 9px 12px; border-radius: 9px; font-size: 13px; }
+.public-form .rating-option { width: 42px; height: 42px; font-size: 13px; }
+.public-form .public-submit { min-height: 50px; gap: 9px; margin-top: 18px; border-radius: 9px; font-size: 13px; }
+.public-form .privacy-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 11px; font-size: 10px; }
+.public-form .privacy-note svg { color: #64806f; }
+.public-form .public-error { padding: 10px 12px; border-radius: 8px; }
+.public-form :is(input,textarea,select,button):focus-visible { outline: 3px solid #b9dbc5; outline-offset: 2px; }
+
+@media (max-width: 620px) {
+  .public-wrap { width: min(100% - 24px, 720px); padding-top: 24px; }
+  .public-intro { margin-bottom: 18px; }
+  .public-intro h1 { font-size: clamp(34px, 10vw, 43px); letter-spacing: -1.35px; }
+  .public-intro>p:last-child { font-size: 12px; }
+  .public-form { padding: 18px 16px; border-radius: 13px; }
+  .public-form-meta { padding-bottom: 13px; margin-bottom: 14px; }
+  .public-meta-chip { min-height: 28px; padding-inline: 9px; font-size: 9px; }
+  .public-target-context { min-height: 56px; padding: 9px 11px; }
+  .public-form .public-divider { margin: 16px 0 15px; }
+  .public-form-heading h2 { font-size: 24px; }
+  .public-field { padding: 15px 0; }
+}
+
+@media (max-width: 360px) {
+  .public-form { padding-inline: 13px; }
+  .public-meta-chip { gap: 5px; padding-inline: 7px; }
+}
+
+/* Form builder previews mirror the answer control reviewers will use. */
+.section-preview { padding: 8px 0 2px; }
+.section-preview h3 { margin: 0; color: var(--ink); font: 600 18px/1.3 var(--display); }
+.section-preview p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.preview-select { display: flex; align-items: center; justify-content: space-between; color: #738278; }
+.preview-select svg { flex: 0 0 auto; color: #718278; }
+.rating-preview-wrap { display: grid; gap: 8px; }
+.scale-ends { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 9px; }
+.rating-preview { gap: 7px; }
+.rating-preview span { min-width: 36px; height: 36px; border-radius: 9px; background: #fff; font-size: 11px; }
+.form-field-selected .rating-preview span { border-color: #c8ded0; }
+.signature-pad { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.signature-control { gap: 10px; }
+.signature-control .signature-mode { gap: 8px; }
+.signature-control .signature-mode button { min-height: 44px; padding-inline: 14px; }
+.signature-typed { font-size: 18px; }
+.signature-pad { min-height: 180px; cursor: crosshair; }
+.signature-control > .button { justify-self: start; min-height: 42px; }
+.public-form-section { padding: 19px 0 8px; border-top: 1px solid #edf1ee; }
+.public-form-section h3 { margin: 0; color: var(--ink); font-size: 20px; line-height: 1.3; }
+.public-form-section p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.palette-group { padding: 9px 10px 0; }
+.palette-group-title { display: block; margin: 0 0 7px; color: #75857b; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.palette-group .field-palette { padding: 0 0 9px; }
+.form-field:focus-visible { outline: 3px solid #9dc9ad; outline-offset: 2px; }
+.form-field[tabindex="0"] { cursor: pointer; }
+.field-actions button { min-width: 32px; min-height: 32px; }
+.form-field .preview-select { min-height: 39px; }
+
+@media (max-width: 620px) {
+  .rating-preview { gap: 5px; }
+  .rating-preview span { min-width: 34px; height: 34px; }
+  .signature-pad { min-height: 170px; }
 }

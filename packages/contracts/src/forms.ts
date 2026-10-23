@@ -16,6 +16,7 @@ export const signatureAnswerSchema = z.discriminatedUnion("mode", [
 ]);
 
 export const formFieldSchema = z.discriminatedUnion("type", [
+  baseField.extend({ type: z.literal("heading") }),
   baseField.extend({ type: z.literal("name"), minLength: z.number().int().min(0).max(160).optional(), maxLength: z.number().int().min(1).max(160).optional() }),
   baseField.extend({ type: z.literal("shortText"), minLength: z.number().int().min(0).max(5000).optional(), maxLength: z.number().int().min(1).max(5000).optional() }),
   baseField.extend({ type: z.literal("longText"), minLength: z.number().int().min(0).max(20000).optional(), maxLength: z.number().int().min(1).max(20000).optional() }),

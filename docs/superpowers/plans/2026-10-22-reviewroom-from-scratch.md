@@ -6,7 +6,7 @@
 
 **Architecture:** A TypeScript monorepo with a Next.js App Router web application, an Express API, shared Zod contracts, Prisma persistence, and MySQL. The browser uses same-origin `/api/v1` routes rewritten to the API service. The API is the authorization and validation boundary; web route guards improve navigation but never replace API authorization.
 
-**Tech Stack:** Node.js 24 LTS, npm workspaces, Next.js 16 App Router, React 19, TypeScript strict mode, Express 5, Prisma 7, MySQL 8.4, Zod 4, Vitest, Testing Library, Playwright, and an accessibility scanner. Use currently supported patch releases at implementation time and lock them in the package lockfile.
+**Tech Stack:** Node.js 22.x for the configured Hostinger runtime (Node.js 24.x remains supported), npm workspaces, Next.js 16 App Router, React 19, TypeScript strict mode, Express 5, Prisma 7, MySQL 8.4, Zod 4, Node's test runner, and browser accessibility checks. Use currently supported patch releases at implementation time and lock them in the package lockfile.
 
 ## Global Constraints
 
@@ -222,7 +222,7 @@ For each task: first add or update the named tests, run them and confirm the rel
 
 ### Phase 1 — Foundation and Contracts
 
-- [ ] **1. Create the monorepo shell.** Add root `package.json`, workspace config, lockfile, strict TS configs, formatting/lint configuration, `.editorconfig`, `.gitignore`, `.env.example`, and CI workflow. Create `apps/web`, `apps/api`, `packages/contracts`, `packages/domain`, and `packages/design-tokens`. Define root scripts `dev`, `build`, `lint`, `typecheck`, `test`, `test:integration`, and `test:e2e`. Verify a clean install and each empty-app command. Pin Node 24 in `.nvmrc`/`engines`.
+- [ ] **1. Create the monorepo shell.** Add root `package.json`, workspace config, lockfile, strict TS configs, formatting/lint configuration, `.editorconfig`, `.gitignore`, `.env.example`, and CI workflow. Create `apps/web`, `apps/api`, `packages/contracts`, `packages/domain`, and `packages/design-tokens`. Define root scripts `dev`, `build`, `lint`, `typecheck`, `test`, `test:integration`, and `test:e2e`. Verify a clean install and each empty-app command. Pin Node 22.x in `.nvmrc`/CI for Hostinger.
 - [ ] **2. Implement shared primitives and errors.** In `packages/contracts`, define IDs, email normalization, pagination, success/error envelopes, auth roles, status enums, theme presets, and strict request/response schemas. Add schema tests under `packages/contracts/src/**/*.test.ts`, including unknown-key rejection and boundary values. Publish shared package exports; prohibit app-specific imports.
 - [ ] **3. Implement domain policies.** In `packages/domain`, define assignment eligibility, permission matrix, form validation/normalization, progress completion, and submission lifecycle as pure functions. Add table-driven tests for each role, inactive membership, cross-tenant resource, form field type, and progress edge case.
 
