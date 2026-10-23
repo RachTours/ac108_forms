@@ -21,6 +21,10 @@ export const targetWriteSchema = z.object({
   displayName: z.string().trim().min(1).max(160),
   email: z.union([z.string().trim().email().max(254), z.literal("")]).optional(),
 }).strict();
+export const targetCreateResponseSchema = z.object({ data: targetSummarySchema }).strict();
+export const targetUpdateResponseSchema = z.object({
+  data: z.object({ id: uuid, displayName: z.string().min(1).max(160), email: email.nullable() }).strict(),
+}).strict();
 
 export const memberSummarySchema = z.object({
   id: uuid,

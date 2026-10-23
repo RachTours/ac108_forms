@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Pencil, Plus, Search, UserRound, X } from "lucide-react";
+import { paginatedResponseSchema, targetCreateResponseSchema, targetSummarySchema, targetUpdateResponseSchema, targetWriteSchema, type TargetSummary } from "@reviewroom/contracts";
 import { useApi } from "../../lib/client-api";
 
-type Target = { id: string; displayName: string; email: string | null; submissionCount: number; assignedReviewer?: { membershipId: string; displayName: string; email: string } | null };
+type Target = Omit<TargetSummary, "createdAt" | "updatedAt"> & Partial<Pick<TargetSummary, "createdAt" | "updatedAt">>;
+const targetListResponseSchema = paginatedResponseSchema(targetSummarySchema);
 
 export function PeopleManager({ initialTargets, initialCursor, canManage }: { initialTargets: Target[]; initialCursor: string | null; canManage: boolean }) {
   const api = useApi();
@@ -27,7 +29,7 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ data: Target[]; nextCursor: string | null }>(`/review-targets?limit=100&cursor=${encodeURIComponent(cursor)}`);
+      const result = await api(`/review-targets?limit=100&cursor=${encodeURIComponent(cursor)}`, {}, targetListResponseSchema);
       setTargets((items) => [...items, ...result.data]);
       setCursor(result.nextCursor);
     } catch (err) {
@@ -43,7 +45,9 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     setError("");
     setNotice("");
     try {
-      const result = await api<{ data: Target }>("/review-targets", { method: "POST", body: JSON.stringify({ displayName: name, email }) });
+      const payload = targetWriteSchema.safeParse({ displayName: name, email });
+      if (!payload.success) { setError("Enter a name and a valid email address, or leave the email blank."); return; }
+      const result = await api("/review-targets", { method: "POST", body: JSON.stringify(payload.data) }, targetCreateResponseSchema);
       setTargets((items) => [...items, result.data].sort((a, b) => a.displayName.localeCompare(b.displayName)));
       setName("");
       setEmail("");
@@ -69,7 +73,9 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ data: { displayName: string; email: string | null } }>(`/review-targets/${targetId}`, { method: "PATCH", body: JSON.stringify({ displayName: editName, email: editEmail }) });
+      const payload = targetWriteSchema.safeParse({ displayName: editName, email: editEmail });
+      if (!payload.success) { setError("Enter a name and a valid email address, or leave the email blank."); return; }
+      const result = await api(`/review-targets/${targetId}`, { method: "PATCH", body: JSON.stringify(payload.data) }, targetUpdateResponseSchema);
       setTargets((items) => items.map((target) => target.id === targetId ? { ...target, ...result.data } : target));
       setEditingId(null);
       setNotice("Person details saved.");

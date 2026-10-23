@@ -35,6 +35,8 @@ import {
   submissionSummarySchema,
   targetWriteSchema,
   targetSummarySchema,
+  targetUpdateResponseSchema,
+  paginatedResponseSchema,
   formSummarySchema,
   formVersionDetailSchema,
   organizationSummarySchema,
@@ -141,6 +143,16 @@ test("forms, links, submissions, organization, and audit DTO contracts cover the
   assert.equal(auditEventSummarySchema.safeParse({ id, actorId: null, action: "TARGET_ASSIGNED", entityType: "Assignment", entityId: id, createdAt: date, answers: "must-not-leak" }).success, false);
   const publicPayload = { data: { reviewerName: "Reviewer", theme: { accentColor: "#167354", fontPreset: "sans", surfacePreset: "mist", formStyle: "clean" }, targets: [{ id, displayName: "Target" }], forms: [{ id, title: "Review", description: "", versionId: id, definition }] } };
   assert.equal(publicReviewReadResponseSchema.safeParse(publicPayload).success, true);
+});
+
+test("people endpoints have strict target list, create, and update response contracts", () => {
+  const id = "8d493e2d-7500-4d5f-a148-05a7ff2127d0";
+  const date = "2026-01-01T00:00:00.000Z";
+  const target = { id, displayName: "Alex Morgan", email: null, createdAt: date, updatedAt: date, submissionCount: 0 };
+  assert.equal(paginatedResponseSchema(targetSummarySchema).safeParse({ data: [target], nextCursor: null }).success, true);
+  assert.equal(paginatedResponseSchema(targetSummarySchema).safeParse({ data: [{ ...target, internalNotes: "leak" }], nextCursor: null }).success, false);
+  assert.equal(targetUpdateResponseSchema.safeParse({ data: { id, displayName: "Alex Morgan", email: null } }).success, true);
+  assert.equal(targetUpdateResponseSchema.safeParse({ data: { id, displayName: "Alex Morgan", email: null, passwordHash: "leak" } }).success, false);
 });
 
 test("team invitation, role update, and membership reset contracts match current API envelopes", () => {
