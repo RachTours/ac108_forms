@@ -2,6 +2,10 @@ import type { Role } from "@reviewroom/contracts";
 
 export type Audience = "admin" | "reviewer";
 
+export function roleMatchesAudience(role: Role, audience: Audience): boolean {
+  return (audience === "reviewer") === (role === "REVIEWER");
+}
+
 export const workspaceNavigation = [
   { href: "/", label: "Overview", roles: ["OWNER", "ADMIN", "REVIEWER"] },
   { href: "/people", label: "People", roles: ["OWNER", "ADMIN"] },
@@ -22,6 +26,11 @@ export function signInPathForRole(role: Role | Audience): string {
 
 export function homePathForRole(role: Role): string {
   return role === "REVIEWER" ? "/reviewer/progress" : "/admin/overview";
+}
+
+export function workspaceEntryPath(audience: Audience, role?: Role): string {
+  if (!role || !roleMatchesAudience(role, audience)) return signInPathForRole(audience);
+  return homePathForRole(role);
 }
 
 export function workspacePathForRole(path: string, role: Role): string {

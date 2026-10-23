@@ -1,12 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createContentSecurityPolicy } from "./src/lib/csp";
+import { audienceForRequestPath } from "./src/lib/audience-routing";
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const audience = path === "/my-link" || path.startsWith("/my-link/") || path === "/reviewer" || path.startsWith("/reviewer/") || path === "/r" || path.startsWith("/r/") || (path === "/reset-password" && request.nextUrl.searchParams.get("audience") === "reviewer")
-    ? "reviewer"
-    : "admin";
+  const audience = audienceForRequestPath(path, request.nextUrl.searchParams.get("audience"));
   const requestHeaders = new Headers(request.headers);
   const nonce = randomBytes(18).toString("base64");
   const contentSecurityPolicy = createContentSecurityPolicy(nonce, process.env.NODE_ENV !== "production");

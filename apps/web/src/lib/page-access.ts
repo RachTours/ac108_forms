@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import type { Role } from "@reviewroom/contracts";
 import { sessionResponseSchema } from "@reviewroom/contracts";
 import { serverApi } from "./api";
-import { homePathForRole, signInPathForRole } from "./workspace-access";
+import { homePathForRole, roleMatchesAudience, signInPathForRole } from "./workspace-access";
 
 export async function requireWorkspaceRole(allowedRoles: readonly Role[]) {
   const incomingHeaders = await headers();
@@ -15,8 +15,7 @@ export async function requireWorkspaceRole(allowedRoles: readonly Role[]) {
   if (!response.ok) redirect(signInPath);
   const session = sessionResponseSchema.safeParse(await response.json());
   if (!session.success) redirect(`${signInPath}?reason=session-invalid`);
-  const isReviewer = session.data.role === "REVIEWER";
-  if ((audience === "reviewer") !== isReviewer) redirect(`${homePathForRole(session.data.role)}?notice=wrong-workspace`);
+  if (!roleMatchesAudience(session.data.role, audience)) redirect(`${signInPath}?reason=wrong-workspace`);
   if (!allowedRoles.includes(session.data.role)) redirect(`${homePathForRole(session.data.role)}?notice=${audience === "admin" ? "admin-only" : "wrong-workspace"}`);
   return session.data;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getNavigationForRole, canAccessWorkspacePath, workspacePathForRole, signInPathForRole } from "./workspace-access.ts";
+import { getNavigationForRole, canAccessWorkspacePath, workspacePathForRole, signInPathForRole, roleMatchesAudience, workspaceEntryPath } from "./workspace-access.ts";
 
 test("reviewers only see progress, submissions, and their form links", () => {
   assert.deepEqual(getNavigationForRole("REVIEWER").map(({ href }) => href), ["/reviewer/progress", "/reviewer/submissions", "/reviewer/forms"]);
@@ -34,4 +34,20 @@ test("role-specific entry and sign-in routes never cross-link", () => {
   assert.equal(workspacePathForRole("/my-link", "REVIEWER"), "/reviewer/forms");
   assert.equal(signInPathForRole("ADMIN"), "/admin/login");
   assert.equal(signInPathForRole("REVIEWER"), "/reviewer/login");
+});
+
+test("session roles must match the panel audience before rendering any workspace shell", () => {
+  assert.equal(roleMatchesAudience("OWNER", "admin"), true);
+  assert.equal(roleMatchesAudience("ADMIN", "admin"), true);
+  assert.equal(roleMatchesAudience("REVIEWER", "reviewer"), true);
+  assert.equal(roleMatchesAudience("REVIEWER", "admin"), false);
+  assert.equal(roleMatchesAudience("OWNER", "reviewer"), false);
+});
+
+test("workspace entry keeps a mismatched session in the requested panel's login flow", () => {
+  assert.equal(workspaceEntryPath("admin", "OWNER"), "/admin/overview");
+  assert.equal(workspaceEntryPath("reviewer", "REVIEWER"), "/reviewer/progress");
+  assert.equal(workspaceEntryPath("admin", "REVIEWER"), "/admin/login");
+  assert.equal(workspaceEntryPath("reviewer", "OWNER"), "/reviewer/login");
+  assert.equal(workspaceEntryPath("admin"), "/admin/login");
 });

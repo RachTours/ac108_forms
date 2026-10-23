@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { sessionResponseSchema } from "@reviewroom/contracts";
 import { serverApi } from "./api";
-import { homePathForRole, signInPathForRole, type Audience } from "./workspace-access";
+import { signInPathForRole, workspaceEntryPath, type Audience } from "./workspace-access";
 
 export async function routeWorkspaceEntry(audience: Audience): Promise<never> {
   let response: Response;
@@ -10,5 +10,7 @@ export async function routeWorkspaceEntry(audience: Audience): Promise<never> {
   if (!response.ok) redirect(signInPathForRole(audience));
   const session = sessionResponseSchema.safeParse(await response.json());
   if (!session.success) redirect(`${signInPathForRole(audience)}?reason=session-invalid`);
-  redirect(homePathForRole(session.data.role));
+  const destination = workspaceEntryPath(audience, session.data.role);
+  if (destination === signInPathForRole(audience)) redirect(`${destination}?reason=wrong-workspace`);
+  redirect(destination);
 }

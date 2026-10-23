@@ -6,7 +6,7 @@ import { sessionResponseSchema } from "@reviewroom/contracts";
 import { serverApi } from "../../src/lib/api";
 import { ReviewerProgressBoard } from "../../src/features/progress/reviewer-progress-board";
 import { getPeopleRemainingForGoal } from "../../src/features/progress/reviewer-board";
-import { homePathForRole, signInPathForRole, workspacePathForRole } from "../../src/lib/workspace-access";
+import { roleMatchesAudience, signInPathForRole, workspacePathForRole } from "../../src/lib/workspace-access";
 
 export const metadata: Metadata = { title: "Overview" };
 type Summary = { activeTargets: number; assignedTargets: number; completedTargets: number; responseCount: number; unassignedTargets: number; targetCount: number; completionPercent: number; completionRule: string };
@@ -21,8 +21,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   if (!sessionResponse.ok) redirect(signInPathForRole(audience));
   const session = sessionResponseSchema.safeParse(await sessionResponse.json());
   if (!session.success) redirect(`${signInPathForRole(audience)}?reason=session-invalid`);
-  if (requestPath === "/") redirect(homePathForRole(session.data.role));
-  if ((audience === "reviewer") !== (session.data.role === "REVIEWER")) redirect(homePathForRole(session.data.role) + "?notice=wrong-workspace");
+  if (requestPath === "/") redirect(audience === "reviewer" ? "/reviewer/progress" : "/admin/overview");
+  if (!roleMatchesAudience(session.data.role, audience)) redirect(`${signInPathForRole(audience)}?reason=wrong-workspace`);
   const reviewer = session.data.role === "REVIEWER";
   let summary: Summary | null = null;
   let reviewers: ReviewerRow[] = [];
