@@ -29,7 +29,7 @@
 - [x] Update `docs/CONTEXT.md`, `docs/architecture.md`, `docs/routing-and-workspace-architecture.md`, and `docs/hostinger-deployment.md` only where current source has drifted. Inventory `apps/api/prisma/schema.prisma`, migrations, API routers, Next route map, deployment build scripts, environment examples, existing tests, and data constraints. Include exact commands and record pass/fail without exposing secrets. Confirm the two Hostinger apps, current Node version, entry/output paths, and DB version in staging or account settings before locking deployment parameters.
 ### Task 0.2 — Establish a safe test environment.
 
-- [ ] Add `docs/rebuild/test-environments.md` and scripts/configuration for isolated local MySQL and staging DBs. Add an explicit guard that refuses migration/seed/cleanup when the database host/name matches configured production markers. Never use production as an integration-test target.
+- [x] Add `docs/rebuild/test-environments.md` and scripts/configuration for isolated local MySQL and staging DBs. Add an explicit guard that refuses migration/seed/cleanup when the database host/name matches configured production markers. Never use production as an integration-test target.
 ### Task 0.3 — Baseline actual workflows.
 
 - [ ] Add `docs/rebuild/current-workflow-baseline.md` with route screenshots or redacted browser evidence, request/API traces by route template, role/tenant matrix, known failure cases, and workflow outcomes for admin login, reviewer login, invite, assignment, share link, public submit, inbox, and reset. Do not infer an API 500 cause from UI alone; capture request ID and server diagnostics in staging.
