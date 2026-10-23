@@ -44,11 +44,14 @@ npm ci
 npm run build
 ```
 
-Start the web app:
+Build and start the Hostinger standalone web package:
 
 ```sh
-npm run start --workspace @reviewroom/web
+npm run build:hostinger:web
+npm start
 ```
+
+The web `start` script executes `.next/hostinger/server.js`. Do not use `next start` with `output: standalone`; Next.js warns that this is unsupported and it does not run the self-contained Hostinger artifact.
 
 Start the API app:
 
@@ -56,7 +59,7 @@ Start the API app:
 npm run start --workspace @reviewroom/api
 ```
 
-The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`; do not hard-code a public port in Hostinger's app settings. The web app root must remain `apps/web` at build and runtime so the Next.js server finds `.next`. Test this in a staging app before pointing the production domain.
+The API start script runs `apps/api/dist/server.js`. Let the host supply `PORT`; do not hard-code a public port in Hostinger's app settings. Keep the web root at `apps/web` and set its entry to `.next/hostinger/server.js`; the packaged server includes the traced runtime dependencies and static assets. Test this in a staging app before pointing the production domain.
 
 ## Database and release sequence
 
