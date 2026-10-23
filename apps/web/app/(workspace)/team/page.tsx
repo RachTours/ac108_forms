@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { serverApi } from "../../../src/lib/api";
 import { TeamManager } from "../../../src/features/team/team-manager";
-import { invitationListResponseSchema, sessionResponseSchema } from "@reviewroom/contracts";
+import { invitationListResponseSchema, memberListResponseSchema, sessionResponseSchema } from "@reviewroom/contracts";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 
 export const metadata: Metadata = { title: "Team access" };
@@ -28,8 +28,9 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
   const [memberResult, sessionResult] = await Promise.allSettled([serverApi("/members"), serverApi("/auth/session")]);
   if (memberResult.status === "fulfilled" && memberResult.value.ok) {
-    const body: { data: Member[] } = await memberResult.value.json();
-    members = body.data;
+    const parsed = memberListResponseSchema.safeParse(await memberResult.value.json());
+    if (parsed.success) members = parsed.data.data;
+    else memberError = true;
   } else memberError = true;
   if (sessionResult.status === "fulfilled" && sessionResult.value.ok) {
     const session = sessionResponseSchema.safeParse(await sessionResult.value.json());

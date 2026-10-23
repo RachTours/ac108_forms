@@ -37,6 +37,7 @@ export const memberSummarySchema = z.object({
   assignedTargetCount: z.number().int().nonnegative(),
   linkCount: z.number().int().nonnegative(),
 }).strict();
+export const memberListResponseSchema = z.object({ data: z.array(memberSummarySchema).max(200) }).strict();
 
 export const invitationSummarySchema = z.object({
   id: uuid,

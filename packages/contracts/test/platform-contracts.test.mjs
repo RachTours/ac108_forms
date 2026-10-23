@@ -27,6 +27,7 @@ import {
   passwordResetTokenCreatedSchema,
   passwordResetTokensResponseSchema,
   memberSummarySchema,
+  memberListResponseSchema,
   organizationThemeResponseSchema,
   progressConfigSchema,
   progressSummarySchema,
@@ -109,6 +110,8 @@ test("resource contracts validate target, member, and invitation DTOs without ac
     assignedTargetCount: 2, linkCount: 1,
   };
   assert.equal(memberSummarySchema.safeParse(member).success, true);
+  assert.equal(memberListResponseSchema.safeParse({ data: [member] }).success, true);
+  assert.equal(memberListResponseSchema.safeParse({ data: [{ ...member, user: { ...member.user, status: undefined } }] }).success, false);
   assert.equal(memberSummarySchema.safeParse({ ...member, passwordHash: "must-not-leak" }).success, false);
   assert.equal(targetSummarySchema.safeParse({ id: member.id, displayName: "Target", email: null, createdAt: member.createdAt, updatedAt: member.createdAt, submissionCount: 0, assignedReviewer: null }).success, true);
 });
