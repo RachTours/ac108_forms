@@ -123,7 +123,7 @@ test("auto assignment balances unassigned targets across active reviewers and pr
       findFirst: async ({ where }) => reviewers.find((reviewer) => reviewer.id === where.id) ?? null,
     },
     reviewTarget: {
-      findMany: async () => targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id })),
+      findMany: async () => targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })),
       findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
     },
     assignment: {

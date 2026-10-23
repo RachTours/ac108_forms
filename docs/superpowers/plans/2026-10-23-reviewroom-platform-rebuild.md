@@ -50,7 +50,7 @@
 - [ ] Add `packages/domain/src/permissions.ts` and table-driven tests covering owner/admin/reviewer/public access for every resource and action. Add explicit same-organization and active-membership requirements. API handlers must call use cases that enforce this policy; do not encode a second divergent policy in the web app.
 ### Task 1.4 — Define route and page-state maps.
 
-- [ ] Add `docs/rebuild/route-map.md` listing canonical browser URLs, page guard, API dependencies, permissions, route redirects, metadata branding, and all loading/empty/error/retry/conflict states. Preserve admin/reviewer path prefixes and public form route behavior.
+- [x] Add `docs/rebuild/route-map.md` listing canonical browser URLs, page guard, API dependencies, permissions, route redirects, metadata branding, and all loading/empty/error/retry/conflict states. Preserve admin/reviewer path prefixes and public form route behavior.
 
 ## Phase 2 — Design System and UX Foundation
 
@@ -89,7 +89,7 @@
 
 ### Task 4.1 — Define assignment policy as pure functions.
 
-- [ ] Add `packages/domain/src/assignment-policy.ts` with eligibility, deterministic least-load selection, tie-breaking, rebalancing scope, and stale-version decisions. Add table-driven tests for zero reviewers, one/multiple reviewers, workload ties, archived reviewers/targets, organization mismatch, existing assignments, and retry/idempotency.
+- [x] Add `packages/domain/src/assignment-policy.ts` with eligibility, deterministic least-load selection, tie-breaking, rebalancing scope, and stale-version decisions. Add table-driven tests for zero reviewers, one/multiple reviewers, workload ties, archived reviewers/targets, organization mismatch, existing assignments, and retry/idempotency.
 ### Task 4.2 — Create tenant-safe persistence constraints.
 
 - [ ] Update `apps/api/prisma/schema.prisma` and a forward-only migration to enforce unique active target assignment per organization, same-organization relations, indexes for reviewer workload and target lookup, and optimistic version data. Add migration preflight/report scripts that stop on orphan/cross-tenant records; never auto-delete or silently reassign during migration.

@@ -5,6 +5,6 @@
   "type": "module",
   "main": "./dist/permissions.js",
   "types": "./dist/permissions.d.ts",
-  "exports": { ".": { "types": "./dist/permissions.d.ts", "import": "./dist/permissions.js" }, "./permissions": { "types": "./dist/permissions.d.ts", "import": "./dist/permissions.js" } },
+  "exports": { ".": { "types": "./dist/permissions.d.ts", "import": "./dist/permissions.js" }, "./permissions": { "types": "./dist/permissions.d.ts", "import": "./dist/permissions.js" }, "./assignment-policy": { "types": "./dist/assignment-policy.d.ts", "import": "./dist/assignment-policy.js" } },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "npm run build && node --test test/*.test.mjs" }
 }

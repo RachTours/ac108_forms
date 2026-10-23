@@ -1,4 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client.js";
+import { canApplyAssignmentVersion, canAutoAssignTarget, selectLeastLoadedReviewer } from "@reviewroom/domain/assignment-policy";
 import { HttpError } from "../../http/errors.js";
 
 type AssignmentTransaction = Prisma.TransactionClient;
@@ -118,18 +119,20 @@ export async function setAssignment(
   if (current?.reviewerId === reviewer.id) return { assignment: current, changed: false };
   const previousReviewerId = current?.reviewerId ?? null;
   const currentVersion = current ? current.updatedAt.getTime() : null;
-  let writeVersion = input.expectedUpdatedAt;
+  let currentReviewerEligible = true;
   if (current && input.expectedUpdatedAt === null) {
     const currentReviewer = await transaction.membership.findFirst({
       where: { id: current.reviewerId, organizationId: input.organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } },
       select: { id: true },
     });
-    if (!currentReviewer) writeVersion = current.updatedAt;
+    currentReviewerEligible = Boolean(currentReviewer);
   }
-  const writeVersionTime = writeVersion?.getTime() ?? null;
-  if (currentVersion !== writeVersionTime) {
+  const expectedVersionTime = input.expectedUpdatedAt?.getTime() ?? null;
+  if (!canApplyAssignmentVersion(currentVersion, expectedVersionTime, currentReviewerEligible)) {
     throw new HttpError(409, "ASSIGNMENT_CHANGED", "This assignment changed since you opened it. Refresh and try again.");
   }
+
+  const writeVersion = current && input.expectedUpdatedAt === null && !currentReviewerEligible ? current.updatedAt : input.expectedUpdatedAt;
 
   const now = new Date();
   let saved;
@@ -174,6 +177,7 @@ export async function autoAssignUnassignedTargets(
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
+      createdAt: true,
       // Lifecycle writes delete assignments with inactive reviewers/targets.
       // Count only the indexed tenant key here to avoid expensive nested
       // correlated count SQL on MariaDB.
@@ -191,18 +195,27 @@ export async function autoAssignUnassignedTargets(
       assignments: { none: { ...activeAssignmentWhere(input.organizationId) } },
     },
     orderBy: [{ id: "asc" }],
-    select: { id: true },
+    select: { id: true, organizationId: true, status: true, archivedAt: true },
   });
-  if (!targets.length) return [];
+  const eligibleTargets = targets.filter((target) => canAutoAssignTarget(input.organizationId, target, null));
+  if (!eligibleTargets.length) return [];
 
+  const reviewersById = new Map(reviewers.map((reviewer) => [reviewer.id, reviewer]));
   const loadByReviewer = new Map(reviewers.map(({ id, _count }) => [id, _count.assignments]));
 
   const created: Array<{ targetId: string; reviewerId: string }> = [];
-  for (const target of targets) {
-    let reviewerId = reviewers[0]!.id;
-    for (const reviewer of reviewers.slice(1)) {
-      if (loadByReviewer.get(reviewer.id)! < loadByReviewer.get(reviewerId)!) reviewerId = reviewer.id;
-    }
+  for (const target of eligibleTargets) {
+    const selected = selectLeastLoadedReviewer(input.organizationId, reviewers.map((reviewer) => ({
+      id: reviewer.id,
+      organizationId: input.organizationId,
+      role: "REVIEWER" as const,
+      status: "ACTIVE" as const,
+      userStatus: "ACTIVE" as const,
+      load: loadByReviewer.get(reviewer.id) ?? reviewer._count.assignments,
+      stableOrder: reviewer.createdAt?.toISOString() ?? reviewer.id,
+    })));
+    if (!selected || !reviewersById.has(selected.id)) break;
+    const reviewerId = selected.id;
     try {
       const result = await setAssignment(transaction, {
         organizationId: input.organizationId,
