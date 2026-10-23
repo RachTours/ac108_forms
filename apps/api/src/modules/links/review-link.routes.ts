@@ -5,7 +5,7 @@ import { prisma } from "../../db/client.js";
 import { env } from "../../env.js";
 import { HttpError } from "../../http/errors.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { activeReviewerKey, calculateLinkExpiry } from "./review-link-scope.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { canReviewerRevealLink } from "./reviewer-reveal.js";
@@ -14,7 +14,7 @@ export const reviewLinkRouter = Router();
 const idSchema = z.string().uuid();
 const issueOptionsSchema = z.object({ expiresInDays: z.number().int().min(1).max(365).default(90) }).strict();
 
-reviewLinkRouter.get("/mine", requireSession, async (request, response, next) => {
+reviewLinkRouter.get("/mine", requireSession, requirePermission("reviewLinks", "readOwn"), async (request, response, next) => {
   try {
     const auth = request.auth!;
     const links = await prisma.reviewLink.findMany({ where: { organizationId: auth.organizationId, reviewerId: auth.membershipId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true, createdAt: true, expiresAt: true } });
@@ -22,7 +22,7 @@ reviewLinkRouter.get("/mine", requireSession, async (request, response, next) =>
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.get("/mine/forms", requireSession, requireRole("REVIEWER"), async (request, response, next) => {
+reviewLinkRouter.get("/mine/forms", requireSession, requirePermission("reviewLinks", "readOwn"), async (request, response, next) => {
   try {
     const auth = request.auth!;
     const [forms, links] = await Promise.all([
@@ -40,7 +40,7 @@ reviewLinkRouter.get("/mine/forms", requireSession, requireRole("REVIEWER"), asy
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+reviewLinkRouter.get("/", requireSession, requirePermission("reviewLinks", "read"), async (request, response, next) => {
   try {
     const links = await prisma.reviewLink.findMany({
       where: { organizationId: request.auth!.organizationId },
@@ -70,22 +70,21 @@ async function issueLink(organizationId: string, actorId: string, reviewerId: st
   return { id: link.id, createdAt: link.createdAt, expiresAt: link.expiresAt, canReveal: true, shareUrl: `${env.WEB_ORIGIN}/r/${token}` };
 }
 
-reviewLinkRouter.post("/mine/rotate", requireSession, requireCsrf, async (request, response, next) => {
+reviewLinkRouter.post("/mine/rotate", requireSession, requirePermission("reviewLinks", "manageOwn"), requireCsrf, async (request, response, next) => {
   try {
-    if (request.auth!.role !== "REVIEWER") throw new HttpError(403, "FORBIDDEN", "Only reviewer accounts can create a personal review link here.");
     const options = issueOptionsSchema.parse(request.body ?? {});
     response.status(201).json({ data: await issueLink(request.auth!.organizationId, request.auth!.userId, request.auth!.membershipId, null, options.expiresInDays) });
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.post("/mine/forms/:formId/rotate", requireSession, requireRole("REVIEWER"), requireCsrf, async (request, response, next) => {
+reviewLinkRouter.post("/mine/forms/:formId/rotate", requireSession, requirePermission("reviewLinks", "manageOwn"), requireCsrf, async (request, response, next) => {
   try {
     const options = issueOptionsSchema.parse(request.body ?? {});
     response.status(201).json({ data: await issueLink(request.auth!.organizationId, request.auth!.userId, request.auth!.membershipId, idSchema.parse(request.params.formId), options.expiresInDays) });
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.post("/mine/forms/:formId/reveal", requireSession, requireRole("REVIEWER"), requireCsrf, async (request, response, next) => {
+reviewLinkRouter.post("/mine/forms/:formId/reveal", requireSession, requirePermission("reviewLinks", "readOwn"), requireCsrf, async (request, response, next) => {
   try {
     response.setHeader("Cache-Control", "no-store");
     const auth = request.auth!;
@@ -114,14 +113,14 @@ reviewLinkRouter.post("/mine/forms/:formId/reveal", requireSession, requireRole(
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.post("/:membershipId/rotate", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+reviewLinkRouter.post("/:membershipId/rotate", requireSession, requirePermission("reviewLinks", "create"), requireCsrf, async (request, response, next) => {
   try {
     const options = issueOptionsSchema.parse(request.body ?? {});
     response.status(201).json({ data: await issueLink(request.auth!.organizationId, request.auth!.userId, idSchema.parse(request.params.membershipId), null, options.expiresInDays) });
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.post("/:membershipId/forms/:formId/rotate", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+reviewLinkRouter.post("/:membershipId/forms/:formId/rotate", requireSession, requirePermission("reviewLinks", "create"), requireCsrf, async (request, response, next) => {
   try {
     const options = issueOptionsSchema.parse(request.body ?? {});
     response.status(201).json({ data: await issueLink(request.auth!.organizationId, request.auth!.userId, idSchema.parse(request.params.membershipId), idSchema.parse(request.params.formId), options.expiresInDays) });
@@ -152,7 +151,7 @@ reviewLinkRouter.post("/:linkId/revoke", requireSession, requireCsrf, async (req
   } catch (error) { next(error); }
 });
 
-reviewLinkRouter.post("/:linkId/reveal", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+reviewLinkRouter.post("/:linkId/reveal", requireSession, requirePermission("reviewLinks", "read"), requireCsrf, async (request, response, next) => {
   try {
     response.setHeader("Cache-Control", "no-store");
     const auth = request.auth!;

@@ -1,6 +1,6 @@
 export type Role = "OWNER" | "ADMIN" | "REVIEWER";
-export type Resource = "workspace" | "members" | "targets" | "assignments" | "forms" | "submissions" | "settings" | "audit" | "reviewWork" | "publicReview";
-export type Action = "read" | "create" | "update" | "archive" | "manage" | "publish" | "readOwn" | "submit" | "grantAdmin" | "permanentDelete";
+export type Resource = "workspace" | "members" | "targets" | "assignments" | "reviewLinks" | "forms" | "submissions" | "settings" | "audit" | "reviewWork" | "publicReview";
+export type Action = "read" | "create" | "update" | "archive" | "manage" | "publish" | "readOwn" | "manageOwn" | "submit" | "grantAdmin" | "permanentDelete";
 
 export type AuthorizationInput = {
   role: Role;
@@ -22,6 +22,7 @@ const grants: Partial<Record<Resource, Partial<Record<Action, readonly Role[]>>>
   members: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], grantAdmin: ["OWNER"], permanentDelete: ["OWNER"] },
   targets: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"] },
   assignments: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
+  reviewLinks: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], readOwn: ["REVIEWER"], manageOwn: ["REVIEWER"] },
   forms: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], publish: ["OWNER", "ADMIN"] },
   submissions: { read: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"] },
   settings: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
@@ -32,7 +33,7 @@ const grants: Partial<Record<Resource, Partial<Record<Action, readonly Role[]>>>
 export function authorize(input: AuthorizationInput): AuthorizationResult {
   if (input.membershipStatus !== "ACTIVE") return { allowed: false, reason: "MEMBERSHIP_INACTIVE" };
   if (!input.organizationId || input.organizationId !== input.requestedOrganizationId) return { allowed: false, reason: "TENANT_MISMATCH" };
-  if (input.resource === "reviewWork" && (!input.membershipId || input.membershipId !== input.resourceMembershipId)) {
+  if ((input.resource === "reviewWork" || input.resource === "reviewLinks") && (!input.membershipId || input.membershipId !== input.resourceMembershipId)) {
     return { allowed: false, reason: "RESOURCE_SCOPE_MISMATCH" };
   }
   const roles = grants[input.resource]?.[input.action];

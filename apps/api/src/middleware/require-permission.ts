@@ -19,7 +19,7 @@ export function requirePermission(resource: Resource, action: Action): RequestHa
       membershipStatus: "ACTIVE",
       resource,
       action,
-      ...(resource === "reviewWork" ? { resourceMembershipId: auth.membershipId } : {}),
+      ...((resource === "reviewWork" || resource === "reviewLinks") ? { resourceMembershipId: auth.membershipId } : {}),
     });
     if (!result.allowed) {
       next(new HttpError(403, "FORBIDDEN", "You do not have permission to perform this action."));

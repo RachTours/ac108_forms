@@ -53,6 +53,17 @@ test("submission archive operations are owner/admin only while reviewer work rem
   assert.equal(invoke(requirePermission("reviewWork", "readOwn"), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" }).continued, true);
 });
 
+test("review link permissions separate admin management from reviewer-owned links", () => {
+  for (const [action, reviewerAllowed] of [["read", false], ["create", false], ["readOwn", true], ["manageOwn", true]]) {
+    for (const role of ["OWNER", "ADMIN"]) {
+      const result = invoke(requirePermission("reviewLinks", action), { role, organizationId: "org-a", membershipId: `${role}-a` });
+      assert.equal(result.continued, action === "read" || action === "create");
+    }
+    const result = invoke(requirePermission("reviewLinks", action), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" });
+    assert.equal(result.continued, reviewerAllowed, `reviewer ${action}`);
+  }
+});
+
 test("member lifecycle permissions separate owner-only permanent deletion", () => {
   for (const action of ["read", "create", "update", "archive"]) {
     for (const role of ["OWNER", "ADMIN"]) {
