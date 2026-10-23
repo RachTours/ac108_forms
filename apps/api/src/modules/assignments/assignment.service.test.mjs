@@ -63,10 +63,12 @@ test("reviewer and state filters are combined instead of overwriting one another
   assert.ok(targetQueries.every((where) => Array.isArray(where.AND)), "combined filters must stay separate in AND clauses");
   const pageFilter = JSON.stringify(targetQueries[0]);
   assert.match(pageFilter, new RegExp(`"reviewerId":"${reviewerId}"`));
-  assert.match(pageFilter, new RegExp(`"none":\\{"organizationId":"${organizationId}"`));
+  assert.match(pageFilter, new RegExp(`"none":\\{"organizationId":"${organizationId}","reviewer":`));
   const assignedCountFilter = JSON.stringify(targetQueries[2]);
   assert.match(assignedCountFilter, new RegExp(`"reviewerId":"${reviewerId}"`));
   assert.ok(assignedCountFilter.includes('"some":'));
+  const unassignedCountFilter = JSON.stringify(targetQueries[3]);
+  assert.match(unassignedCountFilter, new RegExp(`"none":\\{"organizationId":"${organizationId}","reviewer":`));
 });
 
 test("reassignment requires the displayed version and records one audit event", async () => {
