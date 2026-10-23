@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { assignTargets } from "./bulk-assignment.js";
 import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schemas.js";
 import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
@@ -13,7 +13,7 @@ export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
 
 targetRouter.use(requireSession);
-targetRouter.get("/assignment-options", requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+targetRouter.get("/assignment-options", requirePermission("assignments", "read"), async (request, response, next) => {
   try {
     const auth = request.auth!;
     const limit = z.coerce.number().int().min(1).max(100).default(100).parse(request.query.limit);
@@ -24,7 +24,7 @@ targetRouter.get("/assignment-options", requireRole("OWNER", "ADMIN"), async (re
   } catch (error) { next(error); }
 });
 
-targetRouter.get("/", requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+targetRouter.get("/", requirePermission("targets", "read"), async (request, response, next) => {
   try {
     const auth = request.auth!;
     const limit = z.coerce.number().int().min(1).max(100).default(25).parse(request.query.limit);
@@ -41,7 +41,7 @@ targetRouter.get("/", requireRole("OWNER", "ADMIN"), async (request, response, n
   } catch (error) { next(error); }
 });
 
-targetRouter.post("/", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+targetRouter.post("/", requirePermission("targets", "create"), requireCsrf, async (request, response, next) => {
   try {
     const input = createTargetSchema.parse(request.body);
     const auth = request.auth!;
@@ -59,7 +59,7 @@ targetRouter.post("/", requireRole("OWNER", "ADMIN"), requireCsrf, async (reques
   } catch (error) { next(error); }
 });
 
-targetRouter.patch("/:targetId", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+targetRouter.patch("/:targetId", requirePermission("targets", "update"), requireCsrf, async (request, response, next) => {
   try {
     const targetId = idSchema.parse(request.params.targetId);
     const input = updateTargetSchema.parse(request.body);
@@ -76,7 +76,7 @@ targetRouter.patch("/:targetId", requireRole("OWNER", "ADMIN"), requireCsrf, asy
   } catch (error) { next(error); }
 });
 
-targetRouter.delete("/:targetId", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+targetRouter.delete("/:targetId", requirePermission("targets", "archive"), requireCsrf, async (request, response, next) => {
   try {
     const targetId = idSchema.parse(request.params.targetId);
     const auth = request.auth!;
@@ -92,7 +92,7 @@ targetRouter.delete("/:targetId", requireRole("OWNER", "ADMIN"), requireCsrf, as
   } catch (error) { next(error); }
 });
 
-targetRouter.post("/assignments/bulk", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+targetRouter.post("/assignments/bulk", requirePermission("assignments", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const input = bulkAssignmentSchema.parse(request.body);
     const auth = request.auth!;
@@ -101,7 +101,7 @@ targetRouter.post("/assignments/bulk", requireRole("OWNER", "ADMIN"), requireCsr
   } catch (error) { next(error); }
 });
 
-targetRouter.put("/:targetId/assignment", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+targetRouter.put("/:targetId/assignment", requirePermission("assignments", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const targetId = idSchema.parse(request.params.targetId);
     const { reviewerId } = z.object({ reviewerId: idSchema }).strict().parse(request.body);
@@ -114,7 +114,7 @@ targetRouter.put("/:targetId/assignment", requireRole("OWNER", "ADMIN"), require
   } catch (error) { next(error); }
 });
 
-targetRouter.delete("/:targetId/assignment", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+targetRouter.delete("/:targetId/assignment", requirePermission("assignments", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const targetId = idSchema.parse(request.params.targetId);
     const auth = request.auth!;

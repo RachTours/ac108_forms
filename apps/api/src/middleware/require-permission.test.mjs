@@ -18,6 +18,20 @@ test("assignment permission middleware delegates owner/admin grants to the domai
   assert.equal(denied.error.code, "FORBIDDEN");
 });
 
+test("target operations use their explicit domain permissions", () => {
+  const cases = [
+    ["targets", "read"], ["targets", "create"], ["targets", "update"], ["targets", "archive"],
+    ["assignments", "read"], ["assignments", "manage"],
+  ];
+  for (const [resource, action] of cases) {
+    for (const role of ["OWNER", "ADMIN"]) {
+      assert.equal(invoke(requirePermission(resource, action), { role, organizationId: "org-a", membershipId: "member-a" }).continued, true, `${role} ${resource}:${action}`);
+    }
+    const denied = invoke(requirePermission(resource, action), { role: "REVIEWER", organizationId: "org-a", membershipId: "member-r" });
+    assert.equal(denied.error.status, 403, `reviewer ${resource}:${action}`);
+  }
+});
+
 test("permission middleware rejects requests without an authenticated session", () => {
   const result = invoke(requirePermission("assignments", "read"), undefined);
   assert.equal(result.error.status, 401);
