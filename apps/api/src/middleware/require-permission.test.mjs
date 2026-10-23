@@ -53,6 +53,18 @@ test("submission archive operations are owner/admin only while reviewer work rem
   assert.equal(invoke(requirePermission("reviewWork", "readOwn"), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" }).continued, true);
 });
 
+test("member lifecycle permissions separate owner-only permanent deletion", () => {
+  for (const action of ["read", "create", "update", "archive"]) {
+    for (const role of ["OWNER", "ADMIN"]) {
+      assert.equal(invoke(requirePermission("members", action), { role, organizationId: "org-a", membershipId: `${role}-a` }).continued, true);
+    }
+    assert.equal(invoke(requirePermission("members", action), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" }).error.status, 403);
+  }
+  assert.equal(invoke(requirePermission("members", "grantAdmin"), { role: "ADMIN", organizationId: "org-a", membershipId: "admin-a" }).error.status, 403);
+  assert.equal(invoke(requirePermission("members", "permanentDelete"), { role: "ADMIN", organizationId: "org-a", membershipId: "admin-a" }).error.status, 403);
+  assert.equal(invoke(requirePermission("members", "permanentDelete"), { role: "OWNER", organizationId: "org-a", membershipId: "owner-a" }).continued, true);
+});
+
 test("permission middleware rejects requests without an authenticated session", () => {
   const result = invoke(requirePermission("assignments", "read"), undefined);
   assert.equal(result.error.status, 401);

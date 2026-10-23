@@ -22,6 +22,8 @@ test("authorization denies inactive membership and cross-organization resource a
 
 test("sensitive member operations are owner-only and public submit has no authenticated grant", () => {
   assert.equal(authorize({ ...base, role: "ADMIN", resource: "members", action: "grantAdmin" }).reason, "ROLE_FORBIDDEN");
+  assert.equal(authorize({ ...base, role: "ADMIN", resource: "members", action: "permanentDelete" }).reason, "ROLE_FORBIDDEN");
+  assert.equal(authorize({ ...base, role: "OWNER", resource: "members", action: "permanentDelete" }).allowed, true);
   assert.equal(authorize({ ...base, resource: "publicReview", action: "submit" }).reason, "ROLE_FORBIDDEN");
 });
 
@@ -29,7 +31,7 @@ test("every declared resource and action has an explicit role grant or denial", 
   const expected = new Map([
     ["workspace:read", ["OWNER", "ADMIN"]],
     ["workspace:manage", ["OWNER", "ADMIN"]],
-    ["members:read", ["OWNER", "ADMIN"]], ["members:create", ["OWNER", "ADMIN"]], ["members:update", ["OWNER", "ADMIN"]], ["members:archive", ["OWNER", "ADMIN"]], ["members:grantAdmin", ["OWNER"]],
+    ["members:read", ["OWNER", "ADMIN"]], ["members:create", ["OWNER", "ADMIN"]], ["members:update", ["OWNER", "ADMIN"]], ["members:archive", ["OWNER", "ADMIN"]], ["members:grantAdmin", ["OWNER"]], ["members:permanentDelete", ["OWNER"]],
     ["targets:read", ["OWNER", "ADMIN"]], ["targets:create", ["OWNER", "ADMIN"]], ["targets:update", ["OWNER", "ADMIN"]], ["targets:archive", ["OWNER", "ADMIN"]],
     ["assignments:read", ["OWNER", "ADMIN"]], ["assignments:manage", ["OWNER", "ADMIN"]],
     ["forms:read", ["OWNER", "ADMIN"]], ["forms:create", ["OWNER", "ADMIN"]], ["forms:update", ["OWNER", "ADMIN"]], ["forms:archive", ["OWNER", "ADMIN"]], ["forms:publish", ["OWNER", "ADMIN"]],
@@ -38,7 +40,7 @@ test("every declared resource and action has an explicit role grant or denial", 
     ["reviewWork:readOwn", ["REVIEWER"]], ["reviewWork:submit", ["REVIEWER"]],
   ]);
   const resources = ["workspace", "members", "targets", "assignments", "forms", "submissions", "settings", "audit", "reviewWork", "publicReview"];
-  const actions = ["read", "create", "update", "archive", "manage", "publish", "readOwn", "submit", "grantAdmin"];
+  const actions = ["read", "create", "update", "archive", "manage", "publish", "readOwn", "submit", "grantAdmin", "permanentDelete"];
 
   for (const resource of resources) {
     for (const action of actions) {

@@ -1,6 +1,6 @@
 export type Role = "OWNER" | "ADMIN" | "REVIEWER";
 export type Resource = "workspace" | "members" | "targets" | "assignments" | "forms" | "submissions" | "settings" | "audit" | "reviewWork" | "publicReview";
-export type Action = "read" | "create" | "update" | "archive" | "manage" | "publish" | "readOwn" | "submit" | "grantAdmin";
+export type Action = "read" | "create" | "update" | "archive" | "manage" | "publish" | "readOwn" | "submit" | "grantAdmin" | "permanentDelete";
 
 export type AuthorizationInput = {
   role: Role;
@@ -19,7 +19,7 @@ export type AuthorizationResult =
 
 const grants: Partial<Record<Resource, Partial<Record<Action, readonly Role[]>>>> = {
   workspace: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
-  members: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], grantAdmin: ["OWNER"] },
+  members: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], grantAdmin: ["OWNER"], permanentDelete: ["OWNER"] },
   targets: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"] },
   assignments: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
   forms: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], publish: ["OWNER", "ADMIN"] },
