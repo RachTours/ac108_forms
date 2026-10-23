@@ -1,5 +1,6 @@
 type ErrorLogRequest = {
   method: string;
+  baseUrl?: string;
   route?: { path?: string };
 };
 
@@ -26,8 +27,11 @@ export function formatInternalErrorLog(
     event: "http.unhandled_error",
     ...(requestId ? { requestId: requestId.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 200) } : {}),
     method: request.method.replace(/[^A-Za-z]/g, "").slice(0, 20),
-    // Express route.path is the registered template, unlike originalUrl or params.
-    route: typeof request.route?.path === "string" ? request.route.path.slice(0, 500) : "[unmatched]",
+    // Include the router mount path so nested routes are distinguishable, while
+    // avoiding originalUrl and params that may contain secrets or personal data.
+    route: typeof request.route?.path === "string"
+      ? `${request.baseUrl ?? ""}${request.route.path}`.slice(0, 500)
+      : "[unmatched]",
     error: describeError(error),
   });
 }
