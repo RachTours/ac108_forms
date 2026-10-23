@@ -11,6 +11,47 @@ export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
 
 targetRouter.use(requireSession);
+targetRouter.get("/assignment-options", requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+  try {
+    const auth = request.auth!;
+    const limit = z.coerce.number().int().min(1).max(100).default(100).parse(request.query.limit);
+    const cursor = request.query.cursor ? idSchema.parse(request.query.cursor) : undefined;
+    const search = z.string().trim().max(120).default("").parse(request.query.search ?? "");
+    const rows = await prisma.reviewTarget.findMany({
+      where: { organizationId: auth.organizationId, status: "ACTIVE", archivedAt: null, displayName: { contains: search } },
+      orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        assignments: {
+          where: { organizationId: auth.organizationId },
+          take: 1,
+          select: { reviewerId: true, reviewer: { select: { user: { select: { displayName: true, email: true } } } } },
+        },
+      },
+    });
+    const hasMore = rows.length > limit;
+    const page = rows.slice(0, limit);
+    response.json({
+      data: page.map(({ assignments, ...target }) => {
+        const assignment = assignments[0];
+        return {
+          ...target,
+          assignedReviewer: assignment ? {
+            membershipId: assignment.reviewerId,
+            displayName: assignment.reviewer.user.displayName,
+            email: assignment.reviewer.user.email,
+          } : null,
+        };
+      }),
+      nextCursor: hasMore ? page.at(-1)?.id ?? null : null,
+    });
+  } catch (error) { next(error); }
+});
+
 targetRouter.get("/", requireRole("OWNER", "ADMIN"), async (request, response, next) => {
   try {
     const auth = request.auth!;

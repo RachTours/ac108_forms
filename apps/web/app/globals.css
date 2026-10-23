@@ -73,9 +73,7 @@ a { color: inherit; text-decoration: none; }
 .assignment-filter { display: inline-flex; min-height: 35px; align-items: center; gap: 7px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #53665b; font-size: 10px; }
 .assignment-filter span { display: inline-grid; min-width: 18px; height: 18px; place-items: center; border-radius: 999px; background: #f0f4f1; font-size: 9px; }
 .assignment-filter.active { border-color: #a8cbb5; background: var(--green-soft); color: var(--green); }
-.bulk-assignment { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 12px 0; padding: 11px 13px; border: 1px solid #bfd8c7; border-radius: 9px; background: #f4faf6; }
-.bulk-assignment>span { display: flex; align-items: center; gap: 6px; margin-right: auto; color: var(--green); font-size: 10px; }
-.bulk-assignment select,.reviewer-sort select { min-height: 35px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font-size: 10px; }
+.reviewer-sort select { min-height: 35px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font-size: 10px; }
 .table-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); }
 .reviewer-board { margin: 18px 0; }
 .reviewer-board-heading { align-items: center; }
@@ -109,9 +107,6 @@ a { color: inherit; text-decoration: none; }
 
   .assignment-summary { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
   .assignment-filter { flex: 0 0 auto; min-height: 40px; }
-  .bulk-assignment { align-items: stretch; }
-  .bulk-assignment>span { flex: 1 0 100%; }
-  .bulk-assignment select { flex: 1 1 100%; }
   .reviewer-board-heading { align-items: flex-start; }
   .reviewer-progress-row { grid-template-columns: minmax(0,1fr) auto; gap: 9px; }
   .reviewer-progress-meter { grid-column: 1 / -1; grid-row: 2; }
@@ -119,7 +114,7 @@ a { color: inherit; text-decoration: none; }
   .team-search { width: 100%; }
   .team-filter-row { gap: 5px; }
   .team-filter-row .assignment-filter { min-height: 38px; padding: 0 9px; }
-  .table-select, .bulk-assignment select { min-height: 42px; }
+  .table-select { min-height: 42px; }
   .table-action, .table-wrap td .icon-button { width: 40px; height: 40px; }
   .public-input { min-height: 44px; }
   .public-option { min-height: 44px; }
@@ -170,6 +165,16 @@ a { color: inherit; text-decoration: none; }
 .team-page .team-member-table th { padding: 12px 13px; font-size: 9px; }
 .team-page .team-member-table td { padding: 13px; font-size: 11px; }
 .team-page .table-subline { font-size: 10px; }
+.reviewer-assignment-panel { display: grid; gap: 12px; margin-top: 12px; padding: 16px; }
+.reviewer-assignment-panel .section-heading { margin: 0; }
+.reviewer-assignment-panel h3 { margin: 0; font-size: 15px; }
+.reviewer-assignment-search { width: 100%; max-width: 420px; }
+.reviewer-assignment-list { display: grid; gap: 7px; }
+.reviewer-assignment-row { display: grid; grid-template-columns: 30px minmax(140px, 1fr) minmax(140px, .8fr) auto; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.reviewer-assignment-person { display: grid; min-width: 0; gap: 3px; }
+.reviewer-assignment-person strong { overflow-wrap: anywhere; font-size: 11px; }
+.reviewer-assignment-person small,.reviewer-assignment-status { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.manage-assignments-button { display: block; margin-top: 5px; }
 .team-page .invite-form { gap: 12px; padding: 20px; border-radius: 13px; }
 .team-page .invite-intro { align-items: flex-start; padding-bottom: 13px; }
 .team-page .invite-intro strong { font-size: 12px; }
@@ -401,17 +406,14 @@ td { font-size: 11px; }
   .people-target-table thead th { padding: 0; border: 0; background: transparent; }
   .people-target-table thead th:not(:first-child) { display: none; }
   .people-target-table tbody { display: grid; gap: 9px; }
-  .people-target-table tr.review-target-row { display: grid; grid-template-areas: "select person actions" "select reviewer actions" "select responses status"; grid-template-columns: 28px minmax(0, 1fr) 44px; gap: 9px 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
-  .people-target-table tr.review-target-row:not(.managed) { grid-template-areas: "person person" "reviewer reviewer" "responses status"; grid-template-columns: minmax(0, 1fr) auto; }
+  .people-target-table tr.review-target-row { display: grid; grid-template-areas: "person actions" "reviewer reviewer" "responses status"; grid-template-columns: minmax(0, 1fr) auto; gap: 9px 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
   .people-target-table tr.review-target-row > td { display: flex; min-width: 0; align-items: center; padding: 0; border: 0; }
-  .target-select-cell { grid-area: select; align-items: start !important; padding-top: 4px !important; }
   .target-person-cell { grid-area: person; }
   .target-reviewer-cell { grid-area: reviewer; gap: 8px; }
   .target-response-cell { grid-area: responses; gap: 7px; color: var(--ink); }
   .target-status-cell { grid-area: status; justify-content: end; }
   .target-actions-cell { grid-area: actions; align-items: start !important; justify-content: end; }
   .target-reviewer-cell::before, .target-response-cell::before { flex: 0 0 auto; color: var(--muted); font-size: 10px; content: attr(data-label); }
-  .target-reviewer-cell .table-select { width: 100%; max-width: none; min-height: 44px; flex: 1; font-size: 12px; }
   .people-target-table .person-cell { min-width: 0; }
   .people-target-table .person-cell > span:last-child { min-width: 0; overflow-wrap: anywhere; }
   .people-target-table .edit-person { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) 44px; gap: 7px; }
@@ -461,6 +463,9 @@ td { font-size: 11px; }
   .people-target-table .person-cell > span:last-child { flex: 1 1 auto; }
   .people-target-table .person-cell strong, .people-target-table .person-cell small { overflow-wrap: anywhere; }
   .people-target-table .target-reviewer-cell .table-select { min-width: 0; }
+  .reviewer-assignment-row { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; }
+  .reviewer-assignment-status { grid-column: 2 / -1; }
+  .reviewer-assignment-row .button { grid-column: 2 / -1; width: 100%; min-height: 40px; }
   .team-page .team-filter-row { display: flex; flex-wrap: wrap; gap: 7px; overflow: visible; }
   .team-page .team-filter-row .assignment-filter { flex: 0 1 auto; }
   .team-page .team-member-table { overflow: visible; border: 0; background: transparent; }
