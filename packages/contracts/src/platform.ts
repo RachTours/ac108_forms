@@ -25,6 +25,14 @@ export const listResponseSchema = <T extends z.ZodType>(itemSchema: T) => z.obje
 export const loginRequestSchema = z.object({
   email: z.string().trim().email().max(254),
   password: z.string().min(1).max(1024),
+  organizationSlug: z.string().trim().min(1).max(80).toLowerCase().optional(),
+}).strict();
+
+export const loginResponseSchema = z.object({
+  user: z.object({ id: z.string().uuid(), email: z.string().email(), displayName: z.string().min(1).max(120) }).strict(),
+  organization: z.object({ id: z.string().uuid(), name: z.string().min(1).max(160), slug: z.string().min(1).max(80) }).strict(),
+  role: z.enum(roles),
+  csrfToken: z.string().length(64),
 }).strict();
 
 export const sessionResponseSchema = z.object({
@@ -34,6 +42,11 @@ export const sessionResponseSchema = z.object({
   membershipId: z.string().uuid(),
   role: z.enum(roles),
   csrfToken: z.string().length(64),
+}).strict();
+
+export const workspaceChoiceResponseSchema = z.object({
+  error: z.object({ code: z.literal("WORKSPACE_SELECTION_REQUIRED"), message: z.string().min(1).max(500), requestId: z.string().min(1).max(128).optional() }).strict(),
+  data: z.object({ workspaces: z.array(z.object({ id: z.string().uuid(), name: z.string().min(1).max(160), slug: z.string().min(1).max(80), role: z.enum(roles) }).strict()).min(1).max(100) }).strict(),
 }).strict();
 
 export const assignmentSetRequestSchema = z.object({
@@ -64,14 +77,8 @@ export const assignmentMutationResponseSchema = z.object({
   changed: z.boolean(),
 }).strict();
 
-export const invitationAcceptRequestSchema = z.object({
-  token: z.string().min(40).max(100),
-  email: z.string().trim().email().max(254),
-  displayName: z.string().trim().min(1).max(120),
-  password: z.string().min(14).max(1024),
-}).strict();
-
 export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email().max(254),
   token: z.string().min(40).max(100),
   password: z.string().min(14).max(1024),
 }).strict();
@@ -79,8 +86,9 @@ export const passwordResetRequestSchema = z.object({
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type WorkspaceChoiceResponse = z.infer<typeof workspaceChoiceResponseSchema>;
 export type AssignmentSetRequest = z.infer<typeof assignmentSetRequestSchema>;
 export type AssignmentTarget = z.infer<typeof assignmentTargetSchema>;
 export type AssignmentMutationResponse = z.infer<typeof assignmentMutationResponseSchema>;
-export type InvitationAcceptRequest = z.infer<typeof invitationAcceptRequestSchema>;
 export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;

@@ -5,9 +5,9 @@ const baseField = z.object({
   label: z.string().trim().min(1).max(160),
   description: z.string().max(500),
   required: z.boolean(),
-});
+}).strict();
 
-const option = z.object({ id: z.string().uuid(), label: z.string().trim().min(1).max(120) });
+const option = z.object({ id: z.string().uuid(), label: z.string().trim().min(1).max(120) }).strict();
 export const signatureAnswerSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("typed"), text: z.string().trim().min(1).max(160) }).strict(),
   z.object({ mode: z.literal("drawn"), strokes: z.array(z.object({ points: z.array(z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict()).min(2).max(1200) }).strict()).min(1).max(20) }).strict().superRefine((value, context) => {
@@ -38,7 +38,7 @@ export const formDefinitionSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().max(2000),
   fields: z.array(formFieldSchema).max(100),
-}).superRefine(({ fields }, context) => {
+}).strict().superRefine(({ fields }, context) => {
   const ids = fields.map((field) => field.id);
   if (new Set(ids).size !== ids.length) context.addIssue({ code: "custom", message: "Field identifiers must be unique", path: ["fields"] });
   for (const field of fields) {
@@ -77,7 +77,9 @@ export const formDefinitionWriteSchema = formDefinitionSchema.superRefine(({ fie
   });
 });
 
-export const formAnswersSchema = z.record(z.string().uuid(), z.unknown());
+export const formAnswersSchema = z.record(z.string().uuid(), z.unknown()).superRefine((answers, context) => {
+  if (Object.keys(answers).length > 100) context.addIssue({ code: "custom", message: "A response cannot contain more than 100 answers." });
+});
 
 export const rankingAnswerSchema = (allowedOptionIds: readonly string[]) => z.array(z.string().uuid()).length(allowedOptionIds.length).refine(
   (answer) => new Set(answer).size === answer.length && answer.every((optionId) => allowedOptionIds.includes(optionId)),

@@ -12,6 +12,7 @@ import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
 import { toMemberSummary } from "./member-summary.js";
+import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
 
 export const memberRouter = Router();
@@ -255,7 +256,7 @@ memberRouter.patch("/:membershipId", requireSession, requireRole("OWNER", "ADMIN
       }
       return saved;
     }, { maxWait: 10_000, timeout: 60_000 });
-    response.json({ data: updated });
+    response.json({ data: toMemberUpdateSummary(updated) });
   } catch (error) { next(error); }
 });
 
