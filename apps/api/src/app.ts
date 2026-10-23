@@ -7,6 +7,7 @@ import { errorHandler, notFound } from "./http/error-handler.js";
 import { apiRateLimit } from "./http/rate-limits.js";
 import { requestContext } from "./http/request-context.js";
 import { noStore } from "./http/no-store.js";
+import { isDraining } from "./http/service-state.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { prisma } from "./db/client.js";
 import { formRouter } from "./modules/forms/form.routes.js";
@@ -37,6 +38,10 @@ app.use("/api/v1", apiRateLimit);
 app.get("/health", noStore, (_request, response) => response.status(200).json({ status: "ok" }));
 app.get("/api/v1/health/live", (_request, response) => response.status(200).json({ status: "ok" }));
 app.get("/api/v1/health/ready", async (_request, response, next) => {
+  if (isDraining()) {
+    response.status(503).json({ status: "draining" });
+    return;
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
     response.status(200).json({ status: "ready" });
