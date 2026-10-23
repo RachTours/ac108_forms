@@ -11,6 +11,7 @@ import { hashPassword } from "../auth/password.js";
 import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
+import { InvitationAcceptanceError, parseInvitationAcceptanceInput, resolveInvitationIdentity } from "./invitation-acceptance.js";
 import { toMemberSummary } from "./member-summary.js";
 import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
@@ -18,7 +19,6 @@ import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentRevie
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
 const invitationSchema = z.object({ role: z.enum(["ADMIN", "REVIEWER"]) }).strict();
-const acceptanceSchema = z.object({ email: z.string().trim().email().max(254).optional(), displayName: z.string().trim().min(1).max(120).optional(), password: z.string().min(14).max(1024) }).strict();
 const invitationTokenSchema = z.string().min(40).max(100);
 const resetTokenIdSchema = z.string().uuid();
 
@@ -136,24 +136,31 @@ memberRouter.get("/invitations/:token", authRateLimit, async (request, response,
 memberRouter.post("/invitations/:token/accept", authRateLimit, async (request, response, next) => {
   try {
     const token = invitationTokenSchema.parse(request.params.token);
-    const input = acceptanceSchema.parse(request.body);
+    const input = parseInvitationAcceptanceInput(request.body);
     const tokenHash = createHash("sha256").update(token).digest("hex");
+    const validInvitation = await prisma.invitation.findUnique({ where: { tokenHash }, select: { acceptedAt: true, revokedAt: true, expiresAt: true } });
+    if (!validInvitation || validInvitation.acceptedAt || validInvitation.revokedAt || validInvitation.expiresAt <= new Date()) {
+      throw new HttpError(410, "INVITATION_INVALID", "This invitation is no longer valid.");
+    }
     const passwordHash = await hashPassword(input.password);
     await prisma.$transaction(async (transaction) => {
       const invitation = await transaction.invitation.findUnique({ where: { tokenHash } });
       if (!invitation || invitation.acceptedAt || invitation.revokedAt || invitation.expiresAt <= new Date()) throw new HttpError(410, "INVITATION_INVALID", "This invitation is no longer valid.");
       const claim = await transaction.invitation.updateMany({ where: { id: invitation.id, tokenHash, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, data: { acceptedAt: new Date() } });
       if (claim.count !== 1) throw new HttpError(410, "INVITATION_INVALID", "This invitation is no longer valid.");
-      const acceptedEmail = invitation.email ?? input.email;
-      const acceptedName = invitation.displayName ?? input.displayName;
-      if (!acceptedEmail || !acceptedName) throw new HttpError(400, "IDENTITY_REQUIRED", "Enter your name and email address to accept this access token.");
-      const email = acceptedEmail.toLowerCase();
-      if (invitation.email && invitation.email.toLowerCase() !== email) throw new HttpError(400, "INVITATION_EMAIL_MISMATCH", "Use the email address this invitation was issued to.");
+      let identity: ReturnType<typeof resolveInvitationIdentity>;
+      try {
+        identity = resolveInvitationIdentity(invitation, input);
+      } catch (error) {
+        if (error instanceof InvitationAcceptanceError) throw new HttpError(400, error.code, error.message);
+        throw error;
+      }
+      const { email } = identity;
       let user = await transaction.user.findUnique({ where: { email } });
       if (user) {
         if (user.status !== "ACTIVE") throw new HttpError(401, "ACCOUNT_UNAVAILABLE", "This account is not available to join the workspace.");
       } else {
-        user = await transaction.user.create({ data: { email, displayName: acceptedName } });
+        user = await transaction.user.create({ data: { email, displayName: identity.displayName } });
       }
       const membershipExists = await transaction.membership.findUnique({ where: { organizationId_userId: { organizationId: invitation.organizationId, userId: user.id } } });
       if (membershipExists) throw new HttpError(409, "ALREADY_MEMBER", "This account already belongs to the workspace.");
@@ -163,6 +170,7 @@ memberRouter.post("/invitations/:token/accept", authRateLimit, async (request, r
         await autoAssignUnassignedTargets(transaction, { organizationId: invitation.organizationId, actorId: user.id, source: "auto-balance-reviewer-accepted" });
       }
     }, { maxWait: 10_000, timeout: 60_000 });
+    response.setHeader("Cache-Control", "no-store");
     response.status(201).json({ data: { accepted: true } });
   } catch (error) { next(error); }
 });
