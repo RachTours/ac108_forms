@@ -1,11 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { autoAssignUnassignedTargets, listAssignments, removeAssignment, setAssignment } from "../../../dist/modules/assignments/assignment.service.js";
+import { autoAssignUnassignedTargets, getActiveAssignmentCounts, listAssignments, removeAssignment, setAssignment } from "../../../dist/modules/assignments/assignment.service.js";
 
 const organizationId = "org-a";
 const targetId = "target-a";
 const reviewerId = "reviewer-a";
 const actorId = "admin-a";
+
+test("active assignment counts use Prisma grouping scoped to active reviewers and targets", async () => {
+  let query;
+  const counts = await getActiveAssignmentCounts({ assignment: {
+    groupBy: async (input) => {
+      query = input;
+      return [{ reviewerId, _count: { _all: 3 } }];
+    },
+  } }, organizationId);
+
+  assert.equal(counts.get(reviewerId), 3);
+  assert.equal(counts.size, 1);
+  assert.deepEqual(query.by, ["reviewerId"]);
+  assert.equal(query.where.organizationId, organizationId);
+  assert.equal(query.where.reviewer.role, "REVIEWER");
+  assert.equal(query.where.reviewer.status, "ACTIVE");
+  assert.equal(query.where.reviewer.user.status, "ACTIVE");
+  assert.equal(query.where.target.status, "ACTIVE");
+  assert.equal(query.where.target.archivedAt, null);
+});
 
 function fixture({ assignment = null, target = { id: targetId }, reviewer = { id: reviewerId } } = {}) {
   const state = { assignment: assignment && { id: "assignment-a", organizationId, targetId, reviewerId: "reviewer-old", createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), ...assignment }, audits: [] };

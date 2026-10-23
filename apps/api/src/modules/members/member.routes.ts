@@ -11,7 +11,7 @@ import { hashPassword } from "../auth/password.js";
 import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
-import { autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
+import { autoAssignUnassignedTargets, getActiveAssignmentCounts, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
@@ -23,25 +23,14 @@ const resetTokenIdSchema = z.string().uuid();
 memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
   try {
     const organizationId = request.auth!.organizationId;
-    const [members, assignmentCounts] = await Promise.all([
+    const [members, countByReviewer] = await Promise.all([
       prisma.membership.findMany({
-      where: { organizationId },
-      include: { user: { select: { id: true, email: true, displayName: true, status: true } }, _count: { select: { reviewLinks: true } } },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
+        where: { organizationId },
+        include: { user: { select: { id: true, email: true, displayName: true, status: true } }, _count: { select: { reviewLinks: true } } },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
       }),
-      prisma.$queryRaw<Array<{ reviewerId: string; assignmentCount: bigint }>>`
-        SELECT a.reviewerId, COUNT(*) AS assignmentCount
-        FROM Assignment a
-        INNER JOIN ReviewTarget t ON t.id = a.targetId AND t.organizationId = a.organizationId
-        INNER JOIN Membership m ON m.id = a.reviewerId AND m.organizationId = a.organizationId
-        INNER JOIN User u ON u.id = m.userId
-        WHERE a.organizationId = ${organizationId}
-          AND t.status = 'ACTIVE' AND t.archivedAt IS NULL
-          AND m.role = 'REVIEWER' AND m.status = 'ACTIVE' AND u.status = 'ACTIVE'
-        GROUP BY a.reviewerId
-      `,
+      getActiveAssignmentCounts(prisma, organizationId),
     ]);
-    const countByReviewer = new Map(assignmentCounts.map((row) => [row.reviewerId, Number(row.assignmentCount)]));
     response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: countByReviewer.get(membership.id) ?? 0, linkCount: _count.reviewLinks })) });
   } catch (error) { next(error); }
 });

@@ -31,6 +31,21 @@ function activeAssignmentWhere(organizationId: string) {
   };
 }
 
+export async function getActiveAssignmentCounts(
+  transaction: Pick<AssignmentTransaction, "assignment">,
+  organizationId: string,
+) {
+  const groups = await transaction.assignment.groupBy({
+    by: ["reviewerId"],
+    where: {
+      ...activeAssignmentWhere(organizationId),
+      target: { status: "ACTIVE", archivedAt: null },
+    },
+    _count: { _all: true },
+  });
+  return new Map(groups.map(({ reviewerId, _count }) => [reviewerId, _count._all]));
+}
+
 export async function listAssignments(transaction: AssignmentTransaction, input: AssignmentListInput) {
   const activeAssignment = activeAssignmentWhere(input.organizationId);
   const targetWhere = {
