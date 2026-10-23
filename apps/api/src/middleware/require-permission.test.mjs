@@ -32,6 +32,16 @@ test("target operations use their explicit domain permissions", () => {
   }
 });
 
+test("all form API operations stay owner/admin only so reviewers cannot read drafts", () => {
+  for (const action of ["read", "create", "update", "publish", "archive"]) {
+    for (const role of ["OWNER", "ADMIN"]) {
+      assert.equal(invoke(requirePermission("forms", action), { role, organizationId: "org-a", membershipId: `${role}-a` }).continued, true, `${role} forms:${action}`);
+    }
+    const denied = invoke(requirePermission("forms", action), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" });
+    assert.equal(denied.error.status, 403, `reviewer forms:${action}`);
+  }
+});
+
 test("permission middleware rejects requests without an authenticated session", () => {
   const result = invoke(requirePermission("assignments", "read"), undefined);
   assert.equal(result.error.status, 401);

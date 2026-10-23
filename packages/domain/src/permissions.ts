@@ -22,7 +22,7 @@ const grants: Partial<Record<Resource, Partial<Record<Action, readonly Role[]>>>
   members: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], grantAdmin: ["OWNER"] },
   targets: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"] },
   assignments: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
-  forms: { read: ["OWNER", "ADMIN", "REVIEWER"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], publish: ["OWNER", "ADMIN"] },
+  forms: { read: ["OWNER", "ADMIN"], create: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"], publish: ["OWNER", "ADMIN"] },
   submissions: { read: ["OWNER", "ADMIN"], update: ["OWNER", "ADMIN"], archive: ["OWNER", "ADMIN"] },
   settings: { read: ["OWNER", "ADMIN"], manage: ["OWNER", "ADMIN"] },
   audit: { read: ["OWNER", "ADMIN"] },
