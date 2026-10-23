@@ -7,7 +7,7 @@ import { requireRole } from "../../middleware/require-role.js";
 import { assignTargets } from "./bulk-assignment.js";
 import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schemas.js";
 import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
-import { targetSubmissionCountFilter } from "./target-submission-counts.js";
+import { loadTargetSubmissionCounts } from "./target-submission-counts.js";
 
 export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
@@ -33,11 +33,11 @@ targetRouter.get("/", requireRole("OWNER", "ADMIN"), async (request, response, n
     const where = { organizationId: auth.organizationId, status: "ACTIVE" as const, archivedAt: null, displayName: { contains: search } };
     const rows = await prisma.reviewTarget.findMany({ where, orderBy: [{ displayName: "asc" }, { id: "asc" }], take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), select: {
       id: true, displayName: true, email: true, createdAt: true, updatedAt: true,
-      _count: { select: { submissions: { where: targetSubmissionCountFilter(auth.organizationId) } } },
     } });
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit);
-    response.json({ data: page.map(({ _count, ...target }) => ({ ...target, submissionCount: _count.submissions })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
+    const submissionCounts = await loadTargetSubmissionCounts(prisma, auth.organizationId, page.map(({ id }) => id));
+    response.json({ data: page.map((target) => ({ ...target, submissionCount: submissionCounts.get(target.id) ?? 0 })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
   } catch (error) { next(error); }
 });
 
