@@ -25,52 +25,53 @@ enum FormStatus {
 }
 
 model Organization {
-  id             String          @id @default(uuid()) @db.VarChar(36)
-  name           String          @db.VarChar(160)
-  slug           String          @unique @db.VarChar(80)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  memberships    Membership[]
-  forms          Form[]
-  reviewTargets  ReviewTarget[]
-  sessions       Session[]
-  progressConfig ProgressConfig?
-  invitations    Invitation[]
-  auditEvents    AuditEvent[]
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  name                String               @db.VarChar(160)
+  slug                String               @unique @db.VarChar(80)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  memberships         Membership[]
+  forms               Form[]
+  reviewTargets       ReviewTarget[]
+  sessions            Session[]
+  progressConfig      ProgressConfig?
+  invitations         Invitation[]
+  auditEvents         AuditEvent[]
   passwordResetTokens PasswordResetToken[]
-  theme          OrganizationTheme?
+  theme               OrganizationTheme?
 }
 
 model User {
-  id           String       @id @default(uuid()) @db.VarChar(36)
-  email        String       @unique @db.VarChar(254)
-  displayName  String       @db.VarChar(120)
-  status       RecordStatus @default(ACTIVE)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  memberships  Membership[]
-  sessions     Session[]
-  invitations  Invitation[] @relation("InvitationCreator")
-  auditEvents  AuditEvent[]
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  email               String               @unique @db.VarChar(254)
+  displayName         String               @db.VarChar(120)
+  status              RecordStatus         @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  memberships         Membership[]
+  sessions            Session[]
+  invitations         Invitation[]         @relation("InvitationCreator")
+  auditEvents         AuditEvent[]
   passwordResetTokens PasswordResetToken[]
 }
 
 model Membership {
-  id                  String       @id @default(uuid()) @db.VarChar(36)
-  organizationId      String       @db.VarChar(36)
-  userId              String       @db.VarChar(36)
-  role                Role         @default(REVIEWER)
-  passwordHash        String       @db.VarChar(255)
-  status              RecordStatus @default(ACTIVE)
-  createdAt           DateTime     @default(now())
-  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  organizationId      String               @db.VarChar(36)
+  userId              String               @db.VarChar(36)
+  role                Role                 @default(REVIEWER)
+  passwordHash        String               @db.VarChar(255)
+  status              RecordStatus         @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignments         Assignment[]
   reviewLinks         ReviewLink[]
   sessions            Session[]
-  reviewedSubmissions Submission[] @relation("SubmissionReviewer")
+  reviewedSubmissions Submission[]         @relation("SubmissionReviewer")
   passwordResetTokens PasswordResetToken[]
 
+  @@unique([organizationId, id])
   @@unique([organizationId, userId])
   @@index([organizationId, role, status, id])
 }
@@ -136,6 +137,7 @@ model ReviewTarget {
   assignments    Assignment[]
   submissions    Submission[]
 
+  @@unique([organizationId, id])
   @@index([organizationId, status, displayName, id])
 }
 
@@ -145,8 +147,9 @@ model Assignment {
   targetId       String       @db.VarChar(36)
   reviewerId     String       @db.VarChar(36)
   createdAt      DateTime     @default(now())
-  target         ReviewTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
-  reviewer       Membership   @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime     @default(now()) @updatedAt
+  target         ReviewTarget @relation(fields: [organizationId, targetId], references: [organizationId, id], onDelete: Cascade, map: "Assignment_target_org_fkey")
+  reviewer       Membership   @relation(fields: [organizationId, reviewerId], references: [organizationId, id], onDelete: Cascade, map: "Assignment_reviewer_org_fkey")
 
   @@unique([organizationId, targetId])
   @@index([organizationId, reviewerId, createdAt, id])

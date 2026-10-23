@@ -16,6 +16,10 @@ test("reviewers only see progress, submissions, and their form links", () => {
 
 test("admins retain management pages and shared submissions", () => {
   for (const role of ["OWNER", "ADMIN"]) {
+    const navigation = getNavigationForRole(role);
+    assert.ok(navigation.some((item) => item.href === "/admin/people" && item.label === "People"));
+    assert.ok(navigation.some((item) => item.href === "/admin/team" && item.label === "Team access"));
+    assert.equal(navigation.some((item) => item.label === "Review targets"), false);
     assert.equal(canAccessWorkspacePath("/admin/people", role), true);
     assert.equal(canAccessWorkspacePath("/admin/forms/new", role), true);
     assert.equal(canAccessWorkspacePath("/admin/submissions/abc", role), true);

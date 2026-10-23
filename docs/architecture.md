@@ -8,7 +8,7 @@ Browser
        └─ same-origin /api rewrite
             └─ Express REST API
                  ├─ auth, role, CSRF, validation, rate-limit middleware
-                 ├─ domain modules (forms, members, targets, links, submissions, progress)
+                 ├─ domain modules (forms, members, targets, assignments, links, submissions, progress)
                  └─ Prisma 7 + MariaDB adapter → MySQL 8.4
 ```
 
@@ -20,7 +20,8 @@ The API is the authority for permissions and business rules. The web layer forwa
 | --- | --- | --- |
 | Auth | users, memberships, sessions, bootstrap, role-specific sign-in | Store password hashes on Membership so admin and reviewer credentials are independent; hash session tokens and bind sessions to one active membership. |
 | Forms | draft definitions and published versions | A publication is immutable; submissions point to the version they answered. |
-| Targets | review targets and assignments | One active reviewer per target; all writes check organization and reviewer scope. |
+| Targets | review target lifecycle | People are created, edited, and archived independently from reviewer assignment. |
+| Assignments | current target-to-reviewer relation, assignment list, and audit changes | One active reviewer per target; active target and reviewer must share an organization; stale writes conflict. |
 | Links | private reviewer access links | Store only token hashes; rotate/revoke independently; expire after 90 days. |
 | Submissions | public answer validation and review inbox | A link can submit only for targets assigned to its reviewer and current published form versions. |
 | Members | invitations, one-time password-reset tokens, and team access | Owner/admin capabilities are checked at the API boundary; reset changes only the selected membership credential; removing a reviewer revokes sessions and links. |
@@ -44,7 +45,8 @@ All endpoints are under `/api/v1`.
 | --- | --- |
 | Auth | `POST /auth/login` (legacy chooser), `POST /auth/admin/login`, `POST /auth/reviewer/login`, `POST /auth/password-reset`, `GET /auth/session`, `POST /auth/logout` |
 | Forms | `GET/POST /forms`, `GET/PATCH/DELETE /forms/:formId`, `POST /forms/:formId/publish` |
-| Targets | `GET/POST /review-targets`, `PATCH/DELETE /review-targets/:targetId`, `PUT/DELETE /review-targets/:targetId/assignment` |
+| Targets | `GET/POST /review-targets`, `PATCH/DELETE /review-targets/:targetId`; legacy assignment routes delegate to Assignments |
+| Assignments | `GET /assignments`, `PUT /assignments/:targetId`, `DELETE /assignments/:targetId` |
 | Members | `GET /members`, `POST /members/invitations`, invitation inspect/accept/revoke/rotate/reveal, `GET/POST /members/:membershipId/password-reset-tokens`, revoke reset token, `PATCH/DELETE /members/:membershipId` |
 | Links | reviewer/admin list, personal/admin rotation, revoke |
 | Public review | `GET /public/review/:token`, `POST /public/review/:token/submissions` |
@@ -60,6 +62,9 @@ Responses use a `{ data }` envelope for successful JSON reads/writes and a stabl
 - API instances persist sessions, review links, forms, and submissions in MySQL. Rate-limit counters are in-memory and per API process; multiple replicas do not share quotas. For horizontal scaling, apply shared abuse limits at the hosting gateway/WAF (no Redis service is part of this project).
 - Prisma’s MariaDB adapter uses a connection pool of 10 per API process. Set the process replica count and database connection budget together; lower the pool size when scaling out.
 - Queries are organization-scoped and have indexes for target status/name, assignment reviewer, form status/update, submission target/reviewer/time, audit time, and invitation state.
+- Assignment foreign keys include `organizationId`, so MySQL rejects cross-organization relations even if a future application path omits a scope check. `Assignment.updatedAt` is the optimistic concurrency version; same-reviewer retries are idempotent and stale writes conflict.
+- Team access owns reviewer assignment controls. People manages review targets only. Archiving a target or removing/promoting its reviewer removes and audits the current assignment while preserving submissions.
+- Hostinger API deployment runs a read-only assignment integrity preflight before migrations. It stops when existing assignments have missing or cross-organization relations; operators must review and repair those rows explicitly rather than having a migration discard them.
 - Public targets/forms and admin list endpoints have hard result caps. If a workspace outgrows those caps, add cursor controls to the UI before raising them.
 - Readiness checks MySQL. Liveness is independent of dependencies. SIGINT/SIGTERM shuts down HTTP and Prisma cleanly.
 - The app does not require Docker or Redis. phpMyAdmin is an optional database administration tool supplied by the hosting environment; production uses managed/private MySQL, HTTPS, unique secrets, TLS verification, backups, and monitoring.

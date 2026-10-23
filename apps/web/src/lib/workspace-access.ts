@@ -4,7 +4,7 @@ export type Audience = "admin" | "reviewer";
 
 export const workspaceNavigation = [
   { href: "/", label: "Overview", roles: ["OWNER", "ADMIN", "REVIEWER"] },
-  { href: "/people", label: "Review targets", roles: ["OWNER", "ADMIN"] },
+  { href: "/people", label: "People", roles: ["OWNER", "ADMIN"] },
   { href: "/submissions", label: "Submissions", roles: ["OWNER", "ADMIN", "REVIEWER"] },
   { href: "/my-link", label: "My form links", roles: ["REVIEWER"] },
   { href: "/forms", label: "Forms", roles: ["OWNER", "ADMIN"] },

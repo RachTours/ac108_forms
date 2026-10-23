@@ -33,3 +33,5 @@ This file defines product terms without prescribing implementation details.
 3. The server is authoritative for roles, assignments, link validity, form publication, answer validation, and progress.
 4. A revoked, expired, archived, or otherwise inactive credential fails closed.
 5. History remains interpretable after edits because submissions point to immutable published versions.
+6. Reviewer assignment is managed from Team access; People manages targets only. A target has at most one current reviewer, and both must be active in the same organization.
+7. Reassigning or unassigning changes current access, not historical submissions. Assignment retries are idempotent, and concurrent stale edits return a conflict.

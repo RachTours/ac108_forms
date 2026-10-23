@@ -19,7 +19,7 @@ export function useWorkspaceSession(): SessionResponse {
 export function WorkspaceShell({ session, theme, children }: { session: SessionResponse; theme: ReturnType<typeof safeWorkspaceTheme>; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const icons: Record<string, typeof LayoutDashboard> = { "Overview": LayoutDashboard, "Review targets": UsersRound, "Submissions": ClipboardList, "My form links": Link2, "Forms": Files, "Team access": UserRoundCog, "Settings": Settings2 };
+  const icons: Record<string, typeof LayoutDashboard> = { "Overview": LayoutDashboard, "People": UsersRound, "Submissions": ClipboardList, "My form links": Link2, "Forms": Files, "Team access": UserRoundCog, "Settings": Settings2 };
   const navigation = getNavigationForRole(session.role).map((item) => ({ ...item, icon: icons[item.label]! }));
   const panelName = panelNameForAudience(session.role === "REVIEWER" ? "reviewer" : "admin");
 
