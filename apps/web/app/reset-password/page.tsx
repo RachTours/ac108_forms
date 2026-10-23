@@ -5,6 +5,7 @@ import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasswordInput } from "../../src/features/auth/password-input";
 import { apiErrorSchema } from "@reviewroom/contracts";
+import { validatePasswordResetInput } from "../../src/features/auth/password-reset-validation";
 
 export default function ResetPasswordPage() {
   return <Suspense fallback={<main className="login-page"><section className="login-card"><h1>Reset your password</h1></section></main>}><ResetPasswordContent /></Suspense>;
@@ -24,10 +25,12 @@ function ResetPasswordContent() {
     const email = String(form.get("email") ?? "").trim().toLowerCase();
     const token = String(form.get("token") ?? "").trim();
     const password = String(form.get("password") ?? "");
-    if (!email || token.length < 40 || password.length < 14) { setError("Enter your email, the full reset token, and a password of at least 14 characters."); setBusy(false); return; }
+    const requestBody = validatePasswordResetInput({ email, token, password });
+    if (!requestBody.success) { setError("Enter a valid email, the full reset token, and a password between 14 and 1024 characters."); setBusy(false); return; }
     try {
-      const response = await fetch("/api/v1/auth/password-reset", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, token, password }) });
+      const response = await fetch("/api/v1/auth/password-reset", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestBody.data) });
       if (!response.ok) { const body: unknown = await response.json().catch(() => null); const parsed = apiErrorSchema.safeParse(body); throw new Error(parsed.success ? parsed.data.error.message : "Password reset failed."); }
+      if (response.status !== 204) throw new Error("The server returned an unexpected response. Try signing in before requesting another reset token.");
       setSuccess(true);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Password reset failed. Request a new token from your administrator."); }
     finally { setBusy(false); }
