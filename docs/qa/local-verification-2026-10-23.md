@@ -38,3 +38,6 @@ The load smoke ran against local dev with a small dataset. It does not predict H
 - GitHub Actions workflow remains local-only: the GitHub connector is disconnected, and the current Git credential cannot push `.github/workflows/`.
 
 Treat the result as locally verified and Hostinger-build-verified, with staging/release work still open—not as production-ready.
+
+| Production dependency audit (
+pm audit --omit=dev) | 0 vulnerabilities reported. Development-tool advisories remain outside this production-only result. |
