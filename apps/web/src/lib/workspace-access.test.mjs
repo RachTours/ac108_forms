@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getNavigationForRole, canAccessWorkspacePath, workspacePathForRole, signInPathForRole, roleMatchesAudience, workspaceEntryPath } from "./workspace-access.ts";
+import { getNavigationForRole, canAccessWorkspacePath, workspacePathForRole, signInPathForRole, roleMatchesAudience, workspaceEntryPath, workspaceLoginPath } from "./workspace-access.ts";
 
 test("reviewers only see progress, submissions, and their form links", () => {
   assert.deepEqual(getNavigationForRole("REVIEWER").map(({ href }) => href), ["/reviewer/progress", "/reviewer/submissions", "/reviewer/forms"]);
@@ -50,4 +50,13 @@ test("workspace entry keeps a mismatched session in the requested panel's login 
   assert.equal(workspaceEntryPath("admin", "REVIEWER"), "/admin/login");
   assert.equal(workspaceEntryPath("reviewer", "OWNER"), "/reviewer/login");
   assert.equal(workspaceEntryPath("admin"), "/admin/login");
+});
+
+test("login return paths are restricted to the requested role's workspace routes", () => {
+  assert.equal(workspaceLoginPath("admin", "/admin/forms/123"), "/admin/login?returnTo=%2Fadmin%2Fforms%2F123");
+  assert.equal(workspaceLoginPath("reviewer", "/reviewer/submissions/123"), "/reviewer/login?returnTo=%2Freviewer%2Fsubmissions%2F123");
+  for (const unsafe of ["https://attacker.example", "//attacker.example", "/admin/team?next=https://attacker.example", "/reviewer/forms#external", "/admin\\team", "/reviewer/tools", "/admin/forms/123/nested"]) {
+    assert.equal(workspaceLoginPath("admin", unsafe), "/admin/login");
+  }
+  assert.equal(workspaceLoginPath("reviewer", "/admin/team"), "/reviewer/login");
 });
