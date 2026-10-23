@@ -57,6 +57,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LoginResponse' }
+              example:
+                user: { id: 8d493e2d-7500-4d5f-a148-05a7ff2127d0, email: admin@example.com, displayName: Example Admin }
+                organization: { id: e6c9e1b9-af95-45c3-82b7-4fe7e608a189, name: Example Workspace, slug: example-workspace }
+                role: OWNER
+                csrfToken: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
         '401': { $ref: '#/components/responses/ApiError' }
         '409':
           description: Workspace selection required for identities in multiple workspaces.

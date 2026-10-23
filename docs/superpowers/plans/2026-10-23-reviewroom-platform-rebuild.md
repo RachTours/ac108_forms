@@ -26,10 +26,10 @@
 
 ### Task 0.1 — Record the current product and runtime baseline.
 
-- [x] Update `docs/CONTEXT.md`, `docs/architecture.md`, `docs/routing-and-workspace-architecture.md`, and `docs/hostinger-deployment.md` only where current source has drifted. Inventory `apps/api/prisma/schema.prisma`, migrations, API routers, Next route map, deployment build scripts, environment examples, existing tests, and data constraints. Include exact commands and record pass/fail without exposing secrets. Confirm the two Hostinger apps, current Node version, entry/output paths, and DB version in staging or account settings before locking deployment parameters.
+- [ ] Update `docs/CONTEXT.md`, `docs/architecture.md`, `docs/routing-and-workspace-architecture.md`, and `docs/hostinger-deployment.md` only where current source has drifted. Inventory `apps/api/prisma/schema.prisma`, migrations, API routers, Next route map, deployment build scripts, environment examples, existing tests, and data constraints. Include exact commands and record pass/fail without exposing secrets. Confirm the two Hostinger apps, current Node version, entry/output paths, and DB version in staging or account settings before locking deployment parameters.
 ### Task 0.2 — Establish a safe test environment.
 
-- [x] Add `docs/rebuild/test-environments.md` and scripts/configuration for isolated local MySQL and staging DBs. Add an explicit guard that refuses migration/seed/cleanup when the database host/name matches configured production markers. Never use production as an integration-test target.
+- [ ] Add `docs/rebuild/test-environments.md` and scripts/configuration for isolated local MySQL and staging DBs. Add an explicit guard that refuses migration/seed/cleanup when the database host/name matches configured production markers. Never use production as an integration-test target.
 ### Task 0.3 — Baseline actual workflows.
 
 - [ ] Complete `docs/rebuild/current-workflow-baseline.md` using redacted staging screenshots and correlated request/API traces for every workflow. The current document records repository routes and historical user-provided evidence, which is not a substitute for staging reproduction.
@@ -44,7 +44,7 @@
 - [x] Expand `docs/CONTEXT.md` and add `docs/rebuild/domain-model.md` with Organization, User, Membership, Session, ReviewTarget, Assignment, Form, FormVersion, ReviewLink, Submission, Invitation, PasswordResetToken, and AuditEvent relationships. Specify tenant ownership, uniqueness, active/archive semantics, deletion rules, actor, and lifecycle transitions. Include an ER diagram and state diagrams for Membership, Assignment, Form, and Submission.
 ### Task 1.2 — Define the API contract before handlers.
 
-- [ ] Version `packages/contracts/src` schemas for auth/session, members/invitations/reset, people/targets, assignments, forms/versions, links, submissions, progress, settings, audit, pagination, and stable errors. Add schema tests rejecting unknown/oversized/malformed values. Generate or document `docs/rebuild/openapi.yaml` from the shared schemas and verify representative request/response examples against tests.
+- [x] Version `packages/contracts/src` schemas for auth/session, members/invitations/reset, people/targets, assignments, forms/versions, links, submissions, progress, settings, audit, pagination, and stable errors. Add schema tests rejecting unknown/oversized/malformed values. Generate or document `docs/rebuild/openapi.yaml` from the shared schemas and verify representative request/response examples against tests.
 ### Task 1.3 — Define permissions centrally.
 
 - [ ] Add `packages/domain/src/permissions.ts` and table-driven tests covering owner/admin/reviewer/public access for every resource and action. Add explicit same-organization and active-membership requirements. API handlers must call use cases that enforce this policy; do not encode a second divergent policy in the web app.
