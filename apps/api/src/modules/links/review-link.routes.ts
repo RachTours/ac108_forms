@@ -6,6 +6,7 @@ import { env } from "../../env.js";
 import { HttpError } from "../../http/errors.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
 import { requirePermission } from "../../middleware/require-permission.js";
+import { authorize } from "@reviewroom/domain";
 import { activeReviewerKey, calculateLinkExpiry } from "./review-link-scope.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { canReviewerRevealLink } from "./reviewer-reveal.js";
@@ -133,20 +134,22 @@ reviewLinkRouter.post("/:linkId/revoke", requireSession, requireCsrf, async (req
     const auth = request.auth!;
     const link = await prisma.reviewLink.findFirst({ where: { id: linkId, organizationId: auth.organizationId } });
     if (!link) throw new HttpError(404, "LINK_NOT_FOUND", "Review link not found.");
-    if (auth.role === "REVIEWER" && link.reviewerId !== auth.membershipId) throw new HttpError(403, "FORBIDDEN", "You can only revoke your own review link.");
+    const permission = authorize({
+      role: auth.role,
+      organizationId: auth.organizationId,
+      requestedOrganizationId: link.organizationId,
+      membershipId: auth.membershipId,
+      membershipStatus: "ACTIVE",
+      resource: "reviewLinks",
+      action: auth.role === "REVIEWER" ? "manageOwn" : "archive",
+      resourceMembershipId: link.reviewerId,
+    });
+    if (!permission.allowed) throw new HttpError(403, "FORBIDDEN", "You cannot revoke this review link.");
     if (link.revokedAt) { response.status(204).end(); return; }
-    if (auth.role === "REVIEWER" && !link.revokedAt) {
-      await prisma.$transaction(async (transaction) => {
-        await transaction.reviewLink.update({ where: { id: link.id }, data: { revokedAt: new Date(), activeReviewerKey: null } });
-        await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "REVIEW_LINK_REVOKED", entityType: "ReviewLink", entityId: link.id } });
-      });
-    } else {
-      if (auth.role !== "OWNER" && auth.role !== "ADMIN") throw new HttpError(403, "FORBIDDEN", "You cannot revoke this review link.");
-      await prisma.$transaction(async (transaction) => {
-        await transaction.reviewLink.update({ where: { id: link.id }, data: { revokedAt: new Date(), activeReviewerKey: null } });
-        await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "REVIEW_LINK_REVOKED", entityType: "ReviewLink", entityId: link.id } });
-      });
-    }
+    await prisma.$transaction(async (transaction) => {
+      await transaction.reviewLink.update({ where: { id: link.id }, data: { revokedAt: new Date(), activeReviewerKey: null } });
+      await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "REVIEW_LINK_REVOKED", entityType: "ReviewLink", entityId: link.id } });
+    });
     response.status(204).end();
   } catch (error) { next(error); }
 });
