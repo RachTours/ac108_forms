@@ -118,23 +118,28 @@ test("auto assignment balances unassigned targets across active reviewers and pr
   const reviewers = [{ id: "reviewer-a" }, { id: "reviewer-b" }];
   const assignments = new Map([["existing-target", { id: "existing-assignment", targetId: "existing-target", reviewerId: "reviewer-a", updatedAt: new Date("2026-01-01T00:00:00.000Z") }]]);
   const audits = [];
+  const countQueries = [];
   const tx = {
     $queryRaw: async () => [],
     membership: {
-      findMany: async () => reviewers.map((reviewer) => ({ ...reviewer, _count: { assignments: reviewer.id === "reviewer-a" ? 1 : 0 } })),
+      findMany: async () => reviewers.map((reviewer) => ({ ...reviewer, createdAt: new Date(`2026-01-0${reviewer.id === "reviewer-a" ? 1 : 2}T00:00:00.000Z`) })),
       findFirst: async ({ where }) => reviewers.find((reviewer) => reviewer.id === where.id) ?? null,
     },
-    reviewTarget: {
-      findMany: async () => targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })),
-      findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
-    },
     assignment: {
+      groupBy: async (query) => {
+        countQueries.push(query);
+        return [{ reviewerId: "reviewer-a", _count: { _all: 1 } }];
+      },
       findUnique: async ({ where }) => assignments.get(where.organizationId_targetId.targetId) ?? null,
       create: async ({ data }) => {
         const value = { id: `assignment-${data.targetId}`, ...data, createdAt: new Date(), updatedAt: data.updatedAt };
         assignments.set(data.targetId, value);
         return value;
       },
+    },
+    reviewTarget: {
+      findMany: async () => targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })),
+      findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
     },
     auditEvent: { create: async ({ data }) => { audits.push(data); } },
   };
@@ -148,6 +153,11 @@ test("auto assignment balances unassigned targets across active reviewers and pr
   ]);
   assert.equal(assignments.get("existing-target").reviewerId, "reviewer-a");
   assert.equal(audits.length, 4);
+  assert.deepEqual(countQueries, [{
+    by: ["reviewerId"],
+    where: { organizationId, reviewerId: { in: ["reviewer-a", "reviewer-b"] } },
+    _count: { _all: true },
+  }]);
 });
 
 test("auto assignment leaves targets alone when the workspace has no active reviewers", async () => {

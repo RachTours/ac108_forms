@@ -178,13 +178,19 @@ export async function autoAssignUnassignedTargets(
     select: {
       id: true,
       createdAt: true,
-      // Lifecycle writes delete assignments with inactive reviewers/targets.
-      // Count only the indexed tenant key here to avoid expensive nested
-      // correlated count SQL on MariaDB.
-      _count: { select: { assignments: { where: { organizationId: input.organizationId } } } },
     },
   });
   if (!reviewers.length) return [];
+
+  // Aggregate the bounded set of eligible reviewer IDs in a single,
+  // organization-scoped query. Avoid nested Prisma relation counts here:
+  // this query runs on every auto-assignment workflow and MariaDB has been
+  // returning P2039 for correlated relation-count query shapes.
+  const assignmentCounts = await transaction.assignment.groupBy({
+    by: ["reviewerId"],
+    where: { organizationId: input.organizationId, reviewerId: { in: reviewers.map(({ id }) => id) } },
+    _count: { _all: true },
+  });
 
   const targets = await transaction.reviewTarget.findMany({
     where: {
@@ -201,7 +207,10 @@ export async function autoAssignUnassignedTargets(
   if (!eligibleTargets.length) return [];
 
   const reviewersById = new Map(reviewers.map((reviewer) => [reviewer.id, reviewer]));
-  const loadByReviewer = new Map(reviewers.map(({ id, _count }) => [id, _count.assignments]));
+  const loadByReviewer = new Map(reviewers.map(({ id }) => [id, 0]));
+  for (const { reviewerId, _count } of assignmentCounts) {
+    loadByReviewer.set(reviewerId, _count._all);
+  }
 
   const created: Array<{ targetId: string; reviewerId: string }> = [];
   for (const target of eligibleTargets) {
@@ -211,7 +220,7 @@ export async function autoAssignUnassignedTargets(
       role: "REVIEWER" as const,
       status: "ACTIVE" as const,
       userStatus: "ACTIVE" as const,
-      load: loadByReviewer.get(reviewer.id) ?? reviewer._count.assignments,
+      load: loadByReviewer.get(reviewer.id) ?? 0,
       stableOrder: reviewer.createdAt?.toISOString() ?? reviewer.id,
     })));
     if (!selected || !reviewersById.has(selected.id)) break;
