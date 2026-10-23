@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Pencil, Plus, Search, UserRound, X } from "lucide-react";
+import { paginatedResponseSchema, targetCreateResponseSchema, targetSummarySchema, targetUpdateResponseSchema, targetWriteSchema, type TargetSummary } from "@reviewroom/contracts";
 import { useApi } from "../../lib/client-api";
 
-type Target = { id: string; displayName: string; email: string | null; submissionCount: number };
+type Target = Omit<TargetSummary, "createdAt" | "updatedAt"> & Partial<Pick<TargetSummary, "createdAt" | "updatedAt">>;
+const targetListResponseSchema = paginatedResponseSchema(targetSummarySchema);
 
 export function PeopleManager({ initialTargets, initialCursor, canManage }: { initialTargets: Target[]; initialCursor: string | null; canManage: boolean }) {
   const api = useApi();
@@ -27,7 +30,7 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ data: Target[]; nextCursor: string | null }>(`/review-targets?limit=100&cursor=${encodeURIComponent(cursor)}`);
+      const result = await api(`/review-targets?limit=100&cursor=${encodeURIComponent(cursor)}`, {}, targetListResponseSchema);
       setTargets((items) => [...items, ...result.data]);
       setCursor(result.nextCursor);
     } catch (err) {
@@ -43,7 +46,9 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     setError("");
     setNotice("");
     try {
-      const result = await api<{ data: Target }>("/review-targets", { method: "POST", body: JSON.stringify({ displayName: name, email }) });
+      const payload = targetWriteSchema.safeParse({ displayName: name, email });
+      if (!payload.success) { setError("Enter a name and a valid email address, or leave the email blank."); return; }
+      const result = await api("/review-targets", { method: "POST", body: JSON.stringify(payload.data) }, targetCreateResponseSchema);
       setTargets((items) => [...items, result.data].sort((a, b) => a.displayName.localeCompare(b.displayName)));
       setName("");
       setEmail("");
@@ -67,7 +72,9 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ data: { displayName: string; email: string | null } }>(`/review-targets/${targetId}`, { method: "PATCH", body: JSON.stringify({ displayName: editName, email: editEmail }) });
+      const payload = targetWriteSchema.safeParse({ displayName: editName, email: editEmail });
+      if (!payload.success) { setError("Enter a name and a valid email address, or leave the email blank."); return; }
+      const result = await api(`/review-targets/${targetId}`, { method: "PATCH", body: JSON.stringify(payload.data) }, targetUpdateResponseSchema);
       setTargets((items) => items.map((target) => target.id === targetId ? { ...target, ...result.data } : target));
       setEditingId(null);
       setNotice("Person details saved.");
@@ -108,13 +115,15 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
         <button className="button button-primary add-person-submit" disabled={busy}><Plus size={13} /> Add person</button>
       </form>
     </>}
-    {targets.length === 0 ? <div className="panel empty-state compact-empty"><span className="empty-icon"><UserRound /></span><h2>No people yet</h2><p>Add a person to start a review record.</p></div> : <div className="table-wrap people-target-table"><table><thead><tr><th>Person</th><th>Responses</th>{canManage && <th aria-label="Actions" />}</tr></thead><tbody>
+    {targets.length === 0 ? <div className="panel empty-state compact-empty"><span className="empty-icon"><UserRound /></span><h2>No people yet</h2><p>Add a person to start a review record.</p></div> : <div className="table-wrap people-target-table"><table><thead><tr><th>Person</th>{canManage && <th>Assigned reviewer</th>}<th>Responses</th>{canManage && <th aria-label="Actions" />}</tr></thead><tbody>
       {shown.map((target) => <tr className={`review-target-row ${canManage ? "managed" : ""}`} key={target.id}>
         <td className="target-person-cell">{editingId === target.id ? <div className="edit-person"><input aria-label="Edit name" value={editName} maxLength={160} onChange={(event) => setEditName(event.target.value)} /><input aria-label="Edit email" type="email" value={editEmail} maxLength={254} onChange={(event) => setEditEmail(event.target.value)} /><button className="icon-button" aria-label="Save person" disabled={busy} onClick={() => void saveEdit(target.id)}><span>Save</span></button></div> : <div className="person-cell"><span className="avatar avatar-soft">{target.displayName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span><span><strong>{target.displayName}</strong><small>{target.email || "No email added"}</small></span></div>}</td>
+        {canManage && <td className="target-assignment-cell" data-label="Assigned reviewer">{target.assignedReviewer ? <Link className="assignment-context-link" href={`/admin/team?reviewerId=${encodeURIComponent(target.assignedReviewer.membershipId)}`}><strong>{target.assignedReviewer.displayName}</strong><small>Manage in Team Access</small></Link> : <Link className="assignment-context-link unassigned" href="/admin/team?state=unassigned"><strong>Unassigned</strong><small>Assign in Team Access</small></Link>}</td>}
         <td className="target-response-cell" data-label="Responses">{target.submissionCount}</td>
         {canManage && <td className="target-actions-cell"><div className="button-row"><button className="icon-button table-action" aria-label={`Edit ${target.displayName}`} title={`Edit ${target.displayName}'s name and email`} disabled={busy} onClick={() => beginEdit(target)}><Pencil size={13} /></button><button className="icon-button table-action" aria-label={`Archive ${target.displayName}`} title={`Archive ${target.displayName}`} disabled={busy} onClick={() => void archive(target)}><X size={14} /></button></div></td>}
       </tr>)}
-      {shown.length === 0 && <tr><td colSpan={canManage ? 3 : 2} className="no-results">No people match this search.</td></tr>}
+      {shown.length === 0 && <tr><td colSpan={canManage ? 4 : 2} className="no-results">No people match this search.</td></tr>}
     </tbody></table></div>}{cursor && <div className="load-more-row"><button className="button button-small" disabled={busy} onClick={() => void loadMore()}>{busy ? "Loading…" : `Load more people · ${targets.length} loaded`}</button></div>}
   </div>;
 }
+

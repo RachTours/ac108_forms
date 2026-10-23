@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { invitationAcceptInfoSchema } from "@reviewroom/contracts";
 import { InvitationAcceptance } from "../../../src/features/auth/invitation-acceptance";
 import { publicApi } from "../../../src/lib/api";
-type Invitation = { email: string | null; displayName: string | null; role: string; expiresAt: string };
+type Invitation = typeof invitationAcceptInfoSchema._output.data;
 const loadInvitation = cache(async (token: string): Promise<Invitation | null> => {
   try {
     const response = await publicApi(`/members/invitations/${encodeURIComponent(token)}`);
     if (!response.ok) return null;
-    const body: { data: Invitation } = await response.json();
-    return body.data;
+    const body: unknown = await response.json();
+    const parsed = invitationAcceptInfoSchema.safeParse(body);
+    return parsed.success ? parsed.data.data : null;
   } catch {
     return null;
   }

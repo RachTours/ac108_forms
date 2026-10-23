@@ -37,6 +37,7 @@ runNpm(["run", "db:generate"]);
 runNpm(["run", "db:assignment-preflight", "--workspace", "@reviewroom/api"]);
 runNpm(["run", "db:migrate"]);
 runNpm(["run", "build", "--workspace", "@reviewroom/contracts"]);
+runNpm(["run", "build", "--workspace", "@reviewroom/domain"]);
 
 if (bootstrapRequested) {
   runNpm(["run", "db:bootstrap-owner", "--workspace", "@reviewroom/api"]);

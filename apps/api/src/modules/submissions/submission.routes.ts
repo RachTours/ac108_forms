@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { getReviewedPersonName } from "./submission-display.js";
 import { permanentlyDeleteSubmission, setSubmissionArchived } from "./submission-lifecycle.js";
 import { requestedReviewerScope } from "./submission-scope.js";
@@ -35,7 +35,7 @@ submissionRouter.get("/", async (request, response, next) => {
   } catch (error) { next(error); }
 });
 
-submissionRouter.get("/archived", requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+submissionRouter.get("/archived", requirePermission("submissions", "read"), async (request, response, next) => {
   try {
     const auth = request.auth!;
     const limit = z.coerce.number().int().min(1).max(100).default(25).parse(request.query.limit);
@@ -85,7 +85,7 @@ submissionRouter.patch("/:submissionId/review", requireCsrf, async (request, res
   } catch (error) { next(error); }
 });
 
-submissionRouter.delete("/:submissionId", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+submissionRouter.delete("/:submissionId", requirePermission("submissions", "archive"), requireCsrf, async (request, response, next) => {
   try {
     const auth = request.auth!;
     const submissionId = idSchema.parse(request.params.submissionId);
@@ -101,7 +101,7 @@ submissionRouter.delete("/:submissionId", requireRole("OWNER", "ADMIN"), require
   } catch (error) { next(error); }
 });
 
-submissionRouter.post("/:submissionId/restore", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+submissionRouter.post("/:submissionId/restore", requirePermission("submissions", "update"), requireCsrf, async (request, response, next) => {
   try {
     const auth = request.auth!;
     const submissionId = idSchema.parse(request.params.submissionId);
@@ -115,7 +115,7 @@ submissionRouter.post("/:submissionId/restore", requireRole("OWNER", "ADMIN"), r
   } catch (error) { next(error); }
 });
 
-submissionRouter.delete("/:submissionId/permanent", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+submissionRouter.delete("/:submissionId/permanent", requirePermission("submissions", "archive"), requireCsrf, async (request, response, next) => {
   try {
     const auth = request.auth!;
     const submissionId = idSchema.parse(request.params.submissionId);

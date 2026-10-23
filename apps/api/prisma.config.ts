@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, env } from "prisma/config";
 import { buildDatabaseUrl } from "./src/db/mysql-config.ts";
+import "../../scripts/db-target-guard.mjs";
 
 dotenv.config({ path: resolve(fileURLToPath(new URL(".", import.meta.url)), "../../.env") });
 

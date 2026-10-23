@@ -9,7 +9,7 @@ Browser
             └─ Express REST API
                  ├─ auth, role, CSRF, validation, rate-limit middleware
                  ├─ domain modules (forms, members, targets, assignments, links, submissions, progress)
-                 └─ Prisma 7 + MariaDB adapter → MySQL 8.4
+                 └─ Prisma 7 + MariaDB adapter → MySQL
 ```
 
 The API is the authority for permissions and business rules. The web layer forwards the HttpOnly session cookie for server rendering and uses same-origin browser requests for mutations. Zod schemas in `packages/contracts` are shared between the web app and API; the API still validates every request independently.
@@ -35,7 +35,7 @@ Operational records carry `organizationId`. API reads and writes are scoped to t
 
 Add a new field type in `packages/contracts/src/forms.ts` first. Extend the discriminated union with its configuration, then add the field editor controls and live preview in `apps/web/src/features/forms/form-editor.tsx`, add its public renderer in `apps/web/src/features/review/review-portal.tsx`, and implement authoritative validation in `apps/api/src/modules/submissions/answer-validator.ts`. The shared schema enforces field-definition constraints; the API validator enforces answer constraints. Published form versions are snapshots, so a new field does not reinterpret historical submissions.
 
-The current field catalog includes short/long text, email, number, single choice, checkboxes, dropdown, rating, date, consent, and ranking. Ranking answers are arrays containing every option ID exactly once. Order is represented by array position, and the interface does not label choices with numeric ranks.
+The current field catalog includes full name, short/long text, email, URL, phone, yes/no, number, single choice, checkboxes, dropdown, rating, date, consent, ranking, and signature. Ranking answers are arrays containing every option ID exactly once. Order is represented by array position, and the interface does not label choices with numeric ranks. A signature is either a bounded typed name or normalized pointer strokes; it is not a qualified/legal digital-signature service.
 
 ## API surface
 
@@ -44,14 +44,14 @@ All endpoints are under `/api/v1`.
 | Resource | Routes |
 | --- | --- |
 | Auth | `POST /auth/login` (legacy chooser), `POST /auth/admin/login`, `POST /auth/reviewer/login`, `POST /auth/password-reset`, `GET /auth/session`, `POST /auth/logout` |
-| Forms | `GET/POST /forms`, `GET/PATCH/DELETE /forms/:formId`, `POST /forms/:formId/publish` |
-| Targets | `GET/POST /review-targets`, `PATCH/DELETE /review-targets/:targetId`; legacy assignment routes delegate to Assignments |
+| Forms | `GET/POST /forms`, `GET/PATCH/DELETE /forms/:formId`, `POST /forms/:formId/publish`, `POST /forms/:formId/restore`, `DELETE /forms/:formId/permanent` |
+| Targets | `GET/POST /review-targets`, `GET /review-targets/assignment-options`, `PATCH/DELETE /review-targets/:targetId`, `POST /review-targets/assignments/bulk`; legacy per-target assignment routes delegate to Assignments |
 | Assignments | `GET /assignments`, `PUT /assignments/:targetId`, `DELETE /assignments/:targetId` |
-| Members | `GET /members`, `POST /members/invitations`, invitation inspect/accept/revoke/rotate/reveal, `GET/POST /members/:membershipId/password-reset-tokens`, revoke reset token, `PATCH/DELETE /members/:membershipId` |
+| Members | `GET /members`, invitation inspect/accept/revoke/rotate/reveal, `GET/POST/DELETE /members/:membershipId/password-reset-tokens`, `PATCH/DELETE /members/:membershipId`, `DELETE /members/:membershipId/permanent` |
 | Links | reviewer/admin list, personal/admin rotation, revoke |
 | Public review | `GET /public/review/:token`, `POST /public/review/:token/submissions` |
-| Submissions | paginated list, detail, reviewed/reopened, archive |
-| Progress | `GET /progress/summary`, `PATCH /progress/config` |
+| Submissions | paginated active/archived lists, detail, reviewed/reopened, archive/restore, permanent deletion |
+| Progress | `GET /progress/summary`, `GET /progress/reviewer-board`, `PATCH /progress/config` |
 | Workspace | `GET/PATCH /organization`, `GET/PUT /organization/theme`, `GET /audit-events` |
 | Health | `/health/live`, `/health/ready` |
 
@@ -82,4 +82,4 @@ Mutations require a session-bound CSRF token and exact same-origin request verif
 
 The global `User` is an email/display-name identity only. Its former shared password hash was moved into `Membership.passwordHash` by migration `202610220005_membership_credentials`, preserving existing credentials while allowing each workspace role membership to change independently. Role-specific login endpoints filter eligible memberships before checking that membership's password hash. Admin-issued password reset tokens are separate from invitation tokens, expire after 30 minutes, are stored as hashes, and reset only the target membership's password/sessions.
 
-The initial appearance feature stores an allowlisted accent color and font preset in `OrganizationTheme`. Settings are owner/admin write, workspace members read. CSS variables apply across the admin/reviewer shell and public review forms. Logo upload, surface customization, and distinct heading/body fonts remain future work.
+The initial appearance feature stores an allowlisted accent color, font preset, surface preset, and form style in `OrganizationTheme`. Settings are owner/admin write, workspace members read. CSS variables apply across the admin/reviewer shell and public review forms. Logo upload and arbitrary custom CSS/font URLs remain future work.

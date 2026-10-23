@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, UserRound } from "lucide-react";
+import { assignmentListResponseSchema, assignmentMutationResponseSchema, assignmentRemoveResponseSchema } from "@reviewroom/contracts";
 import { useApi } from "../../lib/client-api";
 import { buildAssignmentListUrl, readAssignmentFilters, type AssignmentState } from "./assignment-view";
 
@@ -48,7 +49,7 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
   useEffect(() => {
     let active = true;
     const url = buildAssignmentListUrl({ search: debouncedSearch, state, reviewerId, cursor });
-    api<AssignmentPage>(url)
+    api<AssignmentPage>(url, {}, assignmentListResponseSchema)
       .then((result) => {
         if (!active) return;
         setTargets((current) => cursor ? [...current, ...result.data] : result.data);
@@ -79,7 +80,7 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
     setBusyTarget(target.id);
     setRequestError("");
     try {
-      await api(`/assignments/${target.id}`, { method: "PUT", body: JSON.stringify({ reviewerId: nextReviewerId, expectedUpdatedAt: target.assignment?.updatedAt ?? null }) });
+      await api(`/assignments/${target.id}`, { method: "PUT", body: JSON.stringify({ reviewerId: nextReviewerId, expectedUpdatedAt: target.assignment?.updatedAt ?? null }) }, assignmentMutationResponseSchema);
       onAssignmentsChanged();
       resetList();
     } catch (err) {
@@ -95,7 +96,7 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
     setBusyTarget(target.id);
     setRequestError("");
     try {
-      await api(`/assignments/${target.id}`, { method: "DELETE", body: JSON.stringify({ expectedUpdatedAt: target.assignment.updatedAt }) });
+      await api(`/assignments/${target.id}`, { method: "DELETE", body: JSON.stringify({ expectedUpdatedAt: target.assignment.updatedAt }) }, assignmentRemoveResponseSchema);
       onAssignmentsChanged();
       setSelectedReviewers((current) => ({ ...current, [target.id]: "" }));
       resetList();

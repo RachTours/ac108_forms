@@ -2,6 +2,10 @@ import type { Role } from "@reviewroom/contracts";
 
 export type Audience = "admin" | "reviewer";
 
+export function roleMatchesAudience(role: Role, audience: Audience): boolean {
+  return (audience === "reviewer") === (role === "REVIEWER");
+}
+
 export const workspaceNavigation = [
   { href: "/", label: "Overview", roles: ["OWNER", "ADMIN", "REVIEWER"] },
   { href: "/people", label: "People", roles: ["OWNER", "ADMIN"] },
@@ -20,8 +24,36 @@ export function signInPathForRole(role: Role | Audience): string {
   return `/${typeof role === "string" && role.toLowerCase() === "reviewer" ? "reviewer" : "admin"}/login`;
 }
 
+export function workspaceLoginPath(audience: Audience, returnPath?: string | null, reason?: string): string {
+  const query = new URLSearchParams();
+  const safePath = safeWorkspaceReturnPath(returnPath, audience);
+  if (safePath) query.set("returnTo", safePath);
+  if (reason && /^[a-z-]{1,40}$/.test(reason)) query.set("reason", reason);
+  const encoded = query.toString();
+  return `${signInPathForRole(audience)}${encoded ? `?${encoded}` : ""}`;
+}
+
+export function safeWorkspaceReturnPath(path: string | null | undefined, audience: Audience): string | null {
+  if (!path || !path.startsWith("/") || path.startsWith("//") || /[?#\\%\u0000-\u001f]/.test(path)) return null;
+  const normalized = new URL(path, "https://reviewroom.invalid");
+  if (normalized.origin !== "https://reviewroom.invalid" || normalized.pathname !== path) return null;
+  const exact = audience === "admin"
+    ? ["/admin", "/admin/overview", "/admin/people", "/admin/submissions", "/admin/forms", "/admin/team", "/admin/settings"]
+    : ["/reviewer", "/reviewer/progress", "/reviewer/forms", "/reviewer/submissions"];
+  if (exact.includes(path)) return path;
+  const detailPath = audience === "admin"
+    ? /^\/admin\/(?:forms|submissions)\/[A-Za-z0-9_-]+$/
+    : /^\/reviewer\/submissions\/[A-Za-z0-9_-]+$/;
+  return detailPath.test(path) ? path : null;
+}
+
 export function homePathForRole(role: Role): string {
   return role === "REVIEWER" ? "/reviewer/progress" : "/admin/overview";
+}
+
+export function workspaceEntryPath(audience: Audience, role?: Role): string {
+  if (!role || !roleMatchesAudience(role, audience)) return signInPathForRole(audience);
+  return homePathForRole(role);
 }
 
 export function workspacePathForRole(path: string, role: Role): string {

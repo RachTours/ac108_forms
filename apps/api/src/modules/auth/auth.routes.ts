@@ -10,6 +10,7 @@ import { chooseWorkspaceMembership } from "./workspace-selection.js";
 import { clearSessionCookie, hashToken, legacySessionCookieName, newSessionToken, setSessionCookie, sessionLifetimeMs, createCsrfToken } from "./session.js";
 import { authenticateMemberships, type LoginAudience } from "./auth-policy.js";
 import { assertPasswordResetTokenUsable, hashPasswordResetToken } from "./password-reset.js";
+import { passwordResetRequestSchema } from "@reviewroom/contracts";
 
 export const authRouter = Router();
 
@@ -18,7 +19,6 @@ const loginSchema = z.object({
   password: z.string().min(1).max(1024),
   organizationSlug: z.string().trim().min(1).max(80).toLowerCase().optional(),
 }).strict();
-const passwordResetSchema = z.object({ email: z.string().trim().email().max(254), token: z.string().min(40).max(100), password: z.string().min(14).max(1024) }).strict();
 
 function login(audience?: LoginAudience) {
   return async (request: import("express").Request, response: import("express").Response, next: import("express").NextFunction) => {
@@ -67,7 +67,7 @@ authRouter.post("/password-reset", authRateLimit, async (request, response, next
   try {
     response.setHeader("Cache-Control", "no-store");
     if (request.get("origin") !== env.WEB_ORIGIN) throw new HttpError(403, "ORIGIN_REJECTED", "The request could not be verified.");
-    const input = passwordResetSchema.parse(request.body);
+    const input = passwordResetRequestSchema.parse(request.body);
     const tokenHash = hashPasswordResetToken(input.token);
     const now = new Date();
     const reset = await prisma.passwordResetToken.findUnique({

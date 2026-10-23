@@ -2,16 +2,16 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { assignmentListSchema, removeAssignmentSchema, setAssignmentSchema } from "./assignment.schemas.js";
 import { listAssignments, removeAssignment, setAssignment } from "./assignment.service.js";
 
 export const assignmentRouter = Router();
 const idSchema = z.string().uuid();
 
-assignmentRouter.use(requireSession, requireRole("OWNER", "ADMIN"));
+assignmentRouter.use(requireSession);
 
-assignmentRouter.get("/", async (request, response, next) => {
+assignmentRouter.get("/", requirePermission("assignments", "read"), async (request, response, next) => {
   try {
     const input = assignmentListSchema.parse(request.query);
     const result = await listAssignments(prisma, { organizationId: request.auth!.organizationId, state: input.state, search: input.search, limit: input.limit, ...(input.reviewerId ? { reviewerId: input.reviewerId } : {}), ...(input.cursor ? { cursor: input.cursor } : {}) });
@@ -19,7 +19,7 @@ assignmentRouter.get("/", async (request, response, next) => {
   } catch (error) { next(error); }
 });
 
-assignmentRouter.put("/:targetId", requireCsrf, async (request, response, next) => {
+assignmentRouter.put("/:targetId", requirePermission("assignments", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const targetId = idSchema.parse(request.params.targetId);
     const input = setAssignmentSchema.parse(request.body);
@@ -35,7 +35,7 @@ assignmentRouter.put("/:targetId", requireCsrf, async (request, response, next) 
   } catch (error) { next(error); }
 });
 
-assignmentRouter.delete("/:targetId", requireCsrf, async (request, response, next) => {
+assignmentRouter.delete("/:targetId", requirePermission("assignments", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const targetId = idSchema.parse(request.params.targetId);
     const input = removeAssignmentSchema.parse(request.body);

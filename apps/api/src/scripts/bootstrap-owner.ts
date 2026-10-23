@@ -1,3 +1,4 @@
+import "../../../../scripts/db-target-guard.mjs";
 import { env } from "../env.js";
 import { prisma } from "../db/client.js";
 import { createBootstrapOwner } from "../modules/auth/auth.service.js";

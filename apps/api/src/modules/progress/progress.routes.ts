@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { getCompletionPercent } from "./progress-metrics.js";
 
 export const progressRouter = Router();
@@ -65,7 +65,7 @@ const progressConfigSchema = z.object({
   completionRule: z.literal("ONE_RESPONSE"),
 }).strict();
 
-progressRouter.patch("/config", requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+progressRouter.patch("/config", requirePermission("settings", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const input = progressConfigSchema.parse(request.body);
     const auth = request.auth!;

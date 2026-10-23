@@ -2,19 +2,19 @@ import { formDefinitionWriteSchema, type FormDefinition } from "@reviewroom/cont
 import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { permanentlyDeleteForm, restoreForm } from "./form-lifecycle.js";
-import { formSubmissionCountFilter } from "./form-submission-counts.js";
+import { loadFormSubmissionCounts } from "./form-submission-counts.js";
 
 export async function listForms(organizationId: string, state: "active" | "archived" = "active") {
   const rows = await prisma.form.findMany({
     where: { organizationId, archivedAt: state === "active" ? null : { not: null } },
     select: {
       id: true, title: true, description: true, status: true, updatedAt: true, currentPublishedId: true,
-      _count: { select: { submissions: { where: formSubmissionCountFilter(organizationId) } } },
     },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: 100,
   });
-  return rows.map(({ _count, ...row }) => ({ ...row, submissionCount: _count.submissions }));
+  const submissionCounts = await loadFormSubmissionCounts(prisma, organizationId, rows.map(({ id }) => id));
+  return rows.map((row) => ({ ...row, submissionCount: submissionCounts.get(row.id) ?? 0 }));
 }
 
 export async function getForm(organizationId: string, formId: string) {

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { serverApi } from "../../../src/lib/api";
 import { TeamManager } from "../../../src/features/team/team-manager";
-import { sessionResponseSchema } from "@reviewroom/contracts";
+import { invitationListResponseSchema, memberListResponseSchema, sessionResponseSchema } from "@reviewroom/contracts";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 
 export const metadata: Metadata = { title: "Team access" };
-type Member = { id: string; role: "OWNER" | "ADMIN" | "REVIEWER"; status: "ACTIVE" | "ARCHIVED"; user: { displayName: string; email: string }; assignedTargetCount: number };
+type Member = { id: string; role: "OWNER" | "ADMIN" | "REVIEWER"; status: "ACTIVE" | "ARCHIVED"; user: { displayName: string; email: string; status: "ACTIVE" | "ARCHIVED" }; assignedTargetCount: number };
 type LinkRow = { id: string; reviewer: { id: string; name: string; email: string }; form: { id: string; title: string } | null; formId: string | null; createdAt: string; expiresAt: string | null; revokedAt: string | null; active: boolean; canReveal: boolean };
 type FormSummary = { id: string; title: string; status: string };
 type Invitation = { id: string; email: string | null; displayName: string | null; role: string; expiresAt: string; createdAt: string; expired: boolean; canReveal: boolean };
@@ -28,8 +28,9 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
   const [memberResult, sessionResult] = await Promise.allSettled([serverApi("/members"), serverApi("/auth/session")]);
   if (memberResult.status === "fulfilled" && memberResult.value.ok) {
-    const body: { data: Member[] } = await memberResult.value.json();
-    members = body.data;
+    const parsed = memberListResponseSchema.safeParse(await memberResult.value.json());
+    if (parsed.success) members = parsed.data.data;
+    else memberError = true;
   } else memberError = true;
   if (sessionResult.status === "fulfilled" && sessionResult.value.ok) {
     const session = sessionResponseSchema.safeParse(await sessionResult.value.json());
@@ -39,8 +40,11 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   const [linkResult, invitationResult, formResult] = await Promise.allSettled([serverApi("/review-links"), serverApi("/members/invitations"), serverApi("/forms")]);
   if (linkResult.status === "fulfilled" && linkResult.value.ok) links = ((await linkResult.value.json()) as { data: LinkRow[] }).data;
   else sectionErrors.links = "Form share links could not load. Member and assignment management remain available.";
-  if (invitationResult.status === "fulfilled" && invitationResult.value.ok) invitations = ((await invitationResult.value.json()) as { data: Invitation[] }).data;
-  else sectionErrors.invitations = "Pending access tokens could not load. Member and assignment management remain available.";
+  if (invitationResult.status === "fulfilled" && invitationResult.value.ok) {
+    const parsed = invitationListResponseSchema.safeParse(await invitationResult.value.json());
+    if (parsed.success) invitations = parsed.data.data;
+    else sectionErrors.invitations = "Pending access tokens returned an invalid response. Member and assignment management remain available.";
+  } else sectionErrors.invitations = "Pending access tokens could not load. Member and assignment management remain available.";
   if (formResult.status === "fulfilled" && formResult.value.ok) forms = ((await formResult.value.json()) as { data: FormSummary[] }).data.filter((form) => form.status === "PUBLISHED");
   else sectionErrors.forms = "Published forms could not load. Existing team links remain visible.";
 

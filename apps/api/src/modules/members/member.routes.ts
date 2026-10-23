@@ -6,43 +6,45 @@ import { env } from "../../env.js";
 import { HttpError } from "../../http/errors.js";
 import { authRateLimit } from "../../http/rate-limits.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { requirePermission } from "../../middleware/require-permission.js";
 import { hashPassword } from "../auth/password.js";
 import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
+import { InvitationAcceptanceError, parseInvitationAcceptanceInput, resolveInvitationIdentity } from "./invitation-acceptance.js";
+import { toMemberSummary } from "./member-summary.js";
+import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
+import { invitationCreateRequestSchema, memberListResponseSchema } from "@reviewroom/contracts";
+import { loadMemberCounts } from "./member-counts.js";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
-const invitationSchema = z.object({ role: z.enum(["ADMIN", "REVIEWER"]) }).strict();
-const acceptanceSchema = z.object({ email: z.string().trim().email().max(254).optional(), displayName: z.string().trim().min(1).max(120).optional(), password: z.string().min(14).max(1024) }).strict();
 const invitationTokenSchema = z.string().min(40).max(100);
 const resetTokenIdSchema = z.string().uuid();
 
-memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+memberRouter.get("/", requireSession, requirePermission("members", "read"), async (request, response, next) => {
   try {
     const organizationId = request.auth!.organizationId;
     const members = await prisma.membership.findMany({
       where: { organizationId },
-      include: {
+      select: {
+        id: true, organizationId: true, userId: true, role: true, status: true, createdAt: true,
         user: { select: { id: true, email: true, displayName: true, status: true } },
-        _count: { select: {
-          reviewLinks: true,
-          // Reviewer/target lifecycle changes remove these rows atomically.
-          // Keep this count on the assignment table's organization key only.
-          assignments: { where: { organizationId } },
-        } },
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
     });
-    response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: _count.assignments, linkCount: _count.reviewLinks })) });
+    const counts = await loadMemberCounts(prisma, organizationId, members.map(({ id }) => id));
+    const body = memberListResponseSchema.parse({
+      data: members.map((member) => toMemberSummary({ ...member, _count: counts.get(member.id) ?? { assignments: 0, reviewLinks: 0 } })),
+    });
+    response.json(body);
   } catch (error) { next(error); }
 });
 
-memberRouter.post("/invitations", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.post("/invitations", requireSession, requirePermission("members", "create"), requireCsrf, async (request, response, next) => {
   try {
-    const input = invitationSchema.parse(request.body);
+    const input = invitationCreateRequestSchema.parse(request.body);
     const auth = request.auth!;
     if (input.role === "ADMIN" && auth.role !== "OWNER") throw new HttpError(403, "FORBIDDEN", "Only the owner can invite administrators.");
     const token = randomBytes(32).toString("base64url");
@@ -59,14 +61,14 @@ memberRouter.post("/invitations", requireSession, requireRole("OWNER", "ADMIN"),
   } catch (error) { next(error); }
 });
 
-memberRouter.get("/invitations", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+memberRouter.get("/invitations", requireSession, requirePermission("members", "read"), async (request, response, next) => {
   try {
     const invitations = await prisma.invitation.findMany({ where: { organizationId: request.auth!.organizationId, acceptedAt: null, revokedAt: null }, select: { id: true, email: true, displayName: true, role: true, expiresAt: true, createdAt: true, encryptedToken: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100 });
     response.json({ data: invitations.map(({ encryptedToken, ...invitation }) => ({ ...invitation, expired: invitation.expiresAt <= new Date(), canReveal: encryptedToken !== null })) });
   } catch (error) { next(error); }
 });
 
-memberRouter.post("/invitations/:invitationId/reveal", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.post("/invitations/:invitationId/reveal", requireSession, requirePermission("members", "read"), requireCsrf, async (request, response, next) => {
   try {
     response.setHeader("Cache-Control", "no-store");
     const invitationId = memberIdSchema.parse(request.params.invitationId);
@@ -81,7 +83,7 @@ memberRouter.post("/invitations/:invitationId/reveal", requireSession, requireRo
   } catch (error) { next(error); }
 });
 
-memberRouter.post("/invitations/:invitationId/rotate", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.post("/invitations/:invitationId/rotate", requireSession, requirePermission("members", "update"), requireCsrf, async (request, response, next) => {
   try {
     response.setHeader("Cache-Control", "no-store");
     const invitationId = memberIdSchema.parse(request.params.invitationId);
@@ -106,7 +108,7 @@ memberRouter.post("/invitations/:invitationId/rotate", requireSession, requireRo
   } catch (error) { next(error); }
 });
 
-memberRouter.delete("/invitations/:invitationId", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.delete("/invitations/:invitationId", requireSession, requirePermission("members", "archive"), requireCsrf, async (request, response, next) => {
   try {
     const invitationId = memberIdSchema.parse(request.params.invitationId);
     const auth = request.auth!;
@@ -133,24 +135,31 @@ memberRouter.get("/invitations/:token", authRateLimit, async (request, response,
 memberRouter.post("/invitations/:token/accept", authRateLimit, async (request, response, next) => {
   try {
     const token = invitationTokenSchema.parse(request.params.token);
-    const input = acceptanceSchema.parse(request.body);
+    const input = parseInvitationAcceptanceInput(request.body);
     const tokenHash = createHash("sha256").update(token).digest("hex");
+    const validInvitation = await prisma.invitation.findUnique({ where: { tokenHash }, select: { acceptedAt: true, revokedAt: true, expiresAt: true } });
+    if (!validInvitation || validInvitation.acceptedAt || validInvitation.revokedAt || validInvitation.expiresAt <= new Date()) {
+      throw new HttpError(410, "INVITATION_INVALID", "This invitation is no longer valid.");
+    }
     const passwordHash = await hashPassword(input.password);
     await prisma.$transaction(async (transaction) => {
       const invitation = await transaction.invitation.findUnique({ where: { tokenHash } });
       if (!invitation || invitation.acceptedAt || invitation.revokedAt || invitation.expiresAt <= new Date()) throw new HttpError(410, "INVITATION_INVALID", "This invitation is no longer valid.");
       const claim = await transaction.invitation.updateMany({ where: { id: invitation.id, tokenHash, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, data: { acceptedAt: new Date() } });
       if (claim.count !== 1) throw new HttpError(410, "INVITATION_INVALID", "This invitation is no longer valid.");
-      const acceptedEmail = invitation.email ?? input.email;
-      const acceptedName = invitation.displayName ?? input.displayName;
-      if (!acceptedEmail || !acceptedName) throw new HttpError(400, "IDENTITY_REQUIRED", "Enter your name and email address to accept this access token.");
-      const email = acceptedEmail.toLowerCase();
-      if (invitation.email && invitation.email.toLowerCase() !== email) throw new HttpError(400, "INVITATION_EMAIL_MISMATCH", "Use the email address this invitation was issued to.");
+      let identity: ReturnType<typeof resolveInvitationIdentity>;
+      try {
+        identity = resolveInvitationIdentity(invitation, input);
+      } catch (error) {
+        if (error instanceof InvitationAcceptanceError) throw new HttpError(400, error.code, error.message);
+        throw error;
+      }
+      const { email } = identity;
       let user = await transaction.user.findUnique({ where: { email } });
       if (user) {
         if (user.status !== "ACTIVE") throw new HttpError(401, "ACCOUNT_UNAVAILABLE", "This account is not available to join the workspace.");
       } else {
-        user = await transaction.user.create({ data: { email, displayName: acceptedName } });
+        user = await transaction.user.create({ data: { email, displayName: identity.displayName } });
       }
       const membershipExists = await transaction.membership.findUnique({ where: { organizationId_userId: { organizationId: invitation.organizationId, userId: user.id } } });
       if (membershipExists) throw new HttpError(409, "ALREADY_MEMBER", "This account already belongs to the workspace.");
@@ -160,11 +169,12 @@ memberRouter.post("/invitations/:token/accept", authRateLimit, async (request, r
         await autoAssignUnassignedTargets(transaction, { organizationId: invitation.organizationId, actorId: user.id, source: "auto-balance-reviewer-accepted" });
       }
     }, { maxWait: 10_000, timeout: 60_000 });
+    response.setHeader("Cache-Control", "no-store");
     response.status(201).json({ data: { accepted: true } });
   } catch (error) { next(error); }
 });
 
-memberRouter.get("/:membershipId/password-reset-tokens", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
+memberRouter.get("/:membershipId/password-reset-tokens", requireSession, requirePermission("members", "read"), async (request, response, next) => {
   try {
     response.setHeader("Cache-Control", "no-store");
     const membershipId = memberIdSchema.parse(request.params.membershipId);
@@ -181,7 +191,7 @@ memberRouter.get("/:membershipId/password-reset-tokens", requireSession, require
   } catch (error) { next(error); }
 });
 
-memberRouter.post("/:membershipId/password-reset-tokens", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.post("/:membershipId/password-reset-tokens", requireSession, requirePermission("members", "update"), requireCsrf, async (request, response, next) => {
   try {
     z.object({}).strict().parse(request.body ?? {});
     const membershipId = memberIdSchema.parse(request.params.membershipId);
@@ -210,7 +220,7 @@ memberRouter.post("/:membershipId/password-reset-tokens", requireSession, requir
   } catch (error) { next(error); }
 });
 
-memberRouter.delete("/:membershipId/password-reset-tokens/:resetTokenId", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.delete("/:membershipId/password-reset-tokens/:resetTokenId", requireSession, requirePermission("members", "archive"), requireCsrf, async (request, response, next) => {
   try {
     const membershipId = memberIdSchema.parse(request.params.membershipId);
     const resetTokenId = resetTokenIdSchema.parse(request.params.resetTokenId);
@@ -229,7 +239,7 @@ memberRouter.delete("/:membershipId/password-reset-tokens/:resetTokenId", requir
   } catch (error) { next(error); }
 });
 
-memberRouter.patch("/:membershipId", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.patch("/:membershipId", requireSession, requirePermission("members", "update"), requireCsrf, async (request, response, next) => {
   try {
     const membershipId = memberIdSchema.parse(request.params.membershipId);
     const input = z.object({ role: z.enum(["ADMIN", "REVIEWER"]).optional(), status: z.enum(["ACTIVE", "ARCHIVED"]).optional() }).strict().refine((value) => value.role !== undefined || value.status !== undefined).parse(request.body);
@@ -253,11 +263,11 @@ memberRouter.patch("/:membershipId", requireSession, requireRole("OWNER", "ADMIN
       }
       return saved;
     }, { maxWait: 10_000, timeout: 60_000 });
-    response.json({ data: updated });
+    response.json({ data: toMemberUpdateSummary(updated) });
   } catch (error) { next(error); }
 });
 
-memberRouter.delete("/:membershipId", requireSession, requireRole("OWNER", "ADMIN"), requireCsrf, async (request, response, next) => {
+memberRouter.delete("/:membershipId", requireSession, requirePermission("members", "archive"), requireCsrf, async (request, response, next) => {
   try {
     const membershipId = memberIdSchema.parse(request.params.membershipId);
     const auth = request.auth!;
@@ -277,7 +287,7 @@ memberRouter.delete("/:membershipId", requireSession, requireRole("OWNER", "ADMI
   } catch (error) { next(error); }
 });
 
-memberRouter.delete("/:membershipId/permanent", requireSession, requireRole("OWNER"), requireCsrf, async (request, response, next) => {
+memberRouter.delete("/:membershipId/permanent", requireSession, requirePermission("members", "permanentDelete"), requireCsrf, async (request, response, next) => {
   try {
     const membershipId = memberIdSchema.parse(request.params.membershipId);
     const auth = request.auth!;

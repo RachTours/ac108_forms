@@ -415,9 +415,11 @@ td { font-size: 11px; }
   .people-target-table thead th { padding: 0; border: 0; background: transparent; }
   .people-target-table thead th:not(:first-child) { display: none; }
   .people-target-table tbody { display: grid; gap: 9px; }
-  .people-target-table tr.review-target-row { display: grid; grid-template-areas: "person actions" "responses responses"; grid-template-columns: minmax(0, 1fr) auto; gap: 9px 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+  .people-target-table tr.review-target-row { display: grid; grid-template-areas: "person actions" "reviewer reviewer" "responses responses"; grid-template-columns: minmax(0, 1fr) auto; gap: 9px 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
   .people-target-table tr.review-target-row > td { display: flex; min-width: 0; align-items: center; padding: 0; border: 0; }
   .target-person-cell { grid-area: person; }
+  .target-assignment-cell { grid-area: reviewer; gap: 6px; color: var(--ink); }
+  .target-assignment-cell::before { flex: 0 0 auto; color: var(--muted); font-size: 10px; content: attr(data-label); }
   .target-response-cell { grid-area: responses; gap: 7px; color: var(--ink); }
   .target-actions-cell { grid-area: actions; align-items: start !important; justify-content: end; }
   .target-response-cell::before { flex: 0 0 auto; color: var(--muted); font-size: 10px; content: attr(data-label); }
@@ -447,6 +449,12 @@ td { font-size: 11px; }
   .reviewer-review-copy strong, .reviewer-review-copy span, .reviewer-review-copy small { overflow-wrap: anywhere; }
   .reviewer-drawer-detail .detail-header h1 { font-size: clamp(24px, 7vw, 30px); }
 }
+
+.assignment-context-link { display: grid; min-width: 0; gap: 3px; color: var(--ink); text-decoration: none; }
+.assignment-context-link strong { font-size: 10px; font-weight: 600; }
+.assignment-context-link small { color: var(--green); font-size: 9px; }
+.assignment-context-link:hover strong { color: var(--green); text-decoration: underline; }
+.assignment-context-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--green) 68%, white); outline-offset: 3px; border-radius: 3px; }
 
 .reviewer-drawer-row-trigger { display: flex; width: 100%; align-items: center; gap: 11px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .reviewer-review-number { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--canvas); color: var(--green); font-size: 11px; font-weight: 700; }
