@@ -42,6 +42,17 @@ test("all form API operations stay owner/admin only so reviewers cannot read dra
   }
 });
 
+test("submission archive operations are owner/admin only while reviewer work remains separately scoped", () => {
+  for (const action of ["read", "update", "archive"]) {
+    for (const role of ["OWNER", "ADMIN"]) {
+      assert.equal(invoke(requirePermission("submissions", action), { role, organizationId: "org-a", membershipId: `${role}-a` }).continued, true, `${role} submissions:${action}`);
+    }
+    const denied = invoke(requirePermission("submissions", action), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" });
+    assert.equal(denied.error.status, 403, `reviewer submissions:${action}`);
+  }
+  assert.equal(invoke(requirePermission("reviewWork", "readOwn"), { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer-a" }).continued, true);
+});
+
 test("permission middleware rejects requests without an authenticated session", () => {
   const result = invoke(requirePermission("assignments", "read"), undefined);
   assert.equal(result.error.status, 401);
