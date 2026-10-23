@@ -18,6 +18,7 @@ import { targetRouter } from "./modules/targets/target.routes.js";
 import { submissionRouter } from "./modules/submissions/submission.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 import { organizationRouter } from "./modules/organization/organization.routes.js";
+import { assignmentRouter } from "./modules/assignments/assignment.routes.js";
 
 export const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/v1/members", memberRouter);
 app.use("/api/v1/review-links", reviewLinkRouter);
 app.use("/api/v1/public/review", publicReviewRouter);
 app.use("/api/v1/review-targets", targetRouter);
+app.use("/api/v1/assignments", assignmentRouter);
 app.use("/api/v1/submissions", submissionRouter);
 app.use("/api/v1/audit-events", auditRouter);
 app.use("/api/v1/organization", organizationRouter);

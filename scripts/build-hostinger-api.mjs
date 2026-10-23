@@ -33,9 +33,10 @@ function runNpm(args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+runNpm(["run", "db:generate"]);
+runNpm(["run", "db:assignment-preflight", "--workspace", "@reviewroom/api"]);
 runNpm(["run", "db:migrate"]);
 runNpm(["run", "build", "--workspace", "@reviewroom/contracts"]);
-runNpm(["run", "db:generate"]);
 
 if (bootstrapRequested) {
   runNpm(["run", "db:bootstrap-owner", "--workspace", "@reviewroom/api"]);

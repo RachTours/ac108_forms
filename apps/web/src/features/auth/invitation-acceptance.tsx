@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiErrorSchema } from "@reviewroom/contracts";
 import { PasswordInput } from "./password-input";
+import { invitationEmailError } from "./invitation-acceptance-validation";
 
 export function InvitationAcceptance({ token, email, displayName, role }: { token: string; email: string | null; displayName: string | null; role: string }) {
   const router = useRouter();
@@ -17,6 +18,10 @@ export function InvitationAcceptance({ token, email, displayName, role }: { toke
     if (password.length < 14 || password.length > 1024) { setError("Use a password with at least 14 characters."); return; }
     if (password !== String(form.get("confirmPassword") ?? "")) { setError("The passwords do not match."); return; }
     const identity = { email: String(form.get("email") ?? "") || undefined, displayName: String(form.get("displayName") ?? "") || undefined };
+    if (identity.email) {
+      const emailError = invitationEmailError(identity.email);
+      if (emailError) { setError(emailError); return; }
+    }
     setBusy(true);
     try {
       const response = await fetch(`/api/v1/members/invitations/${encodeURIComponent(token)}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...identity, password }) });

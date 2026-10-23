@@ -11,6 +11,7 @@ import { hashPassword } from "../auth/password.js";
 import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
+import { lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
@@ -21,12 +22,27 @@ const resetTokenIdSchema = z.string().uuid();
 
 memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
   try {
-    const members = await prisma.membership.findMany({
-      where: { organizationId: request.auth!.organizationId },
-      include: { user: { select: { id: true, email: true, displayName: true, status: true } }, _count: { select: { assignments: true, reviewLinks: true } } },
+    const organizationId = request.auth!.organizationId;
+    const [members, assignmentCounts] = await Promise.all([
+      prisma.membership.findMany({
+      where: { organizationId },
+      include: { user: { select: { id: true, email: true, displayName: true, status: true } }, _count: { select: { reviewLinks: true } } },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
-    });
-    response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: _count.assignments, linkCount: _count.reviewLinks })) });
+      }),
+      prisma.$queryRaw<Array<{ reviewerId: string; assignmentCount: bigint }>>`
+        SELECT a.reviewerId, COUNT(*) AS assignmentCount
+        FROM Assignment a
+        INNER JOIN ReviewTarget t ON t.id = a.targetId AND t.organizationId = a.organizationId
+        INNER JOIN Membership m ON m.id = a.reviewerId AND m.organizationId = a.organizationId
+        INNER JOIN User u ON u.id = m.userId
+        WHERE a.organizationId = ${organizationId}
+          AND t.status = 'ACTIVE' AND t.archivedAt IS NULL
+          AND m.role = 'REVIEWER' AND m.status = 'ACTIVE' AND u.status = 'ACTIVE'
+        GROUP BY a.reviewerId
+      `,
+    ]);
+    const countByReviewer = new Map(assignmentCounts.map((row) => [row.reviewerId, Number(row.assignmentCount)]));
+    response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: countByReviewer.get(membership.id) ?? 0, linkCount: _count.reviewLinks })) });
   } catch (error) { next(error); }
 });
 
@@ -222,6 +238,7 @@ memberRouter.patch("/:membershipId", requireSession, requireRole("OWNER", "ADMIN
     const input = z.object({ role: z.enum(["ADMIN", "REVIEWER"]).optional(), status: z.enum(["ACTIVE", "ARCHIVED"]).optional() }).strict().refine((value) => value.role !== undefined || value.status !== undefined).parse(request.body);
     const auth = request.auth!;
     const updated = await prisma.$transaction(async (transaction) => {
+      await lockAssignmentReviewer(transaction, auth.organizationId, membershipId);
       const current = await transaction.membership.findFirst({ where: { id: membershipId, organizationId: auth.organizationId }, include: { user: true } });
       if (!current) throw new HttpError(404, "MEMBER_NOT_FOUND", "Team member not found.");
       if (input.role === "ADMIN" && auth.role !== "OWNER") throw new HttpError(403, "FORBIDDEN", "Only the owner can grant administrator access.");
@@ -230,7 +247,7 @@ memberRouter.patch("/:membershipId", requireSession, requireRole("OWNER", "ADMIN
       const saved = await transaction.membership.update({ where: { id: current.id }, data: updateData });
       if (input.status === "ARCHIVED" || input.role === "ADMIN") {
         await transaction.session.deleteMany({ where: { membershipId: current.id } });
-        await transaction.assignment.deleteMany({ where: { reviewerId: current.id } });
+        if (current.role === "REVIEWER") await removeReviewerAssignments(transaction, { organizationId: auth.organizationId, reviewerId: current.id, actorId: auth.userId, reason: input.status === "ARCHIVED" ? "reviewer-archived" : "reviewer-promoted" });
         await transaction.reviewLink.updateMany({ where: { reviewerId: current.id, revokedAt: null }, data: { revokedAt: new Date(), activeReviewerKey: null } });
       }
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "MEMBER_UPDATED", entityType: "Membership", entityId: current.id, metadata: input } });
@@ -245,12 +262,13 @@ memberRouter.delete("/:membershipId", requireSession, requireRole("OWNER", "ADMI
     const membershipId = memberIdSchema.parse(request.params.membershipId);
     const auth = request.auth!;
     await prisma.$transaction(async (transaction) => {
+      await lockAssignmentReviewer(transaction, auth.organizationId, membershipId);
       const member = await transaction.membership.findFirst({ where: { id: membershipId, organizationId: auth.organizationId } });
       if (!member) throw new HttpError(404, "MEMBER_NOT_FOUND", "Team member not found.");
       if (member.role === "OWNER") throw new HttpError(409, "OWNER_PROTECTED", "Transfer ownership before removing the owner account.");
       await transaction.membership.update({ where: { id: member.id }, data: { status: "ARCHIVED" } });
       await transaction.session.deleteMany({ where: { membershipId: member.id } });
-      await transaction.assignment.deleteMany({ where: { reviewerId: member.id } });
+      if (member.role === "REVIEWER") await removeReviewerAssignments(transaction, { organizationId: auth.organizationId, reviewerId: member.id, actorId: auth.userId, reason: "reviewer-archived" });
       await transaction.reviewLink.updateMany({ where: { reviewerId: member.id, revokedAt: null }, data: { revokedAt: new Date(), activeReviewerKey: null } });
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "MEMBER_ARCHIVED", entityType: "Membership", entityId: member.id } });
     });

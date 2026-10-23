@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "prisma generate",
+    "db:assignment-preflight": "tsx src/scripts/check-assignment-integrity.ts",
     "db:migrate:dev": "prisma migrate dev --name init",
     "db:migrate": "prisma migrate deploy",
     "db:bootstrap-owner": "tsx src/scripts/bootstrap-owner.ts",

@@ -8,15 +8,29 @@ const targetIds = ["target-1", "target-2"];
 function createFixture({ targets = targetIds.map((id) => ({ id, organizationId: orgId, status: "ACTIVE", archivedAt: null })), reviewer = { id: "reviewer-1", organizationId: orgId, role: "REVIEWER", status: "ACTIVE" }, failTargetId } = {}) {
   const state = { assignments: new Map(), audit: [] };
   const tx = {
-    reviewTarget: { findMany: async ({ where }) => targets.filter((target) => where.id.in.includes(target.id) && target.organizationId === where.organizationId && target.status === where.status && target.archivedAt === null).map(({ id }) => ({ id })) },
+    $queryRaw: async () => [],
+    reviewTarget: {
+      findMany: async ({ where }) => targets.filter((target) => where.id.in.includes(target.id) && target.organizationId === where.organizationId && target.status === where.status && target.archivedAt === null).map(({ id }) => ({ id })),
+      findFirst: async ({ where }) => targets.find((target) => target.id === where.id && target.organizationId === where.organizationId && target.status === where.status && target.archivedAt === where.archivedAt) ?? null,
+    },
     membership: { findFirst: async ({ where }) => reviewer && reviewer.id === where.id && reviewer.organizationId === where.organizationId && reviewer.role === where.role && reviewer.status === where.status ? { id: reviewer.id } : null },
-    assignment: { upsert: async ({ where, create, update }) => {
-      if (where.organizationId_targetId.targetId === failTargetId) throw new Error("simulated database failure");
-      const key = `${where.organizationId_targetId.organizationId}:${where.organizationId_targetId.targetId}`;
-      const saved = { id: state.assignments.get(key)?.id ?? `assignment-${where.organizationId_targetId.targetId}`, targetId: where.organizationId_targetId.targetId, reviewerId: state.assignments.has(key) ? update.reviewerId : create.reviewerId };
-      state.assignments.set(key, saved); return saved;
-    } },
-    auditEvent: { createMany: async ({ data }) => { state.audit.push(...data); } },
+    assignment: {
+      findUnique: async ({ where }) => state.assignments.get(`${where.organizationId_targetId.organizationId}:${where.organizationId_targetId.targetId}`) ?? null,
+      create: async ({ data }) => {
+        if (data.targetId === failTargetId) throw new Error("simulated database failure");
+        const key = `${data.organizationId}:${data.targetId}`;
+        const saved = { id: `assignment-${data.targetId}`, ...data, createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: data.updatedAt };
+        state.assignments.set(key, saved); return saved;
+      },
+      updateMany: async ({ where, data }) => {
+        if (where.id === `assignment-${failTargetId}`) throw new Error("simulated database failure");
+        const assignment = [...state.assignments.entries()].find(([, row]) => row.id === where.id)?.[1];
+        if (!assignment || +assignment.updatedAt !== +where.updatedAt) return { count: 0 };
+        Object.assign(assignment, data);
+        return { count: 1 };
+      },
+    },
+    auditEvent: { create: async ({ data }) => { state.audit.push(data); } },
   };
   async function transaction(operation) {
     const snapshot = structuredClone({ assignments: [...state.assignments], audit: state.audit });
@@ -46,7 +60,7 @@ test("bulk assignment transaction rolls back writes if any upsert fails", async 
   assert.equal(fixture.state.audit.length, 0);
 });
 
-test("retrying bulk assignment keeps one assignment per target and records successful operation", async () => {
+test("retrying bulk assignment keeps one assignment per target and does not duplicate audit events", async () => {
   const fixture = createFixture();
   const input = { organizationId: orgId, actorId: "owner-1", reviewerId: "reviewer-1", targetIds };
   const first = await fixture.transaction((tx) => assignTargets(tx, input));
@@ -54,5 +68,5 @@ test("retrying bulk assignment keeps one assignment per target and records succe
   assert.equal(first.length, 2);
   assert.equal(retry.length, 2);
   assert.equal(fixture.state.assignments.size, 2);
-  assert.equal(fixture.state.audit.length, 4);
+  assert.equal(fixture.state.audit.length, 2);
 });
