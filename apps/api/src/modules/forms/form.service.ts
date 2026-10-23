@@ -2,17 +2,19 @@ import { formDefinitionWriteSchema, type FormDefinition } from "@reviewroom/cont
 import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { permanentlyDeleteForm, restoreForm } from "./form-lifecycle.js";
+import { formSubmissionCountFilter } from "./form-submission-counts.js";
 
 export async function listForms(organizationId: string, state: "active" | "archived" = "active") {
   const rows = await prisma.form.findMany({
     where: { organizationId, archivedAt: state === "active" ? null : { not: null } },
-    select: { id: true, title: true, description: true, status: true, updatedAt: true, currentPublishedId: true },
+    select: {
+      id: true, title: true, description: true, status: true, updatedAt: true, currentPublishedId: true,
+      _count: { select: { submissions: { where: formSubmissionCountFilter(organizationId) } } },
+    },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: 100,
   });
-  const counts = await prisma.submission.groupBy({ by: ["formId"], where: { organizationId, formId: { in: rows.map((row) => row.id) } }, _count: { _all: true } });
-  const countByForm = new Map(counts.map((row) => [row.formId, row._count._all]));
-  return rows.map((row) => ({ ...row, submissionCount: countByForm.get(row.id) ?? 0 }));
+  return rows.map(({ _count, ...row }) => ({ ...row, submissionCount: _count.submissions }));
 }
 
 export async function getForm(organizationId: string, formId: string) {

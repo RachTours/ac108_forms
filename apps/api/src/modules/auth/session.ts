@@ -14,6 +14,16 @@ export function sessionCookieNameForAudience(audience: SessionAudience): string 
   return audience === "reviewer" ? reviewerSessionCookieName : adminSessionCookieName;
 }
 
+export function sessionCookieNameForRequest(
+  cookies: Record<string, unknown>,
+  audience: SessionAudience,
+): string {
+  const requestedCookieName = sessionCookieNameForAudience(audience);
+  if (cookies[requestedCookieName]) return requestedCookieName;
+  if (!hasAudienceSessionCookie(cookies) && cookies[legacySessionCookieName]) return legacySessionCookieName;
+  return requestedCookieName;
+}
+
 export function newSessionToken(): string {
   return randomBytes(32).toString("base64url");
 }

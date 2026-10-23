@@ -2,12 +2,9 @@ import type { RequestHandler } from "express";
 import { prisma } from "../db/client.js";
 import { HttpError } from "../http/errors.js";
 import {
-  adminSessionCookieName,
   createCsrfToken,
-  hasAudienceSessionCookie,
   hashToken,
-  legacySessionCookieName,
-  reviewerSessionCookieName,
+  sessionCookieNameForRequest,
   type SessionAudience,
 } from "../modules/auth/session.js";
 import { env } from "../env.js";
@@ -15,12 +12,7 @@ import { env } from "../env.js";
 export const requireSession: RequestHandler = async (request, _response, next) => {
   try {
     const audience: SessionAudience = request.get("x-reviewroom-audience") === "reviewer" ? "reviewer" : "admin";
-    const audienceCookieName = audience === "reviewer" ? reviewerSessionCookieName : adminSessionCookieName;
-    const cookieName = request.cookies[audienceCookieName]
-      ? audienceCookieName
-      : !hasAudienceSessionCookie(request.cookies) && request.cookies[legacySessionCookieName]
-        ? legacySessionCookieName
-        : audienceCookieName;
+    const cookieName = sessionCookieNameForRequest(request.cookies, audience);
     const token = request.cookies[cookieName] as string | undefined;
     if (!token || token.length > 128) throw new HttpError(401, "UNAUTHENTICATED", "Sign in to continue.");
     const session = await prisma.session.findUnique({

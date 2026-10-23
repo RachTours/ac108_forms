@@ -1,30 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { autoAssignUnassignedTargets, getActiveAssignmentCounts, listAssignments, removeAssignment, setAssignment } from "../../../dist/modules/assignments/assignment.service.js";
+import { activeAssignmentWhere, autoAssignUnassignedTargets, listAssignments, removeAssignment, setAssignment } from "../../../dist/modules/assignments/assignment.service.js";
 
 const organizationId = "org-a";
 const targetId = "target-a";
 const reviewerId = "reviewer-a";
 const actorId = "admin-a";
 
-test("active assignment counts use Prisma grouping scoped to active reviewers and targets", async () => {
-  let query;
-  const counts = await getActiveAssignmentCounts({ assignment: {
-    groupBy: async (input) => {
-      query = input;
-      return [{ reviewerId, _count: { _all: 3 } }];
-    },
-  } }, organizationId);
-
-  assert.equal(counts.get(reviewerId), 3);
-  assert.equal(counts.size, 1);
-  assert.deepEqual(query.by, ["reviewerId"]);
-  assert.equal(query.where.organizationId, organizationId);
-  assert.equal(query.where.reviewer.role, "REVIEWER");
-  assert.equal(query.where.reviewer.status, "ACTIVE");
-  assert.equal(query.where.reviewer.user.status, "ACTIVE");
-  assert.equal(query.where.target.status, "ACTIVE");
-  assert.equal(query.where.target.archivedAt, null);
+test("active assignment reads exclude inactive reviewers and archived targets", () => {
+  assert.deepEqual(activeAssignmentWhere(organizationId), {
+    organizationId,
+    reviewer: { role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } },
+    target: { status: "ACTIVE", archivedAt: null },
+  });
 });
 
 function fixture({ assignment = null, target = { id: targetId }, reviewer = { id: reviewerId } } = {}) {
@@ -131,7 +119,7 @@ test("auto assignment balances unassigned targets across active reviewers and pr
   const tx = {
     $queryRaw: async () => [],
     membership: {
-      findMany: async () => reviewers,
+      findMany: async () => reviewers.map((reviewer) => ({ ...reviewer, _count: { assignments: reviewer.id === "reviewer-a" ? 1 : 0 } })),
       findFirst: async ({ where }) => reviewers.find((reviewer) => reviewer.id === where.id) ?? null,
     },
     reviewTarget: {
@@ -139,7 +127,6 @@ test("auto assignment balances unassigned targets across active reviewers and pr
       findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
     },
     assignment: {
-      groupBy: async () => [{ reviewerId: "reviewer-a", _count: { _all: 1 } }],
       findUnique: async ({ where }) => assignments.get(where.organizationId_targetId.targetId) ?? null,
       create: async ({ data }) => {
         const value = { id: `assignment-${data.targetId}`, ...data, createdAt: new Date(), updatedAt: data.updatedAt };

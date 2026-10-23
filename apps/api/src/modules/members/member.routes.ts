@@ -11,7 +11,7 @@ import { hashPassword } from "../auth/password.js";
 import { createPasswordResetToken } from "../auth/password-reset.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
 import { assertMemberCanBePermanentlyDeleted } from "./member-lifecycle.js";
-import { autoAssignUnassignedTargets, getActiveAssignmentCounts, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
+import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
@@ -23,15 +23,20 @@ const resetTokenIdSchema = z.string().uuid();
 memberRouter.get("/", requireSession, requireRole("OWNER", "ADMIN"), async (request, response, next) => {
   try {
     const organizationId = request.auth!.organizationId;
-    const [members, countByReviewer] = await Promise.all([
-      prisma.membership.findMany({
-        where: { organizationId },
-        include: { user: { select: { id: true, email: true, displayName: true, status: true } }, _count: { select: { reviewLinks: true } } },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
-      }),
-      getActiveAssignmentCounts(prisma, organizationId),
-    ]);
-    response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: countByReviewer.get(membership.id) ?? 0, linkCount: _count.reviewLinks })) });
+    const members = await prisma.membership.findMany({
+      where: { organizationId },
+      include: {
+        user: { select: { id: true, email: true, displayName: true, status: true } },
+        _count: { select: {
+          reviewLinks: true,
+          // Reviewer/target lifecycle changes remove these rows atomically.
+          // Keep this count on the assignment table's organization key only.
+          assignments: { where: { organizationId } },
+        } },
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
+    });
+    response.json({ data: members.map(({ user, _count, ...membership }) => ({ ...membership, user, assignedTargetCount: _count.assignments, linkCount: _count.reviewLinks })) });
   } catch (error) { next(error); }
 });
 

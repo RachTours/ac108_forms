@@ -24,26 +24,12 @@ export type AssignmentListInput = {
   limit: number;
 };
 
-function activeAssignmentWhere(organizationId: string) {
+export function activeAssignmentWhere(organizationId: string) {
   return {
     organizationId,
     reviewer: { role: "REVIEWER" as const, status: "ACTIVE" as const, user: { status: "ACTIVE" as const } },
+    target: { status: "ACTIVE" as const, archivedAt: null },
   };
-}
-
-export async function getActiveAssignmentCounts(
-  transaction: Pick<AssignmentTransaction, "assignment">,
-  organizationId: string,
-) {
-  const groups = await transaction.assignment.groupBy({
-    by: ["reviewerId"],
-    where: {
-      ...activeAssignmentWhere(organizationId),
-      target: { status: "ACTIVE", archivedAt: null },
-    },
-    _count: { _all: true },
-  });
-  return new Map(groups.map(({ reviewerId, _count }) => [reviewerId, _count._all]));
 }
 
 export async function listAssignments(transaction: AssignmentTransaction, input: AssignmentListInput) {
@@ -186,7 +172,13 @@ export async function autoAssignUnassignedTargets(
   const reviewers = await transaction.membership.findMany({
     where: { organizationId: input.organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    select: { id: true },
+    select: {
+      id: true,
+      // Lifecycle writes delete assignments with inactive reviewers/targets.
+      // Count only the indexed tenant key here to avoid expensive nested
+      // correlated count SQL on MariaDB.
+      _count: { select: { assignments: { where: { organizationId: input.organizationId } } } },
+    },
   });
   if (!reviewers.length) return [];
 
@@ -203,18 +195,7 @@ export async function autoAssignUnassignedTargets(
   });
   if (!targets.length) return [];
 
-  const assignmentGroups = await transaction.assignment.groupBy({
-    by: ["reviewerId"],
-    where: {
-      ...activeAssignmentWhere(input.organizationId),
-      target: { status: "ACTIVE", archivedAt: null },
-    },
-    _count: { _all: true },
-  });
-  const loadByReviewer = new Map(reviewers.map(({ id }) => [id, 0]));
-  for (const group of assignmentGroups) {
-    if (loadByReviewer.has(group.reviewerId)) loadByReviewer.set(group.reviewerId, group._count._all);
-  }
+  const loadByReviewer = new Map(reviewers.map(({ id, _count }) => [id, _count.assignments]));
 
   const created: Array<{ targetId: string; reviewerId: string }> = [];
   for (const target of targets) {
