@@ -7,7 +7,7 @@ import { requirePermission } from "../../middleware/require-permission.js";
 import { assignTargets } from "./bulk-assignment.js";
 import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schemas.js";
 import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
-import { loadTargetSubmissionCounts } from "./target-submission-counts.js";
+import { loadTargetAssignments, loadTargetSubmissionCounts } from "./target-submission-counts.js";
 
 export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
@@ -36,8 +36,12 @@ targetRouter.get("/", requirePermission("targets", "read"), async (request, resp
     } });
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit);
-    const submissionCounts = await loadTargetSubmissionCounts(prisma, auth.organizationId, page.map(({ id }) => id));
-    response.json({ data: page.map((target) => ({ ...target, submissionCount: submissionCounts.get(target.id) ?? 0 })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
+    const targetIds = page.map(({ id }) => id);
+    const [submissionCounts, assignments] = await Promise.all([
+      loadTargetSubmissionCounts(prisma, auth.organizationId, targetIds),
+      loadTargetAssignments(prisma, auth.organizationId, targetIds),
+    ]);
+    response.json({ data: page.map((target) => ({ ...target, submissionCount: submissionCounts.get(target.id) ?? 0, assignedReviewer: assignments.get(target.id) ?? null })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
   } catch (error) { next(error); }
 });
 

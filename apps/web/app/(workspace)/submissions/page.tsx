@@ -7,7 +7,7 @@ import { activeReviewers } from "../../../src/features/people/available-reviewer
 
 export const metadata: Metadata = { title: "Submissions" };
 type Submission = { id: string; submittedAt: string; archivedAt?: string | null; reviewedAt: string | null; target: { id: string; displayName: string }; reviewedPersonName?: string; form: { id: string; title: string }; reviewer: { id: string; user: { displayName: string; email?: string } }; formVersion: { version: number } };
-type Member = { id: string; role: string; status: string; user: { displayName: string; email: string } };
+type Member = { id: string; role: string; status: string; user: { status: string; displayName: string; email: string } };
 export default async function SubmissionsPage() {
   await requireWorkspaceRole(["OWNER", "ADMIN", "REVIEWER"]);
   let rows: Submission[] = []; let archivedRows: Submission[] = []; let reviewers: Member[] = []; let error = false; let canManage = false;
