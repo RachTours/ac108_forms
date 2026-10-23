@@ -5,6 +5,7 @@ import {
   auditEventSummarySchema,
   assignmentListResponseSchema,
   assignmentMutationResponseSchema,
+  assignmentRemoveResponseSchema,
   assignmentSetRequestSchema,
   invitationAcceptRequestSchema,
   invitationAcceptInfoSchema,
@@ -88,6 +89,8 @@ test("assignment response schemas match the bounded target list and mutation env
   const page = Array.from({ length: 101 }, (_, index) => ({ id: `8d493e2d-7500-4d5f-a148-${String(index).padStart(12, "0")}`, displayName: "Target", email: null, assignment: null }));
   assert.equal(assignmentListResponseSchema.safeParse({ data: page, nextCursor: null, counts: { total: 101, assigned: 0, unassigned: 101 } }).success, false);
   assert.equal(assignmentMutationResponseSchema.safeParse({ data: { id: "29939b21-1d8b-4d94-980e-375d8972a205", organizationId: "d7a22eb1-57f7-41d4-965d-c91c8ef2a31f", targetId, reviewerId, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }, changed: true }).success, true);
+  assert.equal(assignmentRemoveResponseSchema.safeParse({ data: { removed: true } }).success, true);
+  assert.equal(assignmentRemoveResponseSchema.safeParse({ data: { removed: true, reviewerId } }).success, false);
 });
 
 test("resource contracts validate target, member, and invitation DTOs without accepting secret fields", () => {

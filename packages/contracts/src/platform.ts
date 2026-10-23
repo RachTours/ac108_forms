@@ -76,6 +76,7 @@ export const assignmentMutationResponseSchema = z.object({
   data: z.object({ id: z.string().uuid(), organizationId: z.string().uuid(), targetId: z.string().uuid(), reviewerId: z.string().uuid(), createdAt: z.iso.datetime({ offset: true }), updatedAt: z.iso.datetime({ offset: true }) }).strict(),
   changed: z.boolean(),
 }).strict();
+export const assignmentRemoveResponseSchema = z.object({ data: z.object({ removed: z.boolean() }).strict() }).strict();
 
 export const passwordResetRequestSchema = z.object({
   email: z.string().trim().email().max(254),
