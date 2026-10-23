@@ -4,13 +4,22 @@ import { HttpError } from "../../http/errors.js";
 
 type AssignmentTransaction = Prisma.TransactionClient;
 
+/** Serialize assignment decisions within one workspace without blocking other workspaces. */
+export async function lockAssignmentOrganization(transaction: AssignmentTransaction, organizationId: string) {
+  await transaction.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM Organization WHERE id = ${organizationId} FOR UPDATE
+  `;
+}
+
 export async function lockAssignmentTarget(transaction: AssignmentTransaction, organizationId: string, targetId: string) {
+  await lockAssignmentOrganization(transaction, organizationId);
   await transaction.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM ReviewTarget WHERE organizationId = ${organizationId} AND id = ${targetId} FOR UPDATE
   `;
 }
 
 export async function lockAssignmentReviewer(transaction: AssignmentTransaction, organizationId: string, reviewerId: string) {
+  await lockAssignmentOrganization(transaction, organizationId);
   await transaction.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM Membership WHERE organizationId = ${organizationId} AND id = ${reviewerId} FOR UPDATE
   `;
@@ -172,6 +181,9 @@ export async function autoAssignUnassignedTargets(
   input: { organizationId: string; actorId: string; source: string; targetIds?: string[] },
 ) {
   if (input.targetIds && input.targetIds.length === 0) return [];
+  // Lock before reading reviewer loads so simultaneous balancing operations
+  // observe the previous transaction's committed assignments.
+  await lockAssignmentOrganization(transaction, input.organizationId);
   const reviewers = await transaction.membership.findMany({
     where: { organizationId: input.organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -280,6 +292,7 @@ export async function removeReviewerAssignments(
   transaction: AssignmentTransaction,
   input: { organizationId: string; reviewerId: string; actorId: string; reason: "reviewer-archived" | "reviewer-promoted" },
 ) {
+  await lockAssignmentOrganization(transaction, input.organizationId);
   const assignments = await transaction.assignment.findMany({
     where: { organizationId: input.organizationId, reviewerId: input.reviewerId },
     select: { id: true, targetId: true, reviewerId: true },

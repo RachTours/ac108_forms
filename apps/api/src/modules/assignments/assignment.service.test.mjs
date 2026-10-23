@@ -16,9 +16,9 @@ test("active assignment reads exclude inactive reviewers and archived targets", 
 });
 
 function fixture({ assignment = null, target = { id: targetId }, reviewer = { id: reviewerId } } = {}) {
-  const state = { assignment: assignment && { id: "assignment-a", organizationId, targetId, reviewerId: "reviewer-old", createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), ...assignment }, audits: [] };
+  const state = { assignment: assignment && { id: "assignment-a", organizationId, targetId, reviewerId: "reviewer-old", createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), ...assignment }, audits: [], locks: [] };
   const tx = {
-    $queryRaw: async () => [],
+    $queryRaw: async (query) => { state.locks.push(query); return []; },
     reviewTarget: { findFirst: async ({ where }) => where.id === targetId && where.organizationId === organizationId && target ? target : null },
     membership: { findFirst: async ({ where }) => where.id === reviewerId && where.organizationId === organizationId && reviewer ? reviewer : null },
     assignment: {
@@ -43,6 +43,16 @@ function fixture({ assignment = null, target = { id: targetId }, reviewer = { id
   };
   return { tx, state };
 }
+
+test("assignment writes lock the workspace before target and reviewer rows", async () => {
+  const { tx, state } = fixture();
+  await setAssignment(tx, { organizationId, actorId, targetId, reviewerId, expectedUpdatedAt: null });
+  const sql = state.locks.map((query) => Array.from(query.strings ?? [query]).join(" "));
+  assert.match(sql[0], /FROM Organization .* FOR UPDATE/i);
+  assert.match(sql[1], /FROM ReviewTarget .* FOR UPDATE/i);
+  assert.match(sql[2], /FROM Organization .* FOR UPDATE/i);
+  assert.match(sql[3], /FROM Membership .* FOR UPDATE/i);
+});
 
 test("assignment retry for the current reviewer is idempotent and does not add another audit event", async () => {
   const current = { reviewerId, updatedAt: new Date("2026-01-01T00:00:00.000Z") };
@@ -119,14 +129,16 @@ test("auto assignment balances unassigned targets across active reviewers and pr
   const assignments = new Map([["existing-target", { id: "existing-assignment", targetId: "existing-target", reviewerId: "reviewer-a", updatedAt: new Date("2026-01-01T00:00:00.000Z") }]]);
   const audits = [];
   const countQueries = [];
+  const events = [];
   const tx = {
-    $queryRaw: async () => [],
+    $queryRaw: async (query) => { events.push(Array.from(query.strings ?? [query]).join(" ")); return []; },
     membership: {
-      findMany: async () => reviewers.map((reviewer) => ({ ...reviewer, createdAt: new Date(`2026-01-0${reviewer.id === "reviewer-a" ? 1 : 2}T00:00:00.000Z`) })),
+      findMany: async () => { events.push("reviewers"); return reviewers.map((reviewer) => ({ ...reviewer, createdAt: new Date(`2026-01-0${reviewer.id === "reviewer-a" ? 1 : 2}T00:00:00.000Z`) })); },
       findFirst: async ({ where }) => reviewers.find((reviewer) => reviewer.id === where.id) ?? null,
     },
     assignment: {
       groupBy: async (query) => {
+        events.push("loads");
         countQueries.push(query);
         return [{ reviewerId: "reviewer-a", _count: { _all: 1 } }];
       },
@@ -138,7 +150,7 @@ test("auto assignment balances unassigned targets across active reviewers and pr
       },
     },
     reviewTarget: {
-      findMany: async () => targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })),
+      findMany: async () => { events.push("targets"); return targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })); },
       findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
     },
     auditEvent: { create: async ({ data }) => { audits.push(data); } },
@@ -153,6 +165,8 @@ test("auto assignment balances unassigned targets across active reviewers and pr
   ]);
   assert.equal(assignments.get("existing-target").reviewerId, "reviewer-a");
   assert.equal(audits.length, 4);
+  assert.match(events[0], /FROM Organization .* FOR UPDATE/i);
+  assert.deepEqual(events.slice(1, 4), ["reviewers", "loads", "targets"]);
   assert.deepEqual(countQueries, [{
     by: ["reviewerId"],
     where: { organizationId, reviewerId: { in: ["reviewer-a", "reviewer-b"] } },
@@ -161,6 +175,6 @@ test("auto assignment balances unassigned targets across active reviewers and pr
 });
 
 test("auto assignment leaves targets alone when the workspace has no active reviewers", async () => {
-  const tx = { membership: { findMany: async () => [] }, reviewTarget: { findMany: async () => { throw new Error("should not query targets without reviewers"); } } };
+  const tx = { $queryRaw: async () => [], membership: { findMany: async () => [] }, reviewTarget: { findMany: async () => { throw new Error("should not query targets without reviewers"); } } };
   assert.deepEqual(await autoAssignUnassignedTargets(tx, { organizationId, actorId, source: "test" }), []);
 });
