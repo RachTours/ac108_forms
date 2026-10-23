@@ -75,7 +75,7 @@ export async function listAssignments(transaction: AssignmentTransaction, input:
     }),
     transaction.reviewTarget.count({ where: filteredTargetWhere }),
     transaction.reviewTarget.count({ where: { AND: [filteredTargetWhere, { assignments: { some: activeAssignment } }] } }),
-    transaction.reviewTarget.count({ where: { AND: [filteredTargetWhere, { assignments: { none: { organizationId: input.organizationId } } }] } }),
+    transaction.reviewTarget.count({ where: { AND: [filteredTargetWhere, { assignments: { none: activeAssignment } }] } }),
   ]);
   const hasMore = rows.length > input.limit;
   const page = rows.slice(0, input.limit);

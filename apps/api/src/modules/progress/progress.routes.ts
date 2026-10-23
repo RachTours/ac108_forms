@@ -38,16 +38,18 @@ progressRouter.get("/summary", async (request, response, next) => {
     const reviewerCompletionScope = reviewerScope ? Prisma.sql`AND a.reviewerId = ${auth.membershipId}` : Prisma.empty;
     const [activeTargets, assignedTargets, completedRows, responseCount, unassignedTargets, config, organizationTargetCount] = await Promise.all([
       prisma.reviewTarget.count({ where: { organizationId, status: "ACTIVE", archivedAt: null, ...(reviewerScope ? { assignments: { some: reviewerScope } } : {}) } }),
-      prisma.assignment.count({ where: { organizationId, ...(reviewerScope ?? {}), target: { status: "ACTIVE", archivedAt: null } } }),
+      prisma.assignment.count({ where: { organizationId, ...(reviewerScope ?? {}), reviewer: { role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } }, target: { status: "ACTIVE", archivedAt: null } } }),
       prisma.$queryRaw<Array<{ completed: bigint }>>`
         SELECT COUNT(DISTINCT a.targetId) AS completed
         FROM Assignment a
         INNER JOIN ReviewTarget t ON t.id = a.targetId AND t.organizationId = a.organizationId AND t.status = 'ACTIVE' AND t.archivedAt IS NULL
+        INNER JOIN Membership m ON m.id = a.reviewerId AND m.organizationId = a.organizationId AND m.role = 'REVIEWER' AND m.status = 'ACTIVE'
+        INNER JOIN User u ON u.id = m.userId AND u.status = 'ACTIVE'
         INNER JOIN Submission s ON s.targetId = t.id AND s.reviewerId = a.reviewerId AND s.organizationId = a.organizationId AND s.archivedAt IS NULL
         WHERE a.organizationId = ${organizationId} ${reviewerCompletionScope}
       `,
       prisma.submission.count({ where: { organizationId, archivedAt: null, target: { status: "ACTIVE", archivedAt: null }, ...(reviewerScope ?? {}) } }),
-      auth.role === "REVIEWER" ? Promise.resolve(0) : prisma.reviewTarget.count({ where: { organizationId, status: "ACTIVE", archivedAt: null, assignments: { none: {} } } }),
+      auth.role === "REVIEWER" ? Promise.resolve(0) : prisma.reviewTarget.count({ where: { organizationId, status: "ACTIVE", archivedAt: null, assignments: { none: { organizationId, reviewer: { role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } } } } }),
       prisma.progressConfig.findUnique({ where: { organizationId }, select: { completionRule: true, targetCount: true, updatedAt: true } }),
       prisma.reviewTarget.count({ where: { organizationId, status: "ACTIVE", archivedAt: null } }),
     ]);

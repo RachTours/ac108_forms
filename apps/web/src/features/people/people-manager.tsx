@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Pencil, Plus, Search, UserRound, X } from "lucide-react";
 import { useApi } from "../../lib/client-api";
 
-type Target = { id: string; displayName: string; email: string | null; submissionCount: number; assignedReviewer?: { membershipId: string; displayName: string; email: string } | null };
+type Target = { id: string; displayName: string; email: string | null; submissionCount: number };
 
 export function PeopleManager({ initialTargets, initialCursor, canManage }: { initialTargets: Target[]; initialCursor: string | null; canManage: boolean }) {
   const api = useApi();
@@ -47,9 +47,7 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
       setTargets((items) => [...items, result.data].sort((a, b) => a.displayName.localeCompare(b.displayName)));
       setName("");
       setEmail("");
-      setNotice(result.data.assignedReviewer
-        ? `${result.data.displayName} added and assigned to ${result.data.assignedReviewer.displayName}.`
-        : `${result.data.displayName} added. No active reviewers are available, so they are waiting for assignment.`);
+      setNotice(`${result.data.displayName} added.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add this person.");
     } finally {
