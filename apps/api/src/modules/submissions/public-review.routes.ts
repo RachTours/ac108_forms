@@ -2,12 +2,12 @@ import { createHash } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { formDefinitionSchema } from "@reviewroom/contracts/forms";
-import { authorize } from "@reviewroom/domain";
 import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { publicReadRateLimit, publicSubmitRateLimit } from "../../http/rate-limits.js";
 import { validateAnswers } from "./answer-validator.js";
 import { allowsForm } from "../links/review-link-scope.js";
+import { assertPublicReviewAccess } from "./public-review-access.js";
 
 export const publicReviewRouter = Router();
 const tokenSchema = z.string().min(40).max(100);
@@ -27,25 +27,13 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function assertPublicReviewPermission(organizationId: string, action: "read" | "submit"): void {
-  const permission = authorize({
-    role: "PUBLIC",
-    organizationId,
-    requestedOrganizationId: organizationId,
-    publicCredentialStatus: "ACTIVE",
-    resource: "publicReview",
-    action,
-  });
-  if (!permission.allowed) throw new HttpError(403, "FORBIDDEN", "This review link cannot perform that action.");
-}
-
 publicReviewRouter.get("/:token", publicReadRateLimit, async (request, response, next) => {
   try {
     response.setHeader("Cache-Control", "no-store");
     const tokenHash = createHash("sha256").update(tokenSchema.parse(request.params.token)).digest("hex");
     const link = await prisma.reviewLink.findUnique({ where: { tokenHash }, include: { reviewer: { include: { user: { select: { displayName: true } } } } } });
-    if (!link || link.revokedAt || (link.expiresAt && link.expiresAt <= new Date()) || link.reviewer.status !== "ACTIVE" || link.reviewer.role !== "REVIEWER" || link.reviewer.organizationId !== link.organizationId) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
-    assertPublicReviewPermission(link.organizationId, "read");
+    if (!link) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
+    assertPublicReviewAccess({ organizationId: link.organizationId, reviewerOrganizationId: link.reviewer.organizationId, reviewerRole: link.reviewer.role, reviewerStatus: link.reviewer.status, revokedAt: link.revokedAt, expiresAt: link.expiresAt }, "read");
     const targets = await prisma.assignment.findMany({ where: { organizationId: link.organizationId, reviewerId: link.reviewerId, target: { status: "ACTIVE", archivedAt: null } }, include: { target: { select: { id: true, displayName: true } } }, orderBy: { target: { displayName: "asc" } }, take: 200 });
     const forms = await prisma.form.findMany({ where: { organizationId: link.organizationId, ...(link.formId ? { id: link.formId } : {}), status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null } }, select: { id: true, title: true, description: true, currentPublishedId: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 });
     const versions = await prisma.formVersion.findMany({ where: { id: { in: forms.map((form) => form.currentPublishedId).filter((id): id is string => id !== null) }, publishedAt: { not: null } }, select: { id: true, definition: true } });
@@ -63,8 +51,8 @@ publicReviewRouter.post("/:token/submissions", publicSubmitRateLimit, async (req
     const input = submissionSchema.parse(request.body);
     const result = await prisma.$transaction(async (transaction) => {
       const link = await transaction.reviewLink.findUnique({ where: { tokenHash }, include: { reviewer: true } });
-      if (!link || link.revokedAt || (link.expiresAt && link.expiresAt <= new Date()) || link.reviewer.status !== "ACTIVE" || link.reviewer.role !== "REVIEWER" || link.reviewer.organizationId !== link.organizationId) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
-      assertPublicReviewPermission(link.organizationId, "submit");
+      if (!link) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
+      assertPublicReviewAccess({ organizationId: link.organizationId, reviewerOrganizationId: link.reviewer.organizationId, reviewerRole: link.reviewer.role, reviewerStatus: link.reviewer.status, revokedAt: link.revokedAt, expiresAt: link.expiresAt }, "submit");
       if (!allowsForm(link.formId, input.formId)) throw new HttpError(404, "FORM_NOT_FOUND", "This form is not available through this review link.");
       const assignment = await transaction.assignment.findUnique({ where: { organizationId_targetId: { organizationId: link.organizationId, targetId: input.targetId } }, include: { target: true } });
       if (!assignment || assignment.reviewerId !== link.reviewerId || assignment.target.status !== "ACTIVE" || assignment.target.archivedAt) throw new HttpError(404, "TARGET_NOT_FOUND", "This person is not available through this review link.");
