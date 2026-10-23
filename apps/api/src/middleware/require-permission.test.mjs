@@ -21,7 +21,7 @@ test("assignment permission middleware delegates owner/admin grants to the domai
 test("target operations use their explicit domain permissions", () => {
   const cases = [
     ["targets", "read"], ["targets", "create"], ["targets", "update"], ["targets", "archive"],
-    ["assignments", "read"], ["assignments", "manage"],
+    ["assignments", "read"], ["assignments", "manage"], ["settings", "manage"], ["audit", "read"], ["workspace", "manage"],
   ];
   for (const [resource, action] of cases) {
     for (const role of ["OWNER", "ADMIN"]) {
