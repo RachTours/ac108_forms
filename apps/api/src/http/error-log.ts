@@ -7,7 +7,13 @@ function describeError(error: unknown): { name: string; message: string } {
   // Error messages/stacks can embed request payloads, credentials, or bearer URLs.
   // Keep only the class name; use the request ID to correlate with restricted host logs.
   const name = error instanceof Error && error.name ? error.name : "UnknownError";
-  return { name: name.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 100) || "UnknownError", message: "Unhandled server error" };
+  const safeName = name.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 100) || "UnknownError";
+  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  return {
+    name: safeName,
+    message: "Unhandled server error",
+    ...(safeName === "PrismaClientKnownRequestError" && typeof code === "string" && /^P\d{4}$/.test(code) ? { code } : {}),
+  };
 }
 
 export function formatInternalErrorLog(

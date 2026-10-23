@@ -22,7 +22,9 @@ import { organizationRouter } from "./modules/organization/organization.routes.j
 export const app = express();
 
 app.disable("x-powered-by");
-app.set("trust proxy", trustedProxies.length > 0 ? trustedProxies : false);
+// Hostinger forwards requests through one managed reverse-proxy hop. Trust only
+// that hop by default; explicit trusted proxy addresses can still override it.
+app.set("trust proxy", trustedProxies.length > 0 ? trustedProxies : 1);
 app.use(requestContext);
 app.use("/api/v1", noStore);
 app.use(helmet());
