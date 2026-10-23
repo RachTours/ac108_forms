@@ -1,0 +1,25 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { requirePermission } from "../../dist/middleware/require-permission.js";
+
+function invoke(handler, auth) {
+  let error;
+  let continued = false;
+  handler({ auth }, {}, (nextError) => { error = nextError; continued = !nextError; });
+  return { error, continued };
+}
+
+test("assignment permission middleware delegates owner/admin grants to the domain policy", () => {
+  const handler = requirePermission("assignments", "manage");
+  assert.equal(invoke(handler, { role: "OWNER", organizationId: "org-a", membershipId: "owner" }).continued, true);
+  assert.equal(invoke(handler, { role: "ADMIN", organizationId: "org-a", membershipId: "admin" }).continued, true);
+  const denied = invoke(handler, { role: "REVIEWER", organizationId: "org-a", membershipId: "reviewer" });
+  assert.equal(denied.error.status, 403);
+  assert.equal(denied.error.code, "FORBIDDEN");
+});
+
+test("permission middleware rejects requests without an authenticated session", () => {
+  const result = invoke(requirePermission("assignments", "read"), undefined);
+  assert.equal(result.error.status, 401);
+  assert.equal(result.error.code, "UNAUTHENTICATED");
+});

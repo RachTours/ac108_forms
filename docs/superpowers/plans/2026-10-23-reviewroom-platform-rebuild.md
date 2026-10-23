@@ -32,16 +32,16 @@
 - [x] Add `docs/rebuild/test-environments.md` and scripts/configuration for isolated local MySQL and staging DBs. Add an explicit guard that refuses migration/seed/cleanup when the database host/name matches configured production markers. Never use production as an integration-test target.
 ### Task 0.3 — Baseline actual workflows.
 
-- [ ] Add `docs/rebuild/current-workflow-baseline.md` with route screenshots or redacted browser evidence, request/API traces by route template, role/tenant matrix, known failure cases, and workflow outcomes for admin login, reviewer login, invite, assignment, share link, public submit, inbox, and reset. Do not infer an API 500 cause from UI alone; capture request ID and server diagnostics in staging.
+- [ ] Complete `docs/rebuild/current-workflow-baseline.md` using redacted staging screenshots and correlated request/API traces for every workflow. The current document records repository routes and historical user-provided evidence, which is not a substitute for staging reproduction.
 ### Task 0.4 — Lock decisions.
 
-- [ ] Update the design decision log in `docs/rebuild/decisions.md` for roles/session model, route contract, assignment policy, archive/deletion policy, data migration, Hostinger topology, and support matrix. Any departure from the approved design spec requires a written decision before implementation.
+- [x] Update the design decision log in `docs/rebuild/decisions.md` for roles/session model, route contract, assignment policy, archive/deletion policy, data migration, Hostinger topology, and support matrix. Any departure from the approved design spec requires a written decision before implementation.
 
 ## Phase 1 — Domain Model, Contracts, and Information Architecture
 
 ### Task 1.1 — Write the canonical domain model.
 
-- [ ] Expand `docs/CONTEXT.md` and add `docs/rebuild/domain-model.md` with Organization, User, Membership, Session, ReviewTarget, Assignment, Form, FormVersion, ReviewLink, Submission, Invitation, PasswordResetToken, and AuditEvent relationships. Specify tenant ownership, uniqueness, active/archive semantics, deletion rules, actor, and lifecycle transitions. Include an ER diagram and state diagrams for Membership, Assignment, Form, and Submission.
+- [x] Expand `docs/CONTEXT.md` and add `docs/rebuild/domain-model.md` with Organization, User, Membership, Session, ReviewTarget, Assignment, Form, FormVersion, ReviewLink, Submission, Invitation, PasswordResetToken, and AuditEvent relationships. Specify tenant ownership, uniqueness, active/archive semantics, deletion rules, actor, and lifecycle transitions. Include an ER diagram and state diagrams for Membership, Assignment, Form, and Submission.
 ### Task 1.2 — Define the API contract before handlers.
 
 - [ ] Version `packages/contracts/src` schemas for auth/session, members/invitations/reset, people/targets, assignments, forms/versions, links, submissions, progress, settings, audit, pagination, and stable errors. Add schema tests rejecting unknown/oversized/malformed values. Generate or document `docs/rebuild/openapi.yaml` from the shared schemas and verify representative request/response examples against tests.

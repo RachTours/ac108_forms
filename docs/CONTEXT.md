@@ -37,3 +37,7 @@ This file defines product terms without prescribing implementation details.
 7. Reassigning or unassigning changes current access, not historical submissions. Assignment retries are idempotent, and concurrent stale edits return a conflict.
 8. A Membership is unique for a User within an Organization. An Assignment is unique for a target within an Organization and has database-enforced same-organization foreign keys to both its target and reviewer.
 9. A permanent delete is available only after the relevant lifecycle checks: forms with submissions and members with submission history remain protected. Archive/restore keeps the evidence record and audit trail available.
+
+## Rebuild reference
+
+The approved replacement model, entity lifecycle diagrams, current-schema reconciliation notes, decisions, workflow baseline, and implementation status are maintained in `docs/rebuild/domain-model.md`, `docs/rebuild/decisions.md`, `docs/rebuild/current-workflow-baseline.md`, and `.superpowers/sdd/2026-10-23-reviewroom-platform-rebuild/progress.md`. Keep this glossary aligned with those canonical rules as the replacement code is implemented.

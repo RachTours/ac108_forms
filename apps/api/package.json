@@ -13,12 +13,13 @@
     "db:migrate:dev": "prisma migrate dev --name init",
     "db:migrate": "prisma migrate deploy",
     "db:bootstrap-owner": "tsx src/scripts/bootstrap-owner.ts",
-    "test": "npm run build --workspace @reviewroom/contracts && npm run build && node --test"
+    "test": "npm run build --workspace @reviewroom/contracts && npm run build --workspace @reviewroom/domain && npm run build && node --test"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "@reviewroom/contracts": "1.0.0",
+    "@reviewroom/domain": "1.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
