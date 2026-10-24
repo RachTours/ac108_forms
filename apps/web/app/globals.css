@@ -81,7 +81,7 @@ a { color: inherit; text-decoration: none; }
 .reviewer-board-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
 .reviewer-sort { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 9px; }
 .reviewer-board-list { overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
-.reviewer-progress-row { display: grid; grid-template-columns: minmax(170px,1fr) minmax(100px,1.4fr) auto; align-items: center; gap: 18px; min-height: 66px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.reviewer-progress-row { display: grid; grid-template-columns: minmax(170px,1fr) minmax(90px,1.2fr) minmax(250px,auto); align-items: center; gap: 12px; min-height: 66px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
 .reviewer-progress-row:last-child { border-bottom: 0; }
 .reviewer-progress-identity { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .reviewer-progress-identity>span:last-child { display: grid; min-width: 0; gap: 3px; }
@@ -89,7 +89,12 @@ a { color: inherit; text-decoration: none; }
 .reviewer-progress-identity small { color: var(--muted); font-size: 9px; }
 .reviewer-progress-meter .progress-track { margin: 0; }
 .reviewer-unassigned { color: var(--muted); font-size: 9px; }
-.reviewer-progress-counts { display: flex; min-width: 70px; align-items: center; justify-content: flex-end; gap: 8px; font-size: 10px; font-weight: 650; }
+.reviewer-progress-counts { display: flex; min-width: 0; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px; font-size: 10px; font-weight: 650; }
+.reviewer-progress-percent { margin-right: 3px; white-space: nowrap; }
+.progress-status { display: inline-flex; min-height: 23px; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 9px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.progress-status-complete { background: var(--green-soft); color: var(--green); }
+.progress-status-pending { background: #f7f2e7; color: #786126; }
+.progress-status-assignment { background: #edf2ef; color: #526d62; }
 .reviewer-unassigned-count { color: #8b9992; font-weight: 500; }
 .complete-badge { padding: 4px 7px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 8px; }
 .team-search { width: min(100%, 360px); margin: 0 0 12px; }
@@ -108,9 +113,9 @@ a { color: inherit; text-decoration: none; }
   .assignment-summary { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
   .assignment-filter { flex: 0 0 auto; min-height: 40px; }
   .reviewer-board-heading { align-items: flex-start; }
-  .reviewer-progress-row { grid-template-columns: minmax(0,1fr) auto; gap: 9px; }
+  .reviewer-progress-row { grid-template-columns: minmax(0,1fr); gap: 9px; }
   .reviewer-progress-meter { grid-column: 1 / -1; grid-row: 2; }
-  .reviewer-progress-counts { grid-column: 2; grid-row: 1; }
+  .reviewer-progress-counts { grid-column: 1; grid-row: 3; justify-content: flex-start; }
   .team-search { width: 100%; }
   .team-filter-row { gap: 5px; }
   .team-filter-row .assignment-filter { min-height: 38px; padding: 0 9px; }

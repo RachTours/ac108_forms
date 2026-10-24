@@ -18,9 +18,9 @@ const source = [
 
 test("review progress keeps zero assignments at zero and computes remaining work", () => {
   assert.deepEqual(toReviewerProgress(source), [
-    { ...source[0], remaining: 0, percent: 0 },
-    { ...source[1], remaining: 0, percent: 100 },
-    { ...source[2], remaining: 2, percent: 50 },
+    { ...source[0], assignmentRemaining: 0, remaining: 0, percent: 0, assignmentStatus: "No assignments" },
+    { ...source[1], assignmentRemaining: 0, remaining: 0, percent: 100, assignmentStatus: "Assigned work done" },
+    { ...source[2], assignmentRemaining: 2, remaining: 2, percent: 50, assignmentStatus: "2 assigned remaining" },
   ]);
 });
 
@@ -51,4 +51,44 @@ test("team progress excludes reviewers without assigned work from completion den
 test("team progress is zero when no active reviewer has assignments", async () => {
   const { getTeamReviewerProgress } = await import("./reviewer-board.ts");
   assert.deepEqual(getTeamReviewerProgress([{ reviewerId: "a", displayName: "A", assigned: 0, completed: 0 }]), { totalReviewers: 0, completedReviewers: 0, percent: 0 });
+});
+
+test("reviewer progress uses submission goals while keeping assignment completion separate", () => {
+  const rows = toReviewerProgress([
+    { reviewerId: "z", displayName: "Zed", assigned: 2, completed: 2, submissionCount: 8, reviewerSubmissionGoal: 50 / 6, submissionRatio: 0.96, submissionsRemaining: 1, submissionPercent: 96, submissionGoalMet: false },
+    { reviewerId: "b", displayName: "Ben", assigned: 2, completed: 1, submissionCount: 9, reviewerSubmissionGoal: 50 / 6, submissionRatio: 1, submissionsRemaining: 0, submissionPercent: 100, submissionGoalMet: true },
+    { reviewerId: "a", displayName: "Ada", assigned: 0, completed: 0, submissionCount: 12, reviewerSubmissionGoal: 50 / 6, submissionRatio: 1, submissionsRemaining: 0, submissionPercent: 100, submissionGoalMet: true },
+  ]);
+
+  assert.equal(rows.find((row) => row.reviewerId === "z").submissionStatus, "1 submission left");
+  assert.equal(rows.find((row) => row.reviewerId === "z").assignmentStatus, "Assigned work done");
+  assert.equal(rows.find((row) => row.reviewerId === "b").submissionStatus, "Goal met");
+  assert.equal(rows.find((row) => row.reviewerId === "b").assignmentStatus, "1 assigned remaining");
+  assert.equal(rows.find((row) => row.reviewerId === "a").assignmentStatus, "No assignments");
+  assert.equal(rows.find((row) => row.reviewerId === "a").percent, 100);
+});
+
+test("reviewer sorting uses exact submission ratio, submission count, and remaining submissions with stable ties", () => {
+  const rows = toReviewerProgress([
+    { reviewerId: "z", displayName: "Alex", assigned: 0, completed: 0, submissionCount: 4, reviewerSubmissionGoal: 10, submissionRatio: 0.4, submissionsRemaining: 6, submissionPercent: 40, submissionGoalMet: false },
+    { reviewerId: "a", displayName: "Alex", assigned: 0, completed: 0, submissionCount: 9, reviewerSubmissionGoal: 10, submissionRatio: 0.9, submissionsRemaining: 1, submissionPercent: 90, submissionGoalMet: false },
+    { reviewerId: "b", displayName: "Bea", assigned: 4, completed: 3, submissionCount: 8, reviewerSubmissionGoal: 10, submissionRatio: 0.8, submissionsRemaining: 2, submissionPercent: 80, submissionGoalMet: false },
+  ]);
+
+  assert.deepEqual(sortReviewerProgress(rows, "completion").map((row) => row.reviewerId), ["a", "b", "z"]);
+  assert.deepEqual(sortReviewerProgress(rows, "name").map((row) => row.reviewerId), ["a", "z", "b"]);
+  assert.deepEqual(sortReviewerProgress(rows, "completed").map((row) => row.reviewerId), ["a", "b", "z"]);
+  assert.deepEqual(sortReviewerProgress(rows, "remaining").map((row) => row.reviewerId), ["a", "b", "z"]);
+});
+
+test("completion sort compares unrounded ratios and resolves exact ties by name then ID", () => {
+  const rows = toReviewerProgress([
+    { reviewerId: "2", displayName: "Zed", assigned: 0, completed: 0, submissionCount: 2, reviewerSubmissionGoal: 4, submissionRatio: 0.5014, submissionsRemaining: 2, submissionPercent: 50.1, submissionGoalMet: false },
+    { reviewerId: "1", displayName: "Ada", assigned: 0, completed: 0, submissionCount: 2, reviewerSubmissionGoal: 4, submissionRatio: 0.5014, submissionsRemaining: 2, submissionPercent: 50.1, submissionGoalMet: false },
+    { reviewerId: "3", displayName: "Bea", assigned: 0, completed: 0, submissionCount: 2, reviewerSubmissionGoal: 4, submissionRatio: 0.5011, submissionsRemaining: 2, submissionPercent: 50.1, submissionGoalMet: false },
+  ]);
+
+  assert.deepEqual(sortReviewerProgress(rows, "completion").map((row) => row.reviewerId), ["1", "2", "3"]);
+  assert.deepEqual(sortReviewerProgress(rows, "completed").map((row) => row.reviewerId), ["1", "3", "2"]);
+  assert.deepEqual(sortReviewerProgress(rows, "remaining").map((row) => row.reviewerId), ["1", "3", "2"]);
 });

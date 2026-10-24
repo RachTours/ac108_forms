@@ -6,10 +6,11 @@ import { Palette, Save, Target } from "lucide-react";
 import { useApi } from "../../lib/client-api";
 import { themeUpdatePayload } from "../../lib/theme-settings";
 import { workspaceThemeCssVariables } from "../../lib/workspace-theme";
+import { formatReviewerSubmissionGoal } from "./reviewer-submission-goal";
 
-type Summary = { targetCount: number; completionRule: string; activeTargets: number; completedTargets: number; completionPercent: number };
+type Summary = { targetCount: number; submissionGoal: number; activeReviewerCount: number; completionRule: string; activeTargets: number; completedTargets: number; completionPercent: number };
 type Theme = { accentColor: string; fontPreset: "sans" | "serif" | "system"; surfacePreset: "mist" | "warm" | "cool"; formStyle: "clean" | "soft" };
-type SettingKey = "progress" | "appearance";
+type SettingKey = "progress" | "submission" | "appearance";
 type Feedback = { kind: "success" | "error"; text: string };
 
 const accentChoices = [{ value: "#167354", label: "Forest" }, { value: "#2457A6", label: "Blue" }, { value: "#7A3E9D", label: "Violet" }, { value: "#B45309", label: "Amber" }, { value: "#B4233A", label: "Berry" }];
@@ -18,6 +19,7 @@ export function SettingsManager({ summary, initialTheme }: { summary: Summary; i
   const api = useApi();
   const router = useRouter();
   const [targetCount, setTargetCount] = useState(summary.targetCount);
+  const [submissionGoal, setSubmissionGoal] = useState(summary.submissionGoal);
   const [theme, setTheme] = useState<Theme>(() => themeUpdatePayload(initialTheme));
   const [feedback, setFeedback] = useState<Partial<Record<SettingKey, Feedback>>>({});
   const [saving, setSaving] = useState<SettingKey | null>(null);
@@ -27,7 +29,7 @@ export function SettingsManager({ summary, initialTheme }: { summary: Summary; i
     setFeedback((current) => ({ ...current, [key]: undefined }));
     try {
       await action();
-      setFeedback((current) => ({ ...current, [key]: { kind: "success", text: key === "progress" ? "Progress goal saved." : "Appearance saved for your workspace." } }));
+      setFeedback((current) => ({ ...current, [key]: { kind: "success", text: key === "progress" ? "People goal saved." : key === "submission" ? "Submission goal saved." : "Appearance saved for your workspace." } }));
     } catch (caught) {
       setFeedback((current) => ({ ...current, [key]: { kind: "error", text: caught instanceof Error ? caught.message : "Changes could not be saved. Try again." } }));
     } finally {
@@ -44,8 +46,15 @@ export function SettingsManager({ summary, initialTheme }: { summary: Summary; i
     <form className="panel workspace-setting" onSubmit={(event) => { event.preventDefault(); void submit("progress", async () => { await api("/progress/config", { method: "PATCH", body: JSON.stringify({ targetCount, completionRule: "ONE_RESPONSE" }) }); }); }}>
       <div className="setting-heading"><span className="setting-icon"><Target size={16} /></span><div><h2>Review goal</h2><p>Choose how many people are included in this review cycle.</p></div></div>
       <label htmlFor="target-count">People in this review</label><div className="goal-input"><input id="target-count" type="number" min={0} max={100000} value={targetCount} onChange={(event) => setTargetCount(Number(event.target.value))} /><span>people</span></div>
-      <div className="rule-summary"><strong>How completion is counted</strong><span>A person is complete after at least one submitted review. The goal sets the workspace progress denominator.</span></div>
+      <div className="rule-summary"><strong>How completion is counted</strong><span>A person is complete after at least one submitted review. This goal counts people, not submissions.</span></div>
       <div className="setting-actions"><button type="submit" className="button button-primary" disabled={saving !== null}><Save size={14} />{saving === "progress" ? "Saving…" : "Save goal"}</button>{status("progress")}</div>
+    </form>
+
+    <form className="panel workspace-setting" onSubmit={(event) => { event.preventDefault(); void submit("submission", async () => { await api("/progress/config", { method: "PATCH", body: JSON.stringify({ submissionGoal, completionRule: "ONE_RESPONSE" }) }); router.refresh(); }); }}>
+      <div className="setting-heading"><span className="setting-icon"><Target size={16} /></span><div><h2>Workspace submission goal</h2><p>Set the total number of active feedback submissions for this workspace.</p></div></div>
+      <label htmlFor="submission-goal">Total submissions</label><div className="goal-input"><input id="submission-goal" type="number" min={1} max={100000} value={submissionGoal} onChange={(event) => setSubmissionGoal(Number(event.target.value))} /><span>submissions</span></div>
+      <div className="rule-summary"><strong>Shared reviewer goal</strong><span>{formatReviewerSubmissionGoal(submissionGoal, summary.activeReviewerCount)}</span></div>
+      <div className="setting-actions"><button type="submit" className="button button-primary" disabled={saving !== null}><Save size={14} />{saving === "submission" ? "Saving…" : "Save submission goal"}</button>{status("submission")}</div>
     </form>
 
     <form className="panel workspace-setting appearance-setting" onSubmit={(event) => { event.preventDefault(); void submit("appearance", async () => { const result = await api<{ data: Theme }>("/organization/theme", { method: "PUT", body: JSON.stringify(themeUpdatePayload(theme)) }); setTheme(themeUpdatePayload(result.data)); router.refresh(); }); }}>

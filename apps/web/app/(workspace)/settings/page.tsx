@@ -4,7 +4,7 @@ import { SettingsManager } from "../../../src/features/settings/settings-manager
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 
 export const metadata: Metadata = { title: "Settings" };
-type Summary = { targetCount: number; completionRule: string; activeTargets: number; completedTargets: number; completionPercent: number };
+type Summary = { targetCount: number; submissionGoal: number; activeReviewerCount: number; completionRule: string; activeTargets: number; completedTargets: number; completionPercent: number };
 type Theme = { accentColor: string; fontPreset: "sans" | "serif" | "system"; surfacePreset: "mist" | "warm" | "cool"; formStyle: "clean" | "soft"; updatedAt?: string | null };
 export default async function SettingsPage() {
   await requireWorkspaceRole(["OWNER", "ADMIN"]);

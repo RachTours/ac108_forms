@@ -7,7 +7,7 @@ import { useApi } from "../../lib/client-api";
 import { formatDate } from "../../lib/date-format";
 import { SubmissionDetail } from "../submissions/submission-detail";
 
-type Source = { reviewerId: string; displayName: string; assigned: number; completed: number };
+type Source = { reviewerId: string; displayName: string; assigned: number; completed: number; submissionCount: number; reviewerSubmissionGoal: number | null; submissionRatio: number | null; submissionsRemaining: number | null; submissionPercent: number; submissionGoalMet: boolean };
 type Review = { id: string; submittedAt: string; reviewedAt: string | null; archivedAt?: string | null; target: { displayName: string }; reviewedPersonName?: string; form: { title: string }; formVersion: { version: number } };
 type ReviewDetail = { id: string; submittedAt: string; archivedAt: string | null; reviewedAt: string | null; answers: unknown; target: { displayName: string }; reviewedPersonName?: string; form: { title: string }; reviewer: { user: { displayName: string } }; formVersion: { version: number; definition: unknown } };
 
@@ -86,17 +86,18 @@ function ReviewerReviewsDrawer({ reviewer, onClose }: { reviewer: Source; onClos
   </div>;
 }
 
-export function ReviewerProgressBoard({ rows, targetGoal }: { rows: Source[]; targetGoal: number }) {
+export function ReviewerProgressBoard({ rows }: { rows: Source[] }) {
   const [sort, setSort] = useState<ReviewerSort>("completion");
   const [selectedReviewer, setSelectedReviewer] = useState<Source | null>(null);
-  const visible = useMemo(() => sortReviewerProgress(toReviewerProgress(rows, targetGoal), sort), [rows, sort, targetGoal]);
+  const visible = useMemo(() => sortReviewerProgress(toReviewerProgress(rows), sort), [rows, sort]);
   const completedReviewers = visible.filter((reviewer) => reviewer.assigned > 0 && reviewer.completed >= reviewer.assigned).length;
+  const reviewersMeetingSubmissionGoal = visible.filter((reviewer) => reviewer.submissionGoalMet).length;
   return <section className="reviewer-board" aria-labelledby="reviewer-board-title">
-    <div className="section-heading reviewer-board-heading"><div><h2 id="reviewer-board-title">Reviewer workload</h2><p>{visible.length ? `${completedReviewers} of ${visible.filter((reviewer) => reviewer.assigned > 0).length} reviewers with assignments finished their assigned work. Individual bars show each reviewer's completed people against the workspace goal.` : "See how work is moving across the team."}</p></div><label className="reviewer-sort">Sort by <select value={sort} onChange={(event) => setSort(event.target.value as ReviewerSort)}><option value="completion">Completion</option><option value="name">Name</option><option value="completed">Completed</option><option value="remaining">Remaining</option></select></label></div>
-    {visible.length === 0 ? <div className="panel empty-inline">No active reviewers yet.</div> : <div className="reviewer-board-list">{visible.map((reviewer) => <button type="button" key={reviewer.reviewerId} className="reviewer-progress-row reviewer-progress-trigger" aria-label={"View reviews by " + reviewer.displayName} onClick={() => setSelectedReviewer(reviewer)}>
-      <div className="reviewer-progress-identity"><span className="avatar avatar-soft">{reviewer.displayName.trim().slice(0, 1).toUpperCase()}</span><span><strong>{reviewer.displayName}</strong><small>{reviewer.assigned === 0 ? "No targets assigned yet" : `${reviewer.completed} completed · ${reviewer.remaining} assigned remaining · goal ${targetGoal}`}</small></span></div>
-      <div className="reviewer-progress-meter">{reviewer.assigned > 0 ? <div className="progress-track" role="progressbar" aria-label={`${reviewer.displayName} progress toward the shared target goal`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={reviewer.percent}><div className="progress-fill" style={{ width: `${reviewer.percent}%` }} /></div> : <span className="reviewer-unassigned">Waiting for assignments</span>}</div>
-      <div className="reviewer-progress-counts">{reviewer.assigned > 0 ? <span>{reviewer.percent}%</span> : <span className="reviewer-unassigned-count">—</span>}{reviewer.assigned > 0 && reviewer.remaining === 0 && <strong className="complete-badge">Assigned work done</strong>}</div>
+    <div className="section-heading reviewer-board-heading"><div><h2 id="reviewer-board-title">Reviewer workload</h2><p>{visible.length ? `${reviewersMeetingSubmissionGoal} of ${visible.length} reviewers met their submission goal · ${completedReviewers} of ${visible.filter((reviewer) => reviewer.assigned > 0).length} finished assigned work` : "See how work is moving across the team."}</p></div><label className="reviewer-sort">Sort by <select value={sort} onChange={(event) => setSort(event.target.value as ReviewerSort)}><option value="completion">Completion</option><option value="name">Name (A–Z)</option><option value="completed">Most submissions</option><option value="remaining">Fewest submissions left</option></select></label></div>
+    {visible.length === 0 ? <div className="panel empty-inline">No active reviewers yet.</div> : <div className="reviewer-board-list">{visible.map((reviewer) => <button type="button" key={reviewer.reviewerId} className="reviewer-progress-row reviewer-progress-trigger" aria-label={"View reviews by " + reviewer.displayName} onClick={() => setSelectedReviewer(rows.find((row) => row.reviewerId === reviewer.reviewerId) ?? null)}>
+      <div className="reviewer-progress-identity"><span className="avatar avatar-soft">{reviewer.displayName.trim().slice(0, 1).toUpperCase()}</span><span><strong>{reviewer.displayName}</strong><small>{reviewer.submissionCount} submissions · goal {reviewer.reviewerSubmissionGoal == null ? "not available" : Number(reviewer.reviewerSubmissionGoal.toFixed(2))} · {reviewer.completed}/{reviewer.assigned} assigned people complete</small></span></div>
+      <div className="reviewer-progress-meter"><div className="progress-track" role="progressbar" aria-label={`${reviewer.displayName} submissions toward their reviewer goal`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={reviewer.percent}><div className="progress-fill" style={{ width: `${reviewer.percent}%` }} /></div></div>
+      <div className="reviewer-progress-counts"><span className="reviewer-progress-percent">{reviewer.percent}%</span>{reviewer.submissionStatus && <span className={reviewer.submissionGoalMet ? "progress-status progress-status-complete" : "progress-status progress-status-pending"}>{reviewer.submissionStatus}</span>}<span className={reviewer.assigned > 0 && reviewer.assignmentRemaining === 0 ? "progress-status progress-status-complete" : "progress-status progress-status-assignment"}>{reviewer.assignmentStatus}</span></div>
     </button>)}</div>}
     {selectedReviewer && <ReviewerReviewsDrawer reviewer={selectedReviewer} onClose={() => setSelectedReviewer(null)} />}
   </section>;
