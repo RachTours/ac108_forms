@@ -2,9 +2,9 @@
 
 > **For agentic workers:** Execute each task in order and test-first. Keep all changes on `codex/reviewroom-product-roadmap`; do not push or deploy.
 
-**Goal:** Add CSV people import, reviewer drafts and queue, admin summary reports/CSV export, assignment due dates with in-app reminders, and measured performance improvements for growing workspaces.
+**Goal:** Add CSV people import, reviewer drafts and queue, admin summary reports/CSV export, and measured performance improvements for growing workspaces.
 
-**Architecture:** Preserve Next.js/Express/Prisma/MySQL boundaries and shared Zod contracts. Keep data authorization in the API. Add persistent drafts and due dates through migrations; compute reminders and reports from scoped data; use bounded list/import/export operations. Capture a local baseline before optimizing.
+**Architecture:** Preserve Next.js/Express/Prisma/MySQL boundaries and shared Zod contracts. Keep data authorization in the API. Add persistent drafts through migrations and compute reports from scoped data; use bounded list/import/export operations. Capture a local baseline before optimizing.
 
 **Tech Stack:** Next.js App Router, React, Express 5, Prisma 7, MySQL/MariaDB, TypeScript, shared Zod contracts, Node test runner.
 
@@ -15,7 +15,6 @@
 - CSV import is capped at 500 rows and all-or-nothing; duplicate detection uses normalized non-empty email against active people and within the upload.
 - Review drafts are isolated by organization, reviewer, target assignment, and immutable form version; expire after 90 days of inactivity.
 - Exports contain summary data only, never answer payloads; authorize and audit export requests.
-- Reminders are in-app only; do not add an email provider or outbound email.
 - Tune the existing Hostinger/MySQL architecture only after recording local measurements; avoid private-data caching.
 
 ---
@@ -49,14 +48,7 @@
 - [ ] Require the existing submissions-read permission and record export actor, filters, row count, and timestamp in audit metadata without recording answers.
 - [ ] Add admin filters, summary cards/table, export action, loading/error/empty states, and contract tests.
 
-### Task 5: Assignment due dates and in-app reminders
-
-- [ ] Add nullable `dueAt` to `Assignment` with a migration and shared assignment contracts.
-- [ ] Add an authorized admin mutation/UI for setting or clearing a due date; preserve assignment concurrency/version protections.
-- [ ] Derive due-soon (within seven days) and overdue states from outstanding assignment work; show them in admin and reviewer queues without creating emails or uncached notification records.
-- [ ] Test reassignment, completion, timezone/date boundaries, and organization isolation.
-
-### Task 6: Measured optimization and local acceptance
+### Task 5: Measured optimization and local acceptance
 
 - [ ] Compare new measurements to Task 1; inspect query plans and optimize only demonstrated hot paths with suitable indexes/selects and bounded server-side filters.
 - [ ] Virtualize lists only if measured render time or DOM size warrants it; retain accessible table/list semantics.
