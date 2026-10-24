@@ -15,7 +15,7 @@ export type ReviewerProgress = {
   submissionStatus?: string;
   assignmentStatus: string;
 };
-export type ReviewerSort = "completion" | "name" | "completed" | "remaining";
+export type ReviewerSort = "completion" | "name" | "completed" | "fewest";
 
 export function getReviewerSortHint(reviewerCount: number): string | null {
   return reviewerCount < 2 ? "Add another active reviewer to compare sort orders." : null;
@@ -69,7 +69,7 @@ export function sortReviewerProgress(rows: ReviewerProgress[], sort: ReviewerSor
   return [...rows].sort((a, b) => {
     if (sort === "name") return byName(a, b);
     if (sort === "completed") return (b.submissionCount ?? b.completed) - (a.submissionCount ?? a.completed) || byName(a, b);
-    if (sort === "remaining") return a.remaining - b.remaining || byName(a, b);
+    if (sort === "fewest") return (a.submissionCount ?? a.completed) - (b.submissionCount ?? b.completed) || byName(a, b);
     return (b.submissionRatio ?? b.percent / 100) - (a.submissionRatio ?? a.percent / 100) || byName(a, b);
   });
 }
