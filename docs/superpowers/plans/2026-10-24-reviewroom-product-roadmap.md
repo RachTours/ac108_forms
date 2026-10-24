@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Work only on localhost and the configured local MySQL database; fail closed if any benchmark/migration target is not loopback.
+- Work only on localhost and the configured local MySQL database; benchmark with a clearly marked synthetic organization that is removed in a `finally` cleanup, and fail closed if the host/schema cannot be verified as local.
 - Do not push, merge into `main`, or deploy.
 - CSV import is capped at 500 rows and all-or-nothing; duplicate detection uses normalized non-empty email against active people and within the upload.
 - Review drafts are isolated by organization, reviewer, target assignment, and immutable form version; expire after 90 days of inactivity.
@@ -22,9 +22,9 @@
 ### Task 1: Local baseline and benchmark harness
 
 - [ ] Record current test/typecheck/lint/build state and local endpoint latency for overview, people, assignment, and submission reads.
-- [ ] Add a benchmark runner using a disposable loopback MySQL schema and synthetic data (50 reviewers, 10,000 submissions); redact credentials and response data from output.
+- [ ] Add a benchmark runner using a temporary synthetic organization in the loopback QA database (50 reviewers, 10,000 submissions); clean it up in `finally` and redact credentials and response data from output.
 - [ ] Record p50/p95, status/error counts, page/API timings, query counts where available, memory, and DB connections in `docs/performance/local-roadmap-baseline.md`.
-- [ ] Verify no production URL can be used by the runner; do not seed the existing QA schema.
+- [ ] Verify no production URL can be used by the runner; verify temporary organization cleanup and leave no synthetic rows behind.
 
 ### Task 2: CSV people import
 

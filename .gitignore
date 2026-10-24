@@ -5,6 +5,7 @@ apps/web/.next-verification/
 apps/web/.next-deployment-check/
 apps/web/.next-hostinger-*/
 apps/web/.next-production-check/
+apps/web/.next-roadmap-baseline/
 dist/
 coverage/
 .env

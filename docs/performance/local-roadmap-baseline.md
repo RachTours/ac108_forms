@@ -9,6 +9,9 @@ Measured 2026-10-24 against the local development services (`http://localhost:40
 | `npm test` | Pass |
 | `npm run typecheck` | Pass |
 | `npm run lint` | Pass |
+| Production build | Pass with `API_INTERNAL_URL=https://api.invalid` and `NEXT_DIST_DIR=.next-roadmap-baseline` |
+
+The plain local `npm run build` is expected to fail because `.env` points `API_INTERNAL_URL` at localhost and `next.config.ts` intentionally refuses a loopback origin when Next runs in production mode. The successful baseline build used the reserved `.invalid` HTTPS host for configuration validation only; it does not resolve or contact that host. Its output is isolated from the active localhost app.
 
 ## Local endpoint smoke
 
@@ -24,6 +27,6 @@ The test runner caps API requests at 160 and uses concurrency 12 to stay within 
 
 ## Representative dataset benchmark status
 
-The requested 50-reviewer/10,000-submission measurements are not yet available. The configured loopback MySQL account can access the existing local QA database but cannot create a disposable schema (`CREATE DATABASE` returned access denied). To avoid polluting the existing QA database, no benchmark data was seeded. The benchmark must use a separately provisioned loopback schema or a specifically approved temporary organization that can be safely removed afterward.
+The requested 50-reviewer/10,000-submission measurements are not yet available. The configured loopback MySQL account can access the existing local QA database but cannot create a disposable schema (`CREATE DATABASE` returned access denied). The user approved a temporary synthetic organization in this local QA database; the benchmark harness must create and remove it in a `finally` cleanup and verify no synthetic rows remain.
 
 The smoke figures above are a local starting point only. They do not measure the roadmap’s authenticated API flows and do not certify production capacity.
