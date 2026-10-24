@@ -1,0 +1,618 @@
+openapi: 3.1.0
+info:
+  title: ReviewRoom API
+  version: 1.0.0
+  description: >-
+    Shared request and response shapes are defined in packages/contracts/src.
+    This file documents the stable /api/v1 route families and representative
+    examples; API handlers must validate requests with those schemas/use cases.
+    This document is hand-maintained (there is no OpenAPI generator). Keep the route
+    and schema inventory synchronized with packages/contracts/src and verify the
+    representative fixtures in packages/contracts/test/openapi-contract.test.mjs
+    and platform-contracts.test.mjs whenever either side changes.
+servers:
+  - url: https://api.example.invalid/api/v1
+tags:
+  - name: Auth
+  - name: Members
+  - name: Targets
+  - name: Assignments
+  - name: Forms
+  - name: Public review
+  - name: Submissions
+  - name: Progress
+  - name: Settings
+  - name: Audit
+paths:
+  /health/live:
+    get:
+      tags: [Auth]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status: { const: ok }
+  /auth/admin/login:
+    post:
+      tags: [Auth]
+      summary: Create an admin-audience session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { email: admin@example.com, password: 'not-a-real-password' }
+      responses:
+        '200':
+          description: Sets the admin session cookie.
+          headers:
+            Set-Cookie: { schema: { type: string }, description: HttpOnly, Secure in production, audience-scoped cookie. }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+              example:
+                user: { id: 8d493e2d-7500-4d5f-a148-05a7ff2127d0, email: admin@example.com, displayName: Example Admin }
+                organization: { id: e6c9e1b9-af95-45c3-82b7-4fe7e608a189, name: Example Workspace, slug: example-workspace }
+                role: OWNER
+                csrfToken: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        '401': { $ref: '#/components/responses/ApiError' }
+        '409':
+          description: Workspace selection required for identities in multiple workspaces.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkspaceChoiceResponse' }
+        '429': { $ref: '#/components/responses/ApiError' }
+  /auth/reviewer/login:
+    post:
+      tags: [Auth]
+      summary: Create a reviewer-audience session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Sets the reviewer session cookie.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '429': { $ref: '#/components/responses/ApiError' }
+  /auth/session:
+    get:
+      tags: [Auth]
+      summary: Read the active audience session
+      security: [{ adminSession: [] }, { reviewerSession: [] }]
+      responses:
+        '200':
+          description: Authenticated membership projection; never includes credential material.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/ApiError' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Create a session for an eligible membership
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { email: reviewer@example.com, password: 'not-a-real-password' }
+      responses:
+        '200': { description: Session projection. }
+        '401': { $ref: '#/components/responses/ApiError' }
+        '409': { description: Workspace choice required. }
+  /auth/password-reset:
+    post:
+      tags: [Auth]
+      summary: Redeem a one-time password reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, token, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                token: { type: string, minLength: 40, maxLength: 100 }
+                password: { type: string, minLength: 14, maxLength: 1024 }
+      responses:
+        '204': { description: Password reset completed. }
+        '400': { $ref: '#/components/responses/ApiError' }
+  /members/invitations/{token}:
+    get:
+      tags: [Members]
+      summary: Read invitation acceptance details
+      parameters:
+        - { in: path, name: token, required: true, schema: { type: string, minLength: 40, maxLength: 100 } }
+      responses:
+        '200': { description: Invitation identity and expiry. }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /members/{membershipId}/password-reset-tokens:
+    get:
+      tags: [Members]
+      summary: List reset token metadata
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Bounded reset token summaries; clear tokens are not returned. }
+  /review-targets/assignment-options:
+    get:
+      tags: [Targets]
+      summary: List eligible assignment reviewers
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Current workspace reviewer options. }
+  /review-targets/{targetId}:
+    patch:
+      tags: [Targets]
+      summary: Update a target
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Updated target summary. }
+    delete:
+      tags: [Targets]
+      summary: Archive a target
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Target archived. }
+  /review-targets/assignments/bulk:
+    post:
+      tags: [Assignments]
+      summary: Bulk assign targets
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Assignment result. }
+  /members:
+    get:
+      tags: [Members]
+      summary: List workspace memberships without password hashes
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Bounded membership summaries. }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /members/invitations:
+    post:
+      tags: [Members]
+      summary: Issue a one-time invitation
+      security: [{ adminSession: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role: { type: string, enum: [ADMIN, REVIEWER] }
+      responses:
+        '201': { description: Created invitation. Clear token is revealed only in the one-time invite URL response. }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /review-targets:
+    get:
+      tags: [Targets]
+      summary: List organization targets
+      security: [{ adminSession: [] }]
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { in: query, name: cursor, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Target summaries with read-only assignment context. }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /assignments:
+    get:
+      tags: [Assignments]
+      summary: List target assignment states
+      security: [{ adminSession: [] }]
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { in: query, name: cursor, schema: { type: string, format: uuid } }
+        - { in: query, name: state, schema: { type: string, enum: [all, assigned, unassigned], default: all } }
+        - { in: query, name: reviewerId, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Bounded tenant-scoped page and counts. }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /assignments/{targetId}:
+    put:
+      tags: [Assignments]
+      summary: Assign or reassign a target with optimistic concurrency
+      security: [{ adminSession: [] }]
+      parameters:
+        - { in: path, name: targetId, required: true, schema: { type: string, format: uuid } }
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignmentSetRequest' }
+            example: { reviewerId: 8d493e2d-7500-4d5f-a148-05a7ff2127d0, expectedUpdatedAt: null }
+      responses:
+        '200': { description: Assignment state and changed flag. }
+        '409': { $ref: '#/components/responses/ApiError' }
+        '422': { $ref: '#/components/responses/ApiError' }
+  /forms:
+    get:
+      tags: [Forms]
+      summary: List forms
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Bounded form summaries. }
+    post:
+      tags: [Forms]
+      summary: Create a draft form
+      security: [{ adminSession: [] }]
+      responses:
+        '201': { description: Created form summary. }
+  /forms/{formId}:
+    get:
+      tags: [Forms]
+      summary: Read a form
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Form and current draft. }
+    patch:
+      tags: [Forms]
+      summary: Replace a draft form definition
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Updated form. }
+    delete:
+      tags: [Forms]
+      summary: Archive a form
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Form archived. }
+  /forms/{formId}/publish:
+    post:
+      tags: [Forms]
+      summary: Publish a validated immutable form version
+      security: [{ adminSession: [] }]
+      parameters:
+        - { in: path, name: formId, required: true, schema: { type: string, format: uuid } }
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200': { description: Newly published immutable version. }
+        '409': { $ref: '#/components/responses/ApiError' }
+        '422': { $ref: '#/components/responses/ApiError' }
+  /forms/{formId}/restore:
+    post:
+      tags: [Forms]
+      summary: Restore an archived form
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Form restored. }
+  /review-links:
+    get:
+      tags: [Public review]
+      summary: List workspace review links
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Bounded review link metadata. }
+  /submissions:
+    get:
+      tags: [Submissions]
+      summary: List accessible submissions
+      security: [{ adminSession: [] }, { reviewerSession: [] }]
+      responses:
+        '200': { description: Bounded tenant scoped submission page. }
+  /submissions/{submissionId}:
+    get:
+      tags: [Submissions]
+      summary: Read an accessible submission
+      security: [{ adminSession: [] }, { reviewerSession: [] }]
+      responses:
+        '200': { description: Submission detail. }
+  /progress/summary:
+    get:
+      tags: [Progress]
+      summary: Read workspace progress metrics
+      security: [{ adminSession: [] }, { reviewerSession: [] }]
+      responses:
+        '200': { description: Progress summary. }
+  /progress/config:
+    patch:
+      tags: [Settings]
+      summary: Update progress completion settings
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Updated progress configuration. }
+  /organization/theme:
+    get:
+      tags: [Settings]
+      summary: Read workspace theme
+      security: [{ adminSession: [] }, { reviewerSession: [] }]
+      responses:
+        '200': { description: Workspace theme projection. }
+    put:
+      tags: [Settings]
+      summary: Update workspace theme
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Updated theme. }
+  /audit-events:
+    get:
+      tags: [Audit]
+      summary: List workspace audit events
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Bounded audit event page. }
+  /health/ready:
+    get:
+      tags: [Auth]
+      summary: Readiness probe
+      responses:
+        '200': { description: Service dependencies are ready. }
+        '503': { description: Service dependencies are unavailable. }
+  /public/review/{token}:
+    get:
+      tags: [Public review]
+      summary: Resolve an active reviewer-bound public link
+      parameters:
+        - { in: path, name: token, required: true, schema: { type: string, minLength: 40, maxLength: 100 } }
+      responses:
+        '200': { description: Minimal public form, theme and currently assigned targets. }
+        '404': { description: Link unavailable, revoked, expired, or not authorized for requested work. }
+  /public/review/{token}/submissions:
+    post:
+      tags: [Public review]
+      summary: Submit a response against the exact published version
+      parameters:
+        - { in: path, name: token, required: true, schema: { type: string, minLength: 40, maxLength: 100 } }
+        - { in: header, name: Idempotency-Key, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PublicSubmissionRequest' }
+      responses:
+        '201': { description: Created submission receipt. }
+        '200': { description: Idempotent replay of the original receipt. }
+        '409': { $ref: '#/components/responses/ApiError' }
+        '422': { $ref: '#/components/responses/ApiError' }
+components:
+  securitySchemes:
+    adminSession: { type: apiKey, in: cookie, name: rr_admin_session }
+    reviewerSession: { type: apiKey, in: cookie, name: rr_reviewer_session }
+  parameters:
+    CsrfToken:
+      in: header
+      name: X-CSRF-Token
+      required: true
+      schema: { type: string, minLength: 64, maxLength: 64 }
+  responses:
+    ApiError:
+      description: Stable error with request reference.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 1024 }
+        organizationSlug: { type: string, minLength: 1, maxLength: 80 }
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      required: [user, organization, role, csrfToken]
+      properties:
+        user: { $ref: '#/components/schemas/UserSummary' }
+        organization:
+          type: object
+          additionalProperties: false
+          required: [id, name, slug]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string, minLength: 1, maxLength: 160 }
+            slug: { type: string, minLength: 1, maxLength: 80 }
+        role: { type: string, enum: [OWNER, ADMIN, REVIEWER] }
+        csrfToken: { type: string, minLength: 64, maxLength: 64 }
+    UserSummary:
+      type: object
+      additionalProperties: false
+      required: [id, email, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+    WorkspaceChoiceResponse:
+      type: object
+      additionalProperties: false
+      required: [error, data]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: { const: WORKSPACE_SELECTION_REQUIRED }
+            message: { type: string, minLength: 1, maxLength: 500 }
+            requestId: { type: string, minLength: 1, maxLength: 128 }
+        data:
+          type: object
+          additionalProperties: false
+          required: [workspaces]
+          properties:
+            workspaces:
+              type: array
+              minItems: 1
+              maxItems: 100
+              items:
+                type: object
+                additionalProperties: false
+                required: [id, name, slug, role]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string, minLength: 1, maxLength: 160 }
+                  slug: { type: string, minLength: 1, maxLength: 80 }
+                  role: { type: string, enum: [OWNER, ADMIN, REVIEWER] }
+    Session:
+      type: object
+      additionalProperties: false
+      required: [user, organizationId, organizationName, membershipId, role, csrfToken]
+      properties:
+        user:
+          type: object
+          additionalProperties: false
+          required: [id, email, displayName]
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string, format: email }
+            displayName: { type: string, minLength: 1, maxLength: 120 }
+        organizationId: { type: string, format: uuid }
+        organizationName: { type: string, minLength: 1, maxLength: 160 }
+        membershipId: { type: string, format: uuid }
+        role: { type: string, enum: [OWNER, ADMIN, REVIEWER] }
+        csrfToken: { type: string, minLength: 64, maxLength: 64 }
+    AssignmentSetRequest:
+      type: object
+      additionalProperties: false
+      required: [reviewerId, expectedUpdatedAt]
+      properties:
+        reviewerId: { type: string, format: uuid }
+        expectedUpdatedAt: { type: [string, 'null'], format: date-time }
+    PublicSubmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [formId, formVersionId, targetId, answers]
+      properties:
+        formId: { type: string, format: uuid }
+        formVersionId: { type: string, format: uuid }
+        targetId: { type: string, format: uuid }
+        answers: { type: object, maxProperties: 100 }
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,63}$' }
+            message: { type: string, minLength: 1, maxLength: 500 }
+            requestId: { type: string, maxLength: 128 }
+    ListQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        limit: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        cursor: { type: string, minLength: 1, maxLength: 256 }
+    MemberSummary:
+      type: object
+      additionalProperties: false
+      required: [id, organizationId, userId, role, status, createdAt, user, assignedTargetCount, linkCount]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        role: { type: string, enum: [OWNER, ADMIN, REVIEWER] }
+        status: { type: string, enum: [ACTIVE, ARCHIVED] }
+        createdAt: { type: string, format: date-time }
+        user: { type: object, additionalProperties: false, required: [id, email, displayName, status] }
+        assignedTargetCount: { type: integer, minimum: 0 }
+        linkCount: { type: integer, minimum: 0 }
+    TargetSummary:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, email, createdAt, updatedAt, submissionCount]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        email: { type: [string, 'null'], format: email, maxLength: 254 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        submissionCount: { type: integer, minimum: 0 }
+    FormSummary:
+      type: object
+      additionalProperties: false
+      required: [id, title, description, status, updatedAt, currentPublishedId, submissionCount]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string, maxLength: 2000 }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        updatedAt: { type: string, format: date-time }
+        currentPublishedId: { type: [string, 'null'], format: uuid }
+        submissionCount: { type: integer, minimum: 0 }
+    ReviewLinkSummary:
+      type: object
+      additionalProperties: false
+      required: [id, formId, createdAt, expiresAt, revokedAt, active]
+      properties:
+        id: { type: string, format: uuid }
+        reviewerId: { type: string, format: uuid }
+        formId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        active: { type: boolean }
+    SubmissionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, formId, formVersionId, targetId, reviewerId, reviewedAt, archivedAt, submittedAt, target, form, reviewer, formVersion, reviewedPersonName]
+      properties:
+        id: { type: string, format: uuid }
+        formId: { type: string, format: uuid }
+        formVersionId: { type: string, format: uuid }
+        targetId: { type: string, format: uuid }
+        reviewerId: { type: string, format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        archivedAt: { type: [string, 'null'], format: date-time }
+        submittedAt: { type: string, format: date-time }
+        target: { type: object }
+        form: { type: object }
+        reviewer: { type: object }
+        formVersion: { type: object }
+        reviewedPersonName: { type: string, minLength: 1, maxLength: 160 }
+    ProgressSummary:
+      type: object
+      additionalProperties: false
+      required: [activeTargets, assignedTargets, completedTargets, responseCount, unassignedTargets, targetCount, completionRule, completionPercent]
+      properties:
+        activeTargets: { type: integer, minimum: 0 }
+        assignedTargets: { type: integer, minimum: 0 }
+        completedTargets: { type: integer, minimum: 0 }
+        responseCount: { type: integer, minimum: 0 }
+        unassignedTargets: { type: integer, minimum: 0 }
+        targetCount: { type: integer, minimum: 0 }
+        completionRule: { const: ONE_RESPONSE }
+        completionPercent: { type: number, minimum: 0, maximum: 100 }
+    OrganizationTheme:
+      type: object
+      additionalProperties: false
+      required: [accentColor, fontPreset, surfacePreset, formStyle]
+      properties:
+        accentColor: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        fontPreset: { type: string, enum: [sans, serif, system] }
+        surfacePreset: { type: string, enum: [mist, warm, cool] }
+        formStyle: { type: string, enum: [clean, soft] }
+    AuditEventSummary:
+      type: object
+      additionalProperties: false
+      required: [id, actorId, action, entityType, entityId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        actorId: { type: [string, 'null'], format: uuid }
+        action: { type: string, minLength: 1, maxLength: 80 }
+        entityType: { type: string, minLength: 1, maxLength: 80 }
+        entityId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }

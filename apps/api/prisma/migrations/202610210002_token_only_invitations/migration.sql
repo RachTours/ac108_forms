@@ -1,0 +1,3 @@
+ALTER TABLE `Invitation`
+  MODIFY `email` VARCHAR(254) NULL,
+  MODIFY `displayName` VARCHAR(120) NULL;

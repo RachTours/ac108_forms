@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  REVIEWER
+}
+
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Organization {
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  name                String               @db.VarChar(160)
+  slug                String               @unique @db.VarChar(80)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  memberships         Membership[]
+  forms               Form[]
+  reviewTargets       ReviewTarget[]
+  sessions            Session[]
+  progressConfig      ProgressConfig?
+  invitations         Invitation[]
+  auditEvents         AuditEvent[]
+  passwordResetTokens PasswordResetToken[]
+  theme               OrganizationTheme?
+}
+
+model User {
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  email               String               @unique @db.VarChar(254)
+  displayName         String               @db.VarChar(120)
+  status              RecordStatus         @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  memberships         Membership[]
+  sessions            Session[]
+  invitations         Invitation[]         @relation("InvitationCreator")
+  auditEvents         AuditEvent[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model Membership {
+  id                  String               @id @default(uuid()) @db.VarChar(36)
+  organizationId      String               @db.VarChar(36)
+  userId              String               @db.VarChar(36)
+  role                Role                 @default(REVIEWER)
+  passwordHash        String               @db.VarChar(255)
+  status              RecordStatus         @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments         Assignment[]
+  reviewLinks         ReviewLink[]
+  sessions            Session[]
+  reviewedSubmissions Submission[]         @relation("SubmissionReviewer")
+  passwordResetTokens PasswordResetToken[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId])
+  @@index([organizationId, role, status, id])
+}
+
+model Session {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  tokenHash      String       @unique @db.Char(64)
+  userId         String       @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  membershipId   String       @db.VarChar(36)
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership     Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Form {
+  id                 String        @id @default(uuid()) @db.VarChar(36)
+  organizationId     String        @db.VarChar(36)
+  title              String        @db.VarChar(160)
+  description        String        @db.VarChar(2000)
+  status             FormStatus    @default(DRAFT)
+  currentPublishedId String?       @db.VarChar(36)
+  draftDefinition    Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  archivedAt         DateTime?
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions           FormVersion[]
+  submissions        Submission[]
+  reviewLinks        ReviewLink[]
+
+  @@index([organizationId, status, updatedAt, id])
+}
+
+model FormVersion {
+  id          String       @id @default(uuid()) @db.VarChar(36)
+  formId      String       @db.VarChar(36)
+  version     Int
+  definition  Json
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@unique([formId, version])
+  @@index([formId, publishedAt])
+}
+
+model ReviewTarget {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  displayName    String       @db.VarChar(160)
+  email          String?      @db.VarChar(254)
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  archivedAt     DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignments    Assignment[]
+  submissions    Submission[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, status, displayName, id])
+}
+
+model Assignment {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  targetId       String       @db.VarChar(36)
+  reviewerId     String       @db.VarChar(36)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  target         ReviewTarget @relation(fields: [organizationId, targetId], references: [organizationId, id], onDelete: Cascade, map: "Assignment_target_org_fkey")
+  reviewer       Membership   @relation(fields: [organizationId, reviewerId], references: [organizationId, id], onDelete: Cascade, map: "Assignment_reviewer_org_fkey")
+
+  @@unique([organizationId, targetId])
+  @@index([organizationId, reviewerId, createdAt, id])
+}
+
+model ReviewLink {
+  id                String     @id @default(uuid()) @db.VarChar(36)
+  organizationId    String     @db.VarChar(36)
+  reviewerId        String     @db.VarChar(36)
+  formId            String?    @db.VarChar(36)
+  tokenHash         String     @unique @db.Char(64)
+  encryptedToken    String?    @db.Text
+  activeReviewerKey String?    @unique @db.VarChar(73)
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  createdAt         DateTime   @default(now())
+  reviewer          Membership @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  form              Form?      @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, reviewerId, revokedAt])
+  @@index([organizationId, formId, reviewerId, revokedAt])
+}
+
+model Submission {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  formId         String       @db.VarChar(36)
+  formVersionId  String       @db.VarChar(36)
+  targetId       String       @db.VarChar(36)
+  reviewerId     String       @db.VarChar(36)
+  idempotencyKey String       @db.VarChar(80)
+  payloadHash    String       @db.Char(64)
+  answers        Json
+  reviewedAt     DateTime?
+  archivedAt     DateTime?
+  submittedAt    DateTime     @default(now())
+  form           Form         @relation(fields: [formId], references: [id], onDelete: Restrict)
+  formVersion    FormVersion  @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
+  target         ReviewTarget @relation(fields: [targetId], references: [id], onDelete: Restrict)
+  reviewer       Membership   @relation("SubmissionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, targetId, submittedAt, id])
+  @@index([organizationId, reviewerId, submittedAt, id])
+  @@index([organizationId, reviewerId, archivedAt, submittedAt, id], map: "Submission_review_filter_idx")
+  @@index([organizationId, formId])
+  @@index([organizationId, archivedAt, submittedAt, id])
+}
+
+model ProgressConfig {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @unique @db.VarChar(36)
+  completionRule String       @default("ONE_RESPONSE") @db.VarChar(32)
+  targetCount    Int?
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationTheme {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @unique @db.VarChar(36)
+  accentColor    String       @default("#167354") @db.Char(7)
+  fontPreset     String       @default("sans") @db.VarChar(16)
+  surfacePreset  String       @default("mist") @db.VarChar(16)
+  formStyle      String       @default("clean") @db.VarChar(16)
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Invitation {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  email          String?      @db.VarChar(254)
+  displayName    String?      @db.VarChar(120)
+  role           Role         @default(REVIEWER)
+  tokenHash      String       @unique @db.Char(64)
+  encryptedToken String?      @db.Text
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  createdById    String       @db.VarChar(36)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, email, acceptedAt, revokedAt])
+}
+
+model PasswordResetToken {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  membershipId   String       @db.VarChar(36)
+  userId         String       @db.VarChar(36)
+  tokenHash      String       @unique @db.Char(64)
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership     Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, membershipId, createdAt])
+  @@index([userId, expiresAt])
+}
+
+model AuditEvent {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  actorId        String?      @db.VarChar(36)
+  action         String       @db.VarChar(80)
+  entityType     String       @db.VarChar(80)
+  entityId       String?      @db.VarChar(36)
+  requestId      String?      @db.VarChar(36)
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt, id])
+  @@index([organizationId, entityType, entityId, createdAt])
+}

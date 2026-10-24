@@ -1,0 +1,16 @@
+node_modules/
+.next/
+apps/web/.next-audit/
+apps/web/.next-verification/
+apps/web/.next-deployment-check/
+apps/web/.next-hostinger-*/
+apps/web/.next-production-check/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.firecrawl/
+apps/api/src/generated/
+*.log
+*.tsbuildinfo
