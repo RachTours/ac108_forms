@@ -74,8 +74,8 @@
 - [ ] **Step 3: Implement pure metric helpers.** Calculate exact submissionGoal / activeReviewerCount; derive submissionsRemaining = max(0, ceil(reviewerSubmissionGoal - submissionCount)); derive goal met from count >= exact goal; cap rounded percentage to 100.
 - [ ] **Step 4: Add failing API tests for the progress config and summary.** Assert PATCH can update either targetCount or submissionGoal without changing the other, invalid submission goals are rejected, summary separates people and submissions, and reviewer counts remain attributed to their membership after target reassignment.
 - [ ] **Step 5: Run focused route tests and verify the new endpoint expectations fail.**
-- [ ] **Step 6: Update progress routes.** Validate submissionGoal as an integer from 1 to 100000 when supplied; permit saving the two fields independently while retaining completion rule, CSRF, settings permission, organization scoping, and audit metadata. Query active reviewer count and aggregate non-archived submissions by organization and author membership, independent of current assignment and target status. Use the same archivedAt IS NULL rule for workspace and reviewer totals. Keep existing assignment/completion queries separately scoped to current active assignments.
-- [ ] **Step 7: Return the expanded API contract.** Workspace progress uses responseCount / submissionGoal; people progress keeps completedTargets / targetCount as a separate metric. Reviewer-board submission counts use author attribution and do not disappear on reassignment.
+- [ ] **Step 6: Update progress routes.** Validate submissionGoal as an integer from 1 to 100000 when supplied; permit saving the two fields independently while retaining completion rule, CSRF, settings permission, organization scoping, and audit metadata. Query active reviewer count and aggregate non-archived submissions by organization and author membership, independent of current assignment and target status. Use archivedAt IS NULL for workspace and reviewer totals. Keep assignment/completion queries scoped to current active assignments. For reviewer audience, return the authenticated reviewer submission count and the shared target computed across all active reviewers.
+- [ ] **Step 7: Return the expanded API contract.** Workspace progress uses responseCount / submissionGoal; people progress keeps completedTargets / targetCount separate. Reviewer-board submissions use author attribution and remain credited after reassignment. Reviewer summary returns exact progress ratio, rounded percent, remaining submissions, and goal-met status.
 - [ ] **Step 8: Run focused API tests, API typecheck, and Prisma client generation.**
 
 ---
@@ -126,14 +126,12 @@
 
 **Files:**
 - Modify: apps/web/app/(workspace)/page.tsx
-- Modify: apps/api/src/modules/progress/progress.routes.ts
-- Modify: apps/web/src/features/progress/reviewer-board.test.mjs (or the existing reviewer summary metric test)
+- Modify: apps/web/src/features/progress/reviewer-board.test.mjs
 
-- [ ] **Step 1: Add failing tests for reviewer summary fields.** Assert that reviewer audience gets its own submission count and the shared fractional goal based on all active reviewers, while retaining assigned targets and unique completed people separately.
-- [ ] **Step 2: Run focused API/UI summary tests and verify they fail before implementation.**
-- [ ] **Step 3: Extend reviewer-scoped summary.** Filter the submission count to the authenticated reviewer membership, but calculate the shared target using all active reviewer memberships.
-- [ ] **Step 4: Update reviewer overview copy and progress bar.** Show your submissions / shared reviewer goal using reviewerSubmissionGoal; preserve assigned-to-you and completed-people metrics as separate cards. Round the displayed target to two decimal places while using the precise goal for percent/met calculations.
-- [ ] **Step 5: Run focused tests and web/API typechecks.**
+- [ ] **Step 1: Extend reviewer-board calculations with tests for the reviewer API contract fields.** Assert the reviewer submission count is compared with the shared goal, without altering assigned targets or unique people completed.
+- [ ] **Step 2: Run the focused web logic test and confirm the reviewer summary calculation expectation fails before implementation.**
+- [ ] **Step 3: Update reviewer overview copy and progress bar.** Show own submissions / shared reviewer goal using reviewerSubmissionGoal; preserve assigned-to-you and completed-people metrics as separate cards. Round the displayed target to two decimal places while using the precise goal for percent/met calculations.
+- [ ] **Step 4: Run focused web logic tests and web typecheck.**
 
 ---
 
