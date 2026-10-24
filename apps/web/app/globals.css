@@ -74,12 +74,15 @@ a { color: inherit; text-decoration: none; }
 .assignment-filter span { display: inline-grid; min-width: 18px; height: 18px; place-items: center; border-radius: 999px; background: #f0f4f1; font-size: 9px; }
 .assignment-filter.active { border-color: #a8cbb5; background: var(--green-soft); color: var(--green); }
 .reviewer-sort select { min-height: 35px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font-size: 10px; }
+.reviewer-sort select:disabled { color: var(--muted); cursor: not-allowed; }
 .table-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); }
 .reviewer-board { margin: 18px 0; }
 .reviewer-board-heading { align-items: center; }
 .reviewer-board-heading h2 { margin: 0; font-size: 15px; }
 .reviewer-board-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
 .reviewer-sort { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 9px; }
+.reviewer-sort-control { display: grid; justify-items: end; gap: 4px; }
+.reviewer-sort-control>small { color: var(--muted); font-size: 9px; text-align: right; }
 .reviewer-board-list { overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
 .reviewer-progress-row { display: grid; grid-template-columns: minmax(170px,1fr) minmax(90px,1.2fr) minmax(250px,auto); align-items: center; gap: 12px; min-height: 66px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
 .reviewer-progress-row:last-child { border-bottom: 0; }

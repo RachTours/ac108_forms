@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getPeopleRemainingForGoal, sortReviewerProgress, toReviewerProgress } from "./reviewer-board.ts";
+import { getPeopleRemainingForGoal, getReviewerSortHint, sortReviewerProgress, toReviewerProgress } from "./reviewer-board.ts";
+
+test("reviewer sorting explains when there are too few reviewers to change the visible order", () => {
+  assert.equal(getReviewerSortHint(1), "Add another active reviewer to compare sort orders.");
+  assert.equal(getReviewerSortHint(2), null);
+});
 
 test("people still to add counts the difference between the goal and active targets", () => {
   assert.equal(getPeopleRemainingForGoal(50, 2), 48);

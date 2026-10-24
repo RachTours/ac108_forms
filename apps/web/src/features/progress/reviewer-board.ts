@@ -17,6 +17,10 @@ export type ReviewerProgress = {
 };
 export type ReviewerSort = "completion" | "name" | "completed" | "remaining";
 
+export function getReviewerSortHint(reviewerCount: number): string | null {
+  return reviewerCount < 2 ? "Add another active reviewer to compare sort orders." : null;
+}
+
 export function getPeopleRemainingForGoal(targetGoal: number, activeTargets: number): number {
   return Math.max(0, targetGoal - activeTargets);
 }

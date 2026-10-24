@@ -6,7 +6,7 @@ import { requireCsrf, requireSession } from "../../middleware/require-session.js
 import { requirePermission } from "../../middleware/require-permission.js";
 import { assignTargets } from "./bulk-assignment.js";
 import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schemas.js";
-import { toCreatedTargetSummary } from "./target-response.js";
+import { toCreatedTargetSummary, toUpdatedTargetSummary } from "./target-response.js";
 import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
 import { activeTargetListFilter, loadTargetAssignments, loadTargetSubmissionCounts } from "./target-submission-counts.js";
 
@@ -75,7 +75,7 @@ targetRouter.patch("/:targetId", requirePermission("targets", "update"), require
       const updateData = { ...(input.displayName !== undefined ? { displayName: input.displayName } : {}), ...(input.email !== undefined ? { email: input.email === "" ? null : input.email } : {}) };
       const updated = await transaction.reviewTarget.update({ where: { id: current.id }, data: updateData });
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "TARGET_UPDATED", entityType: "ReviewTarget", entityId: targetId } });
-      return updated;
+      return toUpdatedTargetSummary(updated);
     });
     response.json({ data: target });
   } catch (error) { next(error); }
