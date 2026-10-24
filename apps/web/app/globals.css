@@ -310,7 +310,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { visibility:hidden
 .reviewer-progress-trigger:hover { background: #f8fbf9; }
 .reviewer-progress-trigger:focus-visible { position: relative; z-index: 1; outline: 3px solid #65a889; outline-offset: -3px; }
 .reviewer-drawer-backdrop { position: fixed; z-index: 50; inset: 0; display: flex; justify-content: flex-end; background: #17231f66; }
-.reviewer-reviews-drawer { display: flex; width: min(560px, 100%); height: 100%; flex-direction: column; padding: 24px; overflow: auto; background: var(--paper); box-shadow: -12px 0 40px #17231f1a; }
+.reviewer-reviews-drawer { display: flex; width: min(560px, 100%); height: 100%; min-height: 0; flex-direction: column; padding: 24px; overflow: hidden; background: var(--paper); box-shadow: -12px 0 40px #17231f1a; }
 .reviewer-drawer-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .reviewer-drawer-heading .eyebrow { margin: 0 0 7px; color: var(--green); font-size: 9px; font-weight: 650; letter-spacing: .08em; }
 .reviewer-drawer-heading h2 { margin: 0; font: 500 25px var(--display); }
@@ -319,7 +319,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { visibility:hidden
 .reviewer-drawer-state { display: grid; justify-items: center; gap: 8px; padding: 42px 15px; color: var(--muted); text-align: center; }
 .reviewer-drawer-state strong { color: var(--ink); font-size: 13px; }
 .reviewer-drawer-state span { font-size: 11px; }
-.reviewer-drawer-list { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
+.reviewer-drawer-list { min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 10px; }
 .reviewer-drawer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px; border-bottom: 1px solid var(--line); }
 .reviewer-drawer-row:last-child { border-bottom: 0; }
 .reviewer-drawer-row a { display: grid; min-width: 0; gap: 4px; }
