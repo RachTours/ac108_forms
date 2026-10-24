@@ -49,11 +49,11 @@
 - Modify: apps/api/prisma/schema.prisma
 - Create: apps/api/prisma/migrations/202610240001_submission_goal/migration.sql
 
-- [ ] **Step 1: Inspect migration conventions and capture the local QA database current ProgressConfig targetCount values and active-submission total with read-only queries.** This establishes a before/after preservation check; never inspect or migrate the live Hostinger database.
+- [x] **Step 1: Inspect migration conventions and capture the local QA database current ProgressConfig targetCount values and active-submission total with read-only queries.** This establishes a before/after preservation check; never inspect or migrate the live Hostinger database.
 
-- [ ] **Step 2: Add submissionGoal Int @default(50) to ProgressConfig and create the MySQL migration.** Add the column with default 50, then backfill rows from non-null targetCount while leaving targetCount unchanged.
-- [ ] **Step 3: Apply the migration and regenerate Prisma Client against the isolated local QA database.** Compare before/after values: people goals and active-submission count must be unchanged; new submissionGoal must equal a positive prior targetCount or default to 50 for null/zero.
-- [ ] **Step 4: Run Prisma schema validation and API typecheck.**
+- [x] **Step 2: Add submissionGoal Int @default(50) to ProgressConfig and create the MySQL migration.** Add the column with default 50, then backfill rows from non-null targetCount while leaving targetCount unchanged.
+- [x] **Step 3: Apply the migration and regenerate Prisma Client against the isolated local QA database.** Compare before/after values: people goals and active-submission count must be unchanged; new submissionGoal must equal a positive prior targetCount or default to 50 for null/zero.
+- [x] **Step 4: Run Prisma schema validation and API typecheck.**
 
 ---
 
@@ -69,14 +69,14 @@
 - The progress summary response adds submissionGoal, submissionCompletionPercent, activeReviewerCount, reviewerSubmissionGoal, reviewerSubmissionRatio, reviewerSubmissionsRemaining, reviewerSubmissionPercent, and reviewerSubmissionGoalMet; it retains targetCount as the people goal and completedTargets as unique people reviewed. Reviewer-specific fields are populated for reviewer audience; reviewerSubmissionGoal is null when no active reviewer target can be computed.
 - Each reviewer-board row adds submissionCount, reviewerSubmissionGoal (precise fractional value or null when there are no active reviewers), submissionRatio (precise capped 0..1 ratio), submissionsRemaining, submissionPercent (rounded display value), and submissionGoalMet; existing assigned and completed remain current-assignment values.
 
-- [ ] **Step 1: Add failing unit tests for calculation helpers.** Cover 50/5 = 10, 50/6 = 8.333…, a count of 8 leaving 1 submission, a count of 9 meeting 8.333…, zero reviewers returning no reviewer goal, zero/invalid workspace goal producing 0%, and percentages capped at 100%.
-- [ ] **Step 2: Run the focused API metric test and verify the new expectations fail.**
-- [ ] **Step 3: Implement pure metric helpers.** Calculate exact submissionGoal / activeReviewerCount; derive submissionsRemaining = max(0, ceil(reviewerSubmissionGoal - submissionCount)); derive goal met from count >= exact goal; cap rounded percentage to 100.
-- [ ] **Step 4: Add failing API tests for the progress config and summary.** Assert PATCH can update either targetCount or submissionGoal without changing the other, invalid submission goals are rejected, summary separates people and submissions, and reviewer counts remain attributed to their membership after target reassignment.
-- [ ] **Step 5: Run focused route tests and verify the new endpoint expectations fail.**
-- [ ] **Step 6: Update progress routes.** Validate submissionGoal as an integer from 1 to 100000 when supplied; permit saving the two fields independently while retaining completion rule, CSRF, settings permission, organization scoping, and audit metadata. Query active reviewer count and aggregate non-archived submissions by organization and author membership, independent of current assignment and target status. Use archivedAt IS NULL for workspace and reviewer totals. Keep assignment/completion queries scoped to current active assignments. For reviewer audience, return the authenticated reviewer submission count and the shared target computed across all active reviewers.
-- [ ] **Step 7: Return the expanded API contract.** Workspace progress uses responseCount / submissionGoal; people progress keeps completedTargets / targetCount separate. Reviewer-board submissions use author attribution and remain credited after reassignment. Reviewer summary returns exact progress ratio, rounded percent, remaining submissions, and goal-met status.
-- [ ] **Step 8: Run focused API tests, API typecheck, and Prisma client generation.**
+- [x] **Step 1: Add failing unit tests for calculation helpers.** Cover 50/5 = 10, 50/6 = 8.333…, a count of 8 leaving 1 submission, a count of 9 meeting 8.333…, zero reviewers returning no reviewer goal, zero/invalid workspace goal producing 0%, and percentages capped at 100%.
+- [x] **Step 2: Run the focused API metric test and verify the new expectations fail.**
+- [x] **Step 3: Implement pure metric helpers.** Calculate exact submissionGoal / activeReviewerCount; derive submissionsRemaining = max(0, ceil(reviewerSubmissionGoal - submissionCount)); derive goal met from count >= exact goal; cap rounded percentage to 100.
+- [x] **Step 4: Add failing API tests for the progress config and summary.** Assert PATCH can update either targetCount or submissionGoal without changing the other, invalid submission goals are rejected, summary separates people and submissions, and reviewer counts remain attributed to their membership after target reassignment.
+- [x] **Step 5: Run focused route tests and verify the new endpoint expectations fail.**
+- [x] **Step 6: Update progress routes.** Validate submissionGoal as an integer from 1 to 100000 when supplied; permit saving the two fields independently while retaining completion rule, CSRF, settings permission, organization scoping, and audit metadata. Query active reviewer count and aggregate non-archived submissions by organization and author membership, independent of current assignment and target status. Use archivedAt IS NULL for workspace and reviewer totals. Keep assignment/completion queries scoped to current active assignments. For reviewer audience, return the authenticated reviewer submission count and the shared target computed across all active reviewers.
+- [x] **Step 7: Return the expanded API contract.** Workspace progress uses responseCount / submissionGoal; people progress keeps completedTargets / targetCount separate. Reviewer-board submissions use author attribution and remain credited after reassignment. Reviewer summary returns exact progress ratio, rounded percent, remaining submissions, and goal-met status.
+- [x] **Step 8: Run focused API tests, API typecheck, and Prisma client generation.**
 
 ---
 
@@ -91,9 +91,9 @@
 - Settings PATCH supports {targetCount} or {submissionGoal} independently, preserving the other saved value.
 - Reviewer-goal explanation is derived as submissionGoal ÷ activeReviewerCount, formatted to at most two decimal places; with no active reviewers, it explains that a reviewer goal is unavailable.
 
-- [ ] **Step 1: Update Settings server response types and client state.** Keep “People in this review” and add “Workspace submission goal”; do not combine or mirror their editable state.
-- [ ] **Step 2: Add a separately saved submission-goal form/control.** Keep the existing PATCH behavior for the people goal; send only the field being saved so independent edits cannot overwrite each other. Show the reviewer-count division as read-only text.
-- [ ] **Step 3: Verify independent save states and reload persistence.** Run web typecheck and lint for the changed settings code.
+- [x] **Step 1: Update Settings server response types and client state.** Keep “People in this review” and add “Workspace submission goal”; do not combine or mirror their editable state.
+- [x] **Step 2: Add a separately saved submission-goal form/control.** Keep the existing PATCH behavior for the people goal; send only the field being saved so independent edits cannot overwrite each other. Show the reviewer-count division as read-only text.
+- [x] **Step 3: Verify independent save states and reload persistence.** Run web typecheck and lint for the changed settings code.
 
 ---
 
@@ -111,14 +111,14 @@
 - Sort choices are completion, name, completed, and remaining; visible labels are “Completion”, “Name (A–Z)”, “Most submissions”, and “Fewest submissions left”.
 - Reviewer-goal status is “Goal met” or “N submissions left”. Assignment status is “Assigned work done”, “N assigned remaining”, or “No assignments”.
 
-- [ ] **Step 1: Extend pure reviewer-board tests.** Assert completion sorts by exact capped progress ratio descending; name sorts A–Z; completed sorts by submission count descending; remaining sorts by submissions remaining ascending; all ties resolve by name then reviewer ID; fraction 8.333… produces 1 remaining at count 8 and met at count 9.
-- [ ] **Step 2: Run the focused web logic test and confirm it fails for the new submission fields and sorting labels.**
-- [ ] **Step 3: Update reviewer-board calculations.** Sort by submission-specific values, not assignment completion values. Keep assignment completion values separate and numeric.
-- [ ] **Step 4: Update the admin overview and reviewer board.** Display the workspace submission bar against submissionGoal, keep people goal/people reviewed stats separate, and show reviewer submission count/rounded personal goal next to the reviewer name.
-- [ ] **Step 5: Render two adjacent status labels beside each reviewer percentage.** Show the submission status Goal met or N submissions left where N = max(0, ceil(reviewerSubmissionGoal - submissionCount)). Show the assignment status independently as Assigned work done, N assigned remaining, or No assignments.
-- [ ] **Step 6: Use unambiguous select labels and verify selection changes order immediately.** Options must be Completion, Name (A–Z), Most submissions, and Fewest submissions left; retain numeric ordering and deterministic tie-breaking after selection.
-- [ ] **Step 7: Update CSS for desktop and mobile.** Keep both status chips legible and prevent reviewer name, percent, or badges from overlapping or forcing horizontal overflow.
-- [ ] **Step 8: Run focused web logic tests, lint, and typecheck.**
+- [x] **Step 1: Extend pure reviewer-board tests.** Assert completion sorts by exact capped progress ratio descending; name sorts A–Z; completed sorts by submission count descending; remaining sorts by submissions remaining ascending; all ties resolve by name then reviewer ID; fraction 8.333… produces 1 remaining at count 8 and met at count 9.
+- [x] **Step 2: Run the focused web logic test and confirm it fails for the new submission fields and sorting labels.**
+- [x] **Step 3: Update reviewer-board calculations.** Sort by submission-specific values, not assignment completion values. Keep assignment completion values separate and numeric.
+- [x] **Step 4: Update the admin overview and reviewer board.** Display the workspace submission bar against submissionGoal, keep people goal/people reviewed stats separate, and show reviewer submission count/rounded personal goal next to the reviewer name.
+- [x] **Step 5: Render two adjacent status labels beside each reviewer percentage.** Show the submission status Goal met or N submissions left where N = max(0, ceil(reviewerSubmissionGoal - submissionCount)). Show the assignment status independently as Assigned work done, N assigned remaining, or No assignments.
+- [x] **Step 6: Use unambiguous select labels and verify selection changes order immediately.** Options must be Completion, Name (A–Z), Most submissions, and Fewest submissions left; retain numeric ordering and deterministic tie-breaking after selection.
+- [x] **Step 7: Update CSS for desktop and mobile.** Keep both status chips legible and prevent reviewer name, percent, or badges from overlapping or forcing horizontal overflow.
+- [x] **Step 8: Run focused web logic tests, lint, and typecheck.**
 
 ---
 
@@ -128,10 +128,10 @@
 - Modify: apps/web/app/(workspace)/page.tsx
 - Modify: apps/web/src/features/progress/reviewer-board.test.mjs
 
-- [ ] **Step 1: Extend reviewer-board calculations with tests for the reviewer API contract fields.** Assert the reviewer submission count is compared with the shared goal, without altering assigned targets or unique people completed.
-- [ ] **Step 2: Run the focused web logic test and confirm the reviewer summary calculation expectation fails before implementation.**
-- [ ] **Step 3: Update reviewer overview copy and progress bar.** Show own submissions / shared reviewer goal using reviewerSubmissionGoal; preserve assigned-to-you and completed-people metrics as separate cards. Round the displayed target to two decimal places while using the precise goal for percent/met calculations.
-- [ ] **Step 4: Run focused web logic tests and web typecheck.**
+- [x] **Step 1: Extend reviewer-board calculations with tests for the reviewer API contract fields.** Assert the reviewer submission count is compared with the shared goal, without altering assigned targets or unique people completed.
+- [x] **Step 2: Run the focused web logic test and confirm the reviewer summary calculation expectation fails before implementation.**
+- [x] **Step 3: Update reviewer overview copy and progress bar.** Show own submissions / shared reviewer goal using reviewerSubmissionGoal; preserve assigned-to-you and completed-people metrics as separate cards. Round the displayed target to two decimal places while using the precise goal for percent/met calculations.
+- [x] **Step 4: Run focused web logic tests and web typecheck.**
 
 ---
 
@@ -140,12 +140,12 @@
 **Files:**
 - Modify: docs/qa/local-verification-2026-10-24-reviewer-submission-goals.md
 
-- [ ] **Step 1: Run migration against a local QA database copy only.** Record the selected local database identity and verify the migration preserves configured people goals and active submissions. Do not use the live Hostinger database.
-- [ ] **Step 2: Seed isolated local QA examples.** Use a test workspace with 5 reviewers and 50 goal, then 6 reviewers and 50 goal; include target reassignment with an authored non-archived submission and include differing assignment-completion states.
-- [ ] **Step 3: Run API metric/route tests and web reviewer-board tests.**
-- [ ] **Step 4: Run npm test, npm run typecheck, npm run lint, and npm run build from the repository root.**
-- [ ] **Step 5: Start both local websites and the local database using the repository’s documented commands.** Verify admin login/settings/overview and reviewer overview in a local browser, exercise each sort option, and verify both badges update independently as progress data changes.
-- [ ] **Step 6: Record results and verify git status and remotes.** Keep all changed code and local commits in the worktree; do not run git push.
+- [x] **Step 1: Run migration against a local QA database copy only.** Record the selected local database identity and verify the migration preserves configured people goals and active submissions. Do not use the live Hostinger database.
+- [x] **Step 2: Verify isolated synthetic examples.** Exercise 5- and 6-reviewer splits, target reassignment credit, and distinct assignment states through pure metric/API tests without modifying stored QA targets or submissions.
+- [x] **Step 3: Run API metric/route tests and web reviewer-board tests.**
+- [x] **Step 4: Run npm test, npm run typecheck, npm run lint, and npm run build from the repository root.**
+- [x] **Step 5: Start both audience entry points, API, and existing local database using npm run dev.** Verify API readiness plus admin and reviewer login routes over HTTP. Verify sort comparator options, tie-breaking, and badge state through unit tests; desktop browser automation was unavailable in this environment.
+- [x] **Step 6: Record results and verify git status and remotes.** Keep all changed code and local commits in the worktree; do not run git push.
 
 ---
 
