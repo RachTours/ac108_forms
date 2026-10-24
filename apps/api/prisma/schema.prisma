@@ -204,6 +204,7 @@ model ProgressConfig {
   organizationId String       @unique @db.VarChar(36)
   completionRule String       @default("ONE_RESPONSE") @db.VarChar(32)
   targetCount    Int?
+  submissionGoal Int          @default(50)
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
