@@ -25,3 +25,15 @@ test("form settings reject reversed limits and invalid number steps", () => {
   assert.equal(formDefinitionSchema.safeParse({ ...base, fields: [field(1, "number", { step: -1 })] }).success, false);
   assert.equal(formDefinitionSchema.safeParse({ ...base, fields: [field(1, "email", { minLength: 10, maxLength: 4 })] }).success, false);
 });
+
+test("legacy definitions default to English and supported languages round-trip", () => {
+  const legacy = formDefinitionSchema.parse({ title: "Review", description: "", fields: [] });
+  assert.equal(legacy.language, "en");
+
+  for (const language of ["en", "fr", "ar"]) {
+    const parsed = formDefinitionSchema.parse({ ...legacy, language });
+    assert.equal(parsed.language, language);
+    assert.equal(formDefinitionSchema.parse(JSON.parse(JSON.stringify(parsed))).language, language);
+  }
+  assert.equal(formDefinitionSchema.safeParse({ ...legacy, language: "es" }).success, false);
+});

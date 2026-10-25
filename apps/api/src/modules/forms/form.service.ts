@@ -24,7 +24,7 @@ export async function getForm(organizationId: string, formId: string) {
 }
 
 export async function createForm(organizationId: string, actorId: string, input: { title: string; description: string }) {
-  const definition: FormDefinition = { title: input.title, description: input.description, fields: [] };
+  const definition: FormDefinition = { title: input.title, description: input.description, language: "en", fields: [] };
   return prisma.$transaction(async (transaction) => {
     const form = await transaction.form.create({ data: { organizationId, title: input.title, description: input.description, draftDefinition: definition } });
     await transaction.auditEvent.create({ data: { organizationId, actorId, action: "FORM_CREATED", entityType: "Form", entityId: form.id } });

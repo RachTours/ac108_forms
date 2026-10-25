@@ -40,6 +40,7 @@ export const formFieldSchema = z.discriminatedUnion("type", [
 export const formDefinitionSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().max(2000),
+  language: z.enum(["en", "fr", "ar"]).default("en"),
   fields: z.array(formFieldSchema).max(100),
 }).strict().superRefine(({ fields }, context) => {
   const ids = fields.map((field) => field.id);
