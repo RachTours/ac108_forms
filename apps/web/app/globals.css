@@ -737,3 +737,14 @@ td { font-size: 11px; }
   .rating-preview span { min-width: 34px; height: 34px; }
   .signature-pad { min-height: 170px; }
 }
+@media (min-width: 1101px) {
+  .builder-grid > .builder-panel:not(.canvas-panel) {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}

@@ -3,6 +3,7 @@ import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { permanentlyDeleteForm, restoreForm } from "./form-lifecycle.js";
 import { loadFormSubmissionCounts } from "./form-submission-counts.js";
+import { duplicateForm as duplicateFormRecord } from "./form-duplication.js";
 
 export async function listForms(organizationId: string, state: "active" | "archived" = "active") {
   const rows = await prisma.form.findMany({
@@ -30,6 +31,14 @@ export async function createForm(organizationId: string, actorId: string, input:
     await transaction.auditEvent.create({ data: { organizationId, actorId, action: "FORM_CREATED", entityType: "Form", entityId: form.id } });
     return form;
   });
+}
+
+export async function duplicateForm(organizationId: string, actorId: string, formId: string, title: string) {
+  return prisma.$transaction(async (transaction) => duplicateFormRecord({
+    findSourceForm: async ({ organizationId: scopedOrganizationId, formId: id }) => transaction.form.findFirst({ where: { id, organizationId: scopedOrganizationId, archivedAt: null }, select: { id: true, title: true, description: true, draftDefinition: true } }),
+    createDraft: async ({ organizationId: scopedOrganizationId, title: copyTitle, description, status, currentPublishedId, draftDefinition }) => transaction.form.create({ data: { organizationId: scopedOrganizationId, title: copyTitle, description, status, currentPublishedId, draftDefinition: draftDefinition as object } }),
+    writeAudit: async (entry) => { await transaction.auditEvent.create({ data: { ...entry, entityType: "Form" } }); },
+  }, { organizationId, actorId, formId, title }));
 }
 
 export async function updateForm(organizationId: string, actorId: string, formId: string, input: FormDefinition) {

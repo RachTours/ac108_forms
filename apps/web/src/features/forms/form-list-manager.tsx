@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Archive, Files, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, Copy, Files, RotateCcw, Trash2 } from "lucide-react";
 import { useApi } from "../../lib/client-api";
+import { useWorkspaceSession } from "../../components/workspace-shell";
+import { withSessionSelector } from "../../lib/session-url";
 import { formatDate } from "../../lib/date-format";
 import { formatNumber, type Locale } from "../../lib/locale";
 
@@ -12,6 +15,8 @@ export type FormListRow = { id: string; title: string; description: string; stat
 
 export function FormListManager({ initialActive, initialArchived }: { initialActive: FormListRow[]; initialArchived: FormListRow[] }) {
   const api = useApi();
+  const router = useRouter();
+  const session = useWorkspaceSession();
   const t = useTranslations("forms");
   const locale = useLocale() as Locale;
   const [active, setActive] = useState(initialActive);
@@ -46,6 +51,15 @@ export function FormListManager({ initialActive, initialArchived }: { initialAct
     finally { setBusyId(null); }
   }
 
+  async function duplicateForm(form: FormListRow) {
+    setError(""); setNotice(""); setBusyId(form.id);
+    try {
+      const title = Array.from(t("duplicateName", { title: form.title })).slice(0, 160).join("");
+      const result = await api<{ data: { id: string } }>(`/forms/${form.id}/duplicate`, { method: "POST", body: JSON.stringify({ title }) });
+      router.push(withSessionSelector(`/admin/forms/${result.data.id}`, session.sessionId));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("duplicateFailed")); setBusyId(null); }
+  }
+
   async function permanentlyDelete(form: FormListRow) {
     if (form.submissionCount > 0) {
       setError(t("deleteBlocked", { title: form.title, count: formatNumber(form.submissionCount, locale, 0) }));
@@ -77,7 +91,10 @@ export function FormListManager({ initialActive, initialArchived }: { initialAct
         <span className="form-icon"><Files size={17} /></span>
         {view === "active" ? <Link className="form-list-main" href={`/admin/forms/${form.id}`} aria-label={t("editForm", { title: form.title })}><strong>{form.title}</strong><small>{form.description || t("noDescription")} · {t("updated", { date: formatDate(form.updatedAt, locale) })} · {t("submissionsCount", { count: formatNumber(form.submissionCount, locale, 0) })}</small></Link> : <span className="form-list-main"><strong>{form.title}</strong><small>{form.description || t("noDescription")} · {t("updated", { date: formatDate(form.updatedAt, locale) })} · {t("submissionsCount", { count: formatNumber(form.submissionCount, locale, 0) })}</small></span>}
         <span className={`status ${form.status === "DRAFT" || view === "archived" ? "status-pending" : ""}`}>{view === "archived" ? t("archived") : form.status === "PUBLISHED" ? t("published") : t("draft")}</span>
-        {view === "active" ? <button type="button" className="icon-button" aria-label={t("archiveTitle")} title={t("archiveTitle")} disabled={busyId !== null} onClick={() => void archiveForm(form)}><Archive size={14} /></button> : <button type="button" className="button button-small" disabled={busyId !== null} onClick={() => void restoreForm(form)}><RotateCcw size={13} /> {t("restore")}</button>}
+        {view === "active" ? <>
+          <button type="button" className="icon-button" aria-label={t("duplicateForm", { title: form.title })} title={t("duplicateForm", { title: form.title })} disabled={busyId !== null} onClick={() => void duplicateForm(form)}><Copy size={14} /></button>
+          <button type="button" className="icon-button" aria-label={t("archiveTitle")} title={t("archiveTitle")} disabled={busyId !== null} onClick={() => void archiveForm(form)}><Archive size={14} /></button>
+        </> : <button type="button" className="button button-small" disabled={busyId !== null} onClick={() => void restoreForm(form)}><RotateCcw size={13} /> {t("restore")}</button>}
         <button type="button" className="icon-button danger-action" aria-label={t("deleteTitle")} title={form.submissionCount ? t("deleteBlockedTitle") : t("deleteTitle")} disabled={busyId !== null} onClick={() => void permanentlyDelete(form)}><Trash2 size={14} /></button>
       </article>)}</div>}
   </>;

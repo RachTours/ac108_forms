@@ -3,7 +3,7 @@ import { z } from "zod";
 import { formDefinitionSchema } from "@reviewroom/contracts/forms";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
 import { requirePermission } from "../../middleware/require-permission.js";
-import { archiveForm, createForm, getForm, listForms, permanentlyDeleteArchivedForm, publishForm, restoreArchivedForm, updateForm } from "./form.service.js";
+import { archiveForm, createForm, duplicateForm, getForm, listForms, permanentlyDeleteArchivedForm, publishForm, restoreArchivedForm, updateForm } from "./form.service.js";
 
 export const formRouter = Router();
 const idSchema = z.string().uuid();
@@ -20,6 +20,13 @@ formRouter.post("/", requirePermission("forms", "create"), requireCsrf, async (r
   try {
     const input = createSchema.parse(request.body);
     const form = await createForm(request.auth!.organizationId, request.auth!.userId, input);
+    response.status(201).json({ data: form });
+  } catch (error) { next(error); }
+});
+formRouter.post("/:formId/duplicate", requirePermission("forms", "create"), requireCsrf, async (request, response, next) => {
+  try {
+    const { title } = z.object({ title: z.string().trim().min(1).max(160) }).strict().parse(request.body);
+    const form = await duplicateForm(request.auth!.organizationId, request.auth!.userId, idSchema.parse(request.params.formId), title);
     response.status(201).json({ data: form });
   } catch (error) { next(error); }
 });
