@@ -4,13 +4,14 @@ import { SubmissionsManager } from "../../../src/features/submissions/submission
 import { sessionResponseSchema } from "@reviewroom/contracts";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 import { activeReviewers } from "../../../src/features/people/available-reviewers";
+import type { FormSummary } from "@reviewroom/contracts";
 
 export const metadata: Metadata = { title: "Submissions" };
 type Submission = { id: string; submittedAt: string; archivedAt?: string | null; reviewedAt: string | null; target: { id: string; displayName: string }; reviewedPersonName?: string; form: { id: string; title: string }; reviewer: { id: string; user: { displayName: string; email?: string } }; formVersion: { version: number } };
 type Member = { id: string; role: string; status: string; user: { status: string; displayName: string; email: string } };
 export default async function SubmissionsPage() {
   await requireWorkspaceRole(["OWNER", "ADMIN", "REVIEWER"]);
-  let rows: Submission[] = []; let archivedRows: Submission[] = []; let reviewers: Member[] = []; let error = false; let canManage = false;
+  let rows: Submission[] = []; let archivedRows: Submission[] = []; let reviewers: Member[] = []; let forms: FormSummary[] = []; let error = false; let canManage = false;
   try {
     const [response, sessionResponse, memberResponse] = await Promise.all([serverApi("/submissions?limit=100"), serverApi("/auth/session"), serverApi("/members")]);
     if (!response.ok) throw new Error();
@@ -21,10 +22,11 @@ export default async function SubmissionsPage() {
     }
     if (canManage) {
       if (memberResponse.ok) { const memberBody: { data: Member[] } = await memberResponse.json(); reviewers = activeReviewers(memberBody.data); }
-      const archivedResponse = await serverApi("/submissions/archived?limit=100");
-      if (!archivedResponse.ok) throw new Error();
+      const [archivedResponse, formResponse] = await Promise.all([serverApi("/submissions/archived?limit=100"), serverApi("/forms")]);
+      if (!archivedResponse.ok || !formResponse.ok) throw new Error();
       const archivedBody: { data: Submission[] } = await archivedResponse.json(); archivedRows = archivedBody.data;
+      const formBody: { data: FormSummary[] } = await formResponse.json(); forms = formBody.data;
     }
   } catch { error = true; }
-  return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">FEEDBACK INBOX</p><h1>Submissions</h1><p>Review submitted feedback and keep track of what your team has read.</p></div><div className="count-chip">{rows.length} responses</div></div>{error ? <div className="panel empty-state"><h2>Submissions could not load</h2><p>Check your connection and try again.</p></div> : <SubmissionsManager initialRows={rows} initialArchivedRows={archivedRows} reviewers={reviewers} canManage={canManage} />}</div>;
+  return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">FEEDBACK INBOX</p><h1>Submissions</h1><p>Review submitted feedback and keep track of what your team has read.</p></div><div className="count-chip">{rows.length} responses</div></div>{error ? <div className="panel empty-state"><h2>Submissions could not load</h2><p>Check your connection and try again.</p></div> : <SubmissionsManager initialRows={rows} initialArchivedRows={archivedRows} reviewers={reviewers} forms={forms} canManage={canManage} />}</div>;
 }

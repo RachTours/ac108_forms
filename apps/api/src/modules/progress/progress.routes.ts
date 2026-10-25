@@ -72,14 +72,15 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
       SELECT m.id AS reviewerId, u.displayName AS displayName,
         COUNT(DISTINCT t.id) AS assigned,
         COUNT(DISTINCT CASE WHEN s.id IS NOT NULL THEN t.id END) AS completed,
-        (
-          SELECT COUNT(*) FROM Submission authored
-          WHERE authored.organizationId = m.organizationId
-            AND authored.reviewerId = m.id
-            AND authored.archivedAt IS NULL
-        ) AS submissionCount
+        COALESCE(MAX(authored.submissionCount), 0) AS submissionCount
       FROM Membership m
       INNER JOIN User u ON u.id = m.userId AND u.status = 'ACTIVE'
+      LEFT JOIN (
+        SELECT organizationId, reviewerId, COUNT(*) AS submissionCount
+        FROM Submission
+        WHERE organizationId = ${auth.organizationId} AND archivedAt IS NULL
+        GROUP BY organizationId, reviewerId
+      ) authored ON authored.organizationId = m.organizationId AND authored.reviewerId = m.id
       LEFT JOIN Assignment a ON a.reviewerId = m.id AND a.organizationId = m.organizationId
       LEFT JOIN ReviewTarget t ON t.id = a.targetId AND t.organizationId = m.organizationId AND t.status = 'ACTIVE' AND t.archivedAt IS NULL
       LEFT JOIN Submission s ON s.targetId = t.id AND s.reviewerId = m.id AND s.organizationId = m.organizationId AND s.archivedAt IS NULL

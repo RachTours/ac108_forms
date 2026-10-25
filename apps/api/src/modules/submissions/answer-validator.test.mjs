@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { formDefinitionSchema, formDefinitionWriteSchema } from "@reviewroom/contracts/forms";
-import { validateAnswers } from "../../../dist/modules/submissions/answer-validator.js";
+import { validateAnswers, validatePartialAnswers } from "../../../dist/modules/submissions/answer-validator.js";
 
 const uuid = (number) => `00000000-0000-4000-8000-${String(number).padStart(12, "0")}`;
 const field = (id, type, extra = {}, required = false) => ({ id: uuid(id), type, label: `Question ${id}`, description: "", required, ...extra });
 const option = (id, label) => ({ id: uuid(id), label });
+
+test("draft answer validation accepts missing required fields but rejects unknown or invalid supplied values", () => {
+  const definition = { title: "Review", description: "", fields: [field(1, "shortText", { minLength: 2 }, true), field(2, "email")] };
+  assert.deepEqual(validatePartialAnswers(definition, {}), {});
+  assert.deepEqual(validatePartialAnswers(definition, { [uuid(1)]: "  saved  " }), { [uuid(1)]: "saved" });
+  assert.throws(() => validatePartialAnswers(definition, { [uuid(1)]: "x" }), (error) => error.code === "INVALID_ANSWER");
+  assert.throws(() => validatePartialAnswers(definition, { [uuid(3)]: "unknown" }), (error) => error.code === "UNKNOWN_FIELD");
+});
 
 test("accepts a valid response for every supported field type", () => {
   const fields = [

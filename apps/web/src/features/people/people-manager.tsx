@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, Search, UserRound, X } from "lucide-react";
-import { paginatedResponseSchema, targetCreateResponseSchema, targetSummarySchema, targetUpdateResponseSchema, targetWriteSchema, type TargetSummary } from "@reviewroom/contracts";
+import { Download, Pencil, Plus, Search, Upload, UserRound, X } from "lucide-react";
+import { paginatedResponseSchema, targetCreateResponseSchema, targetImportCommitResponseSchema, targetImportPreviewResponseSchema, targetSummarySchema, targetUpdateResponseSchema, targetWriteSchema, type TargetSummary } from "@reviewroom/contracts";
 import { useApi } from "../../lib/client-api";
 
 type Target = Omit<TargetSummary, "createdAt" | "updatedAt"> & Partial<Pick<TargetSummary, "createdAt" | "updatedAt">>;
@@ -22,6 +22,8 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [importCsv, setImportCsv] = useState("");
+  const [importPreview, setImportPreview] = useState<null | { rows: Array<{ rowNumber: number; displayName: string; email: string | null; errors: Array<{ rowNumber: number | null; message: string }> }>; errors: Array<{ rowNumber: number | null; message: string }>; valid: boolean }>(null);
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const shown = useMemo(() => targets.filter((target) => !normalizedSearch || `${target.displayName} ${target.email ?? ""}`.toLocaleLowerCase().includes(normalizedSearch)), [targets, normalizedSearch]);
 
@@ -58,6 +60,38 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
     } finally {
       setBusy(false);
     }
+  }
+
+  async function previewImport(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!importCsv || busy) return;
+    setBusy(true); setError(""); setNotice(""); setImportPreview(null);
+    try {
+      const result = await api("/review-targets/import/preview", { method: "POST", headers: { "Content-Type": "text/csv" }, body: importCsv }, targetImportPreviewResponseSchema);
+      setImportPreview(result.data);
+    } catch (err) { setError(err instanceof Error ? err.message : "The CSV could not be previewed."); }
+    finally { setBusy(false); }
+  }
+
+  async function commitImport() {
+    if (!importCsv || !importPreview?.valid || busy) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await api("/review-targets/import", { method: "POST", headers: { "Content-Type": "text/csv" }, body: importCsv }, targetImportCommitResponseSchema);
+      const refreshed = await api("/review-targets?limit=100", {}, targetListResponseSchema);
+      setTargets(refreshed.data); setCursor(refreshed.nextCursor);
+      setImportCsv(""); setImportPreview(null); setNotice(`${result.data.importedCount} people imported${result.data.assignedCount ? `; ${result.data.assignedCount} assigned.` : "."}`);
+    } catch (err) { setError(err instanceof Error ? err.message : "The CSV import could not be completed."); }
+    finally { setBusy(false); }
+  }
+
+  function downloadImportErrors() {
+    if (!importPreview || (!importPreview.errors.length && !importPreview.rows.some((row) => row.errors.length))) return;
+    const quote = (value: string | number | null) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const allErrors = [...importPreview.errors, ...importPreview.rows.flatMap((row) => row.errors)];
+    const report = ["row,error", ...allErrors.map(({ rowNumber, message }) => `${quote(rowNumber)},${quote(message)}`)].join("\r\n");
+    const href = URL.createObjectURL(new Blob([report], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a"); anchor.href = href; anchor.download = "people-import-errors.csv"; anchor.click(); URL.revokeObjectURL(href);
   }
 
   function beginEdit(target: Target) {
@@ -114,6 +148,12 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
         <label className="people-field"><span>Email <small>Optional</small></span><input type="email" maxLength={254} placeholder="name@example.com" autoComplete="email" aria-label="Email (optional)" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <button className="button button-primary add-person-submit" disabled={busy}><Plus size={13} /> Add person</button>
       </form>
+      <form className="add-person-panel add-person-guided" onSubmit={previewImport}>
+        <div className="add-person-heading"><span className="setting-icon"><Upload size={16} /></span><span><strong>Import people from CSV</strong><small>Use the exact headers <code>name,email</code>. Up to 500 rows; blank emails are allowed.</small></span></div>
+        <label className="people-field"><span>CSV file</span><input aria-label="People CSV file" type="file" accept=".csv,text/csv" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 512_000) { setImportCsv(""); setError("CSV file is too large."); return; } void file.text().then(setImportCsv).catch(() => setError("The selected file could not be read.")); }} /></label>
+        <button className="button button-primary add-person-submit" disabled={busy || !importCsv}><Upload size={13} /> Preview import</button>
+      </form>
+      {importPreview && <div className="panel"><h2>Import preview</h2><p>{importPreview.valid ? `${importPreview.rows.length} people are ready to import.` : "Fix the highlighted rows before importing."}</p>{importPreview.rows.map((row) => <p key={row.rowNumber}>Row {row.rowNumber}: {row.displayName || "(missing name)"}{row.errors.length ? ` — ${row.errors.map((error) => error.message).join(" ")}` : ""}</p>)}{[...importPreview.errors, ...importPreview.rows.flatMap((row) => row.errors)].length > 0 && <button className="button button-small" type="button" onClick={downloadImportErrors}><Download size={13} /> Download error report</button>}{importPreview.valid && <button className="button button-primary" type="button" disabled={busy} onClick={() => void commitImport()}>Import {importPreview.rows.length} people</button>}</div>}
     </>}
     {targets.length === 0 ? <div className="panel empty-state compact-empty"><span className="empty-icon"><UserRound /></span><h2>No people yet</h2><p>Add a person to start a review record.</p></div> : <div className="table-wrap people-target-table"><table><thead><tr><th>Person</th>{canManage && <th>Assigned reviewer</th>}<th>Responses</th>{canManage && <th aria-label="Actions" />}</tr></thead><tbody>
       {shown.map((target) => <tr className={`review-target-row ${canManage ? "managed" : ""}`} key={target.id}>

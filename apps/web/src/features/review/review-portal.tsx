@@ -1,13 +1,14 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronDown, LockKeyhole, MoveVertical, Send, UserRoundCheck } from "lucide-react";
 import type { FormDefinition, FormField, SignatureAnswer } from "@reviewroom/contracts/forms";
-import { apiErrorSchema } from "@reviewroom/contracts";
+import { apiErrorSchema, reviewDraftResponseSchema } from "@reviewroom/contracts";
 import { buildInitialAnswers, shouldShowReviewTargetSelector } from "./review-portal-model";
 import { SignatureInput } from "./signature-input";
 import { safeWorkspaceTheme, workspaceThemeCssVariables } from "../../lib/workspace-theme";
-type PortalData = { reviewerName: string; theme?: unknown; targets: { id: string; displayName: string }[]; forms: { id: string; title: string; description: string; versionId: string; definition: FormDefinition }[] };
+type PortalData = { reviewerName: string; theme?: unknown; targets: { id: string; displayName: string; completed?: boolean; hasDraft?: boolean }[]; forms: { id: string; title: string; description: string; versionId: string; definition: FormDefinition }[] };
 type Answer = string | number | boolean | string[] | SignatureAnswer;
+const emptyFields: FormField[] = [];
 function isMissingRequiredAnswer(field: FormField, answer: Answer | undefined): boolean {
   if (!field.required) return false;
   if (answer === undefined) return true;
@@ -24,9 +25,40 @@ function getRatingValues(field: Extract<FormField, { type: "rating" }>): number[
 }
 export function ReviewPortal({ token, data }: { token: string; data: PortalData }) {
   const theme = safeWorkspaceTheme(data.theme);
-  const [targetId, setTargetId] = useState(data.targets[0]?.id ?? ""); const [formId, setFormId] = useState(data.forms[0]?.id ?? ""); const [answers, setAnswers] = useState<Record<string, Answer>>(() => buildInitialAnswers(data.forms[0]?.definition.fields ?? [])); const [error, setError] = useState(""); const [complete, setComplete] = useState(false); const [busy, setBusy] = useState(false);
-  const form = data.forms.find((item) => item.id === formId); const fields = form?.definition.fields ?? [];
-  function setAnswer(id: string, answer: Answer) { setAnswers((current) => ({ ...current, [id]: answer })); }
+  const initialTargetId = data.targets.find((target) => !target.completed)?.id ?? data.targets[0]?.id ?? "";
+  const [targetId, setTargetId] = useState(initialTargetId); const [formId, setFormId] = useState(data.forms[0]?.id ?? ""); const [answers, setAnswers] = useState<Record<string, Answer>>(() => buildInitialAnswers(data.forms[0]?.definition.fields ?? [])); const [error, setError] = useState(""); const [complete, setComplete] = useState(false); const [busy, setBusy] = useState(false);
+  const [queueFilter, setQueueFilter] = useState<"pending" | "completed">("pending"); const [dirty, setDirty] = useState(false); const [loadingDraft, setLoadingDraft] = useState(true); const [draftStatus, setDraftStatus] = useState("Checking for a saved draft…"); const saveChain = useRef<Promise<void>>(Promise.resolve());
+  const form = useMemo(() => data.forms.find((item) => item.id === formId), [data.forms, formId]); const fields = form?.definition.fields ?? emptyFields;
+  const visibleTargets = data.targets.filter((target) => Boolean(target.completed) === (queueFilter === "completed"));
+  function setAnswer(id: string, answer: Answer) { setAnswers((current) => ({ ...current, [id]: answer })); setDirty(true); }
+  useEffect(() => {
+    if (!form || !targetId) return;
+    let cancelled = false;
+    const query = new URLSearchParams({ targetId, formVersionId: form.versionId });
+    void fetch(`/api/v1/public/review/${encodeURIComponent(token)}/drafts?${query}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Saved draft could not be loaded.");
+        return reviewDraftResponseSchema.parse(await response.json());
+      })
+      .then((result) => { if (!cancelled) { setAnswers((result.data?.answers ?? buildInitialAnswers(fields)) as Record<string, Answer>); setDraftStatus(result.data ? "Draft restored" : ""); } })
+      .catch(() => { if (!cancelled) setDraftStatus(""); })
+      .finally(() => { if (!cancelled) setLoadingDraft(false); });
+    return () => { cancelled = true; };
+  }, [token, targetId, form, fields]);
+  useEffect(() => {
+    if (!dirty || loadingDraft || !form || !targetId) return;
+    const timer = setTimeout(() => {
+      setDraftStatus("Saving draft…");
+      const payload = JSON.stringify({ targetId, formId: form.id, formVersionId: form.versionId, answers });
+      saveChain.current = saveChain.current.catch(() => undefined).then(async () => {
+        const response = await fetch(`/api/v1/public/review/${encodeURIComponent(token)}/drafts`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: payload, cache: "no-store" });
+        if (!response.ok) throw new Error("Draft could not be saved.");
+        await response.json(); setDraftStatus("Draft saved");
+      }).catch(() => setDraftStatus("Draft could not be saved"));
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [answers, dirty, loadingDraft, targetId, form, token]);
+  function selectTarget(id: string) { setTargetId(id); setDirty(false); setLoadingDraft(true); setDraftStatus("Checking for a saved draft…"); }
   function shiftRanking(field: Extract<FormField, { type: "ranking" }>, index: number, delta: -1 | 1) { const list = [...((answers[field.id] as string[] | undefined) ?? field.options.map((option) => option.id))]; const next = index + delta; if (next < 0 || next >= list.length) return; [list[index], list[next]] = [list[next]!, list[index]!]; setAnswer(field.id, list); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,19 +131,20 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
             <span className="public-meta-chip"><span className="public-meta-dot" /> Review details</span>
             <span className="public-meta-chip public-private-chip"><LockKeyhole size={13} /> Private link</span>
           </div>
-          {shouldShowReviewTargetSelector(data.targets.length) ? <div className="public-target-picker">
+          <div className="assignment-summary public-queue-filters" aria-label="Filter review queue"><button type="button" className={queueFilter === "pending" ? "assignment-filter active" : "assignment-filter"} onClick={() => { setQueueFilter("pending"); selectTarget(data.targets.find((target) => !target.completed)?.id ?? ""); }} disabled={!data.targets.some((target) => !target.completed)}>Pending <span>{data.targets.filter((target) => !target.completed).length}</span></button><button type="button" className={queueFilter === "completed" ? "assignment-filter active" : "assignment-filter"} onClick={() => { setQueueFilter("completed"); selectTarget(data.targets.find((target) => target.completed)?.id ?? ""); }} disabled={!data.targets.some((target) => target.completed)}>Completed <span>{data.targets.filter((target) => target.completed).length}</span></button>{queueFilter === "pending" && visibleTargets.length > 0 && <button type="button" className="button button-small" onClick={() => { const index = visibleTargets.findIndex((target) => target.id === targetId); selectTarget(visibleTargets[(index + 1) % visibleTargets.length]!.id); }}>Next review</button>}</div>
+          {shouldShowReviewTargetSelector(visibleTargets.length) ? <div className="public-target-picker">
             <label htmlFor="review-target">Who are you reviewing?</label>
-            <div className="select-wrap"><select className="public-input" id="review-target" value={targetId} onChange={(event) => setTargetId(event.target.value)}>{data.targets.map((target) => <option key={target.id} value={target.id}>{target.displayName}</option>)}</select><ChevronDown size={15} /></div>
-          </div> : <div className="public-target-context" aria-label={`Reviewing ${data.targets[0]?.displayName}`}>
+            <div className="select-wrap"><select className="public-input" id="review-target" value={targetId} onChange={(event) => selectTarget(event.target.value)}>{visibleTargets.map((target) => <option key={target.id} value={target.id}>{target.displayName}{target.hasDraft ? " · Draft saved" : ""}</option>)}</select><ChevronDown size={15} /></div>
+          </div> : visibleTargets.length === 1 ? <div className="public-target-context" aria-label={`Reviewing ${visibleTargets[0]?.displayName}`}>
             <span className="public-target-icon"><UserRoundCheck size={18} aria-hidden="true" /></span>
-            <span><small>Reviewing</small><strong>{data.targets[0]?.displayName}</strong></span>
-          </div>}
-          {data.forms.length > 1 && <div className="public-form-picker"><label htmlFor="review-form">Choose a review form</label><div className="select-wrap"><select className="public-input" id="review-form" value={formId} onChange={(event) => { const nextFormId = event.target.value; setFormId(nextFormId); setAnswers(buildInitialAnswers(data.forms.find((item) => item.id === nextFormId)?.definition.fields ?? [])); }}>{data.forms.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><ChevronDown size={15} /></div></div>}
+            <span><small>Reviewing</small><strong>{visibleTargets[0]?.displayName}</strong></span>
+          </div> : null}
+          {data.forms.length > 1 && <div className="public-form-picker"><label htmlFor="review-form">Choose a review form</label><div className="select-wrap"><select className="public-input" id="review-form" value={formId} onChange={(event) => { const nextFormId = event.target.value; setFormId(nextFormId); setAnswers(buildInitialAnswers(data.forms.find((item) => item.id === nextFormId)?.definition.fields ?? [])); setDirty(false); setLoadingDraft(true); setDraftStatus("Checking for a saved draft…"); }}>{data.forms.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><ChevronDown size={15} /></div></div>}
           <div className="public-divider" />
           <header className="public-form-heading"><p className="public-form-kicker">Your feedback</p><h2>{form?.definition.title}</h2>{(form?.definition.description || form?.description) && <p className="public-form-description">{form?.definition.description || form?.description}</p>}</header>
-          <div className="public-fields">{fields.map(renderField)}</div>
+          {visibleTargets.length === 0 ? <p className="muted-caption">There are no {queueFilter} reviews in your queue.</p> : <><div className="public-fields">{fields.map(renderField)}</div>{draftStatus && <p className="muted-caption" role="status">{draftStatus}</p>}</>}
           {error && <p role="alert" className="form-error public-error">{error}</p>}
-          <button className="button button-primary public-submit" disabled={busy}><Send size={14} /> {busy ? "Saving your review…" : "Submit review"}</button>
+          {visibleTargets.length > 0 && <button className="button button-primary public-submit" disabled={busy || loadingDraft}><Send size={14} /> {busy ? "Saving your review…" : "Submit review"}</button>}
           <p className="privacy-note"><LockKeyhole size={12} /> Your response is private and only visible to your review team.</p>
         </form>}
       </>}

@@ -39,6 +39,7 @@ model Organization {
   auditEvents         AuditEvent[]
   passwordResetTokens PasswordResetToken[]
   theme               OrganizationTheme?
+  reviewDrafts        ReviewDraft[]
 }
 
 model User {
@@ -70,6 +71,7 @@ model Membership {
   sessions            Session[]
   reviewedSubmissions Submission[]         @relation("SubmissionReviewer")
   passwordResetTokens PasswordResetToken[]
+  reviewDrafts        ReviewDraft[] @relation("ReviewDraftReviewer")
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -119,6 +121,7 @@ model FormVersion {
   createdAt   DateTime     @default(now())
   form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
   submissions Submission[]
+  reviewDrafts ReviewDraft[]
 
   @@unique([formId, version])
   @@index([formId, publishedAt])
@@ -150,8 +153,10 @@ model Assignment {
   updatedAt      DateTime     @default(now()) @updatedAt
   target         ReviewTarget @relation(fields: [organizationId, targetId], references: [organizationId, id], onDelete: Cascade, map: "Assignment_target_org_fkey")
   reviewer       Membership   @relation(fields: [organizationId, reviewerId], references: [organizationId, id], onDelete: Cascade, map: "Assignment_reviewer_org_fkey")
+  reviewDrafts   ReviewDraft[]
 
   @@unique([organizationId, targetId])
+  @@unique([organizationId, id])
   @@index([organizationId, reviewerId, createdAt, id])
 }
 
@@ -197,6 +202,25 @@ model Submission {
   @@index([organizationId, reviewerId, archivedAt, submittedAt, id], map: "Submission_review_filter_idx")
   @@index([organizationId, formId])
   @@index([organizationId, archivedAt, submittedAt, id])
+}
+
+model ReviewDraft {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  reviewerId     String       @db.VarChar(36)
+  assignmentId   String       @db.VarChar(36)
+  formVersionId  String       @db.VarChar(36)
+  answers        Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewer       Membership   @relation("ReviewDraftReviewer", fields: [organizationId, reviewerId], references: [organizationId, id], onDelete: Cascade)
+  assignment     Assignment   @relation(fields: [organizationId, assignmentId], references: [organizationId, id], onDelete: Cascade)
+  formVersion    FormVersion  @relation(fields: [formVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, reviewerId, assignmentId, formVersionId])
+  @@index([updatedAt])
+  @@index([organizationId, reviewerId, updatedAt])
 }
 
 model ProgressConfig {
