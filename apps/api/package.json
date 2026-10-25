@@ -12,6 +12,7 @@
     "db:assignment-preflight": "tsx src/scripts/check-assignment-integrity.ts",
     "db:migrate:dev": "prisma migrate dev --name init",
     "db:migrate": "prisma migrate deploy",
+    "db:migrate:resolve-review-drafts": "prisma migrate resolve --rolled-back 202610240002_review_drafts",
     "db:bootstrap-owner": "tsx src/scripts/bootstrap-owner.ts",
     "db:bootstrap-owner:prod": "node dist/scripts/bootstrap-owner.js",
     "test": "npm run build --workspace @reviewroom/contracts && npm run build --workspace @reviewroom/domain && npm run build && node --test"

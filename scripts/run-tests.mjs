@@ -5,7 +5,7 @@ const npmExecPath = process.env.npm_execpath;
 if (!npmExecPath) throw new Error("Run the test runner through npm.");
 
 const env = testDatabaseEnvironment(process.env);
-const regression = spawnSync(process.execPath, ["--test", "scripts/test-database-env.test.mjs"], { stdio: "inherit", env });
+const regression = spawnSync(process.execPath, ["--test", "scripts/test-database-env.test.mjs", "scripts/migration-recovery.test.mjs"], { stdio: "inherit", env });
 if (regression.error) throw regression.error;
 if (regression.status !== 0) process.exit(regression.status ?? 1);
 

@@ -218,7 +218,7 @@ model ReviewDraft {
   assignment     Assignment   @relation(fields: [organizationId, assignmentId], references: [organizationId, id], onDelete: Cascade)
   formVersion    FormVersion  @relation(fields: [formVersionId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, reviewerId, assignmentId, formVersionId])
+  @@unique([organizationId, reviewerId, assignmentId, formVersionId], map: "ReviewDraft_scope_key")
   @@index([updatedAt])
   @@index([organizationId, reviewerId, updatedAt])
 }

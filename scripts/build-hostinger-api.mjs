@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { isRecoverableReviewDraftMigrationFailure } from "./migration-recovery.mjs";
 
 const bootstrapKeys = [
   "BOOTSTRAP_EMAIL",
@@ -24,18 +25,31 @@ if (bootstrapRequested) {
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("npm_execpath is unavailable; run this script through an npm script.");
 
-function runNpm(args) {
+function runNpm(args, { capture = false } = {}) {
   const result = spawnSync(process.execPath, [npmCli, ...args], {
-    stdio: "inherit",
+    stdio: capture ? "pipe" : "inherit",
+    encoding: capture ? "utf8" : undefined,
     env: process.env,
   });
   if (result.error) throw result.error;
+  if (capture) {
+    process.stdout.write(result.stdout ?? "");
+    process.stderr.write(result.stderr ?? "");
+    return { status: result.status ?? 1, output: `${result.stdout ?? ""}\n${result.stderr ?? ""}` };
+  }
   if (result.status !== 0) process.exit(result.status ?? 1);
+  return { status: 0, output: "" };
 }
 
 runNpm(["run", "db:generate"]);
 runNpm(["run", "db:assignment-preflight", "--workspace", "@reviewroom/api"]);
-runNpm(["run", "db:migrate"]);
+const migrationResult = runNpm(["run", "db:migrate"], { capture: true });
+if (migrationResult.status !== 0) {
+  if (!isRecoverableReviewDraftMigrationFailure(migrationResult.output)) process.exit(migrationResult.status);
+  process.stdout.write("Recovering the known partially applied ReviewDraft migration before retrying.\n");
+  runNpm(["run", "db:migrate:resolve-review-drafts", "--workspace", "@reviewroom/api"]);
+  runNpm(["run", "db:migrate"]);
+}
 runNpm(["run", "build", "--workspace", "@reviewroom/contracts"]);
 runNpm(["run", "build", "--workspace", "@reviewroom/domain"]);
 
