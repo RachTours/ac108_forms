@@ -4,13 +4,15 @@ import { paginatedResponseSchema, targetSummarySchema } from "@reviewroom/contra
 import { serverApi } from "../../../src/lib/api";
 import { PeopleManager } from "../../../src/features/people/people-manager";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
+import { getTranslations } from "next-intl/server";
 
-export const metadata: Metadata = { title: "People" };
+export async function generateMetadata(): Promise<Metadata> { const t = await getTranslations("metadata"); return { title: t("people") }; }
 
 const peopleResponseSchema = paginatedResponseSchema(targetSummarySchema);
 type Person = { id: string; displayName: string; email: string | null; submissionCount: number; createdAt?: string; updatedAt?: string; assignedReviewer?: { membershipId: string; displayName: string; email: string } | null | undefined };
 type LoadFailure = { status?: number; requestId?: string; unreachable?: boolean };
 export default async function PeoplePage() {
+  const [t, ui] = await Promise.all([getTranslations("people"), getTranslations("workspaceUi")]);
   await requireWorkspaceRole(["OWNER", "ADMIN"]);
   let people: Person[] = [];
   let nextCursor: string | null = null;
@@ -29,5 +31,5 @@ export default async function PeoplePage() {
       }
     }
   } catch { failure = { unreachable: true }; }
-  return <div className="page-content people-page"><div className="page-heading"><div><p className="eyebrow">PEOPLE</p><h1>People</h1><p>Add people, update their details, and review their submission history.</p></div><div className="count-chip">{people.length}{nextCursor ? "+" : ""} people loaded</div></div>{failure ? <div className="panel empty-state"><h2>People could not load</h2><p>{failure.unreachable ? "The server could not reach the API." : `The API returned HTTP ${failure.status}.`}{failure.requestId ? ` Reference: ${failure.requestId}` : ""}</p><p>Check the API connection and try again.</p><Link className="button button-small" href="/admin/people">Retry</Link></div> : <PeopleManager initialTargets={people} initialCursor={nextCursor} canManage />}</div>;
+  return <div className="page-content people-page"><div className="page-heading"><div><p className="eyebrow">{t("eyebrow")}</p><h1>{t("title")}</h1><p>{t("description")}</p></div><div className="count-chip">{nextCursor ? ui("loadedMorePeople", { count: people.length }) : ui("loadedPeople", { count: people.length })}</div></div>{failure ? <div className="panel empty-state"><h2>{t("loadFailed")}</h2><p>{failure.unreachable ? ui("serverApiFailure") : ui("httpFailure", { status: failure.status ?? 502 })}{failure.requestId ? ` Reference: ${failure.requestId}` : ""}</p><p>{ui("apiRetry")}</p><Link className="button button-small" href="/admin/people">{t("retry")}</Link></div> : <PeopleManager initialTargets={people} initialCursor={nextCursor} canManage />}</div>;
 }

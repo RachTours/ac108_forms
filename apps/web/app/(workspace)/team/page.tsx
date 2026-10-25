@@ -3,8 +3,9 @@ import { serverApi } from "../../../src/lib/api";
 import { TeamManager } from "../../../src/features/team/team-manager";
 import { invitationListResponseSchema, memberListResponseSchema, sessionResponseSchema } from "@reviewroom/contracts";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
+import { getTranslations } from "next-intl/server";
 
-export const metadata: Metadata = { title: "Team access" };
+export async function generateMetadata(): Promise<Metadata> { const t = await getTranslations("metadata"); return { title: t("team") }; }
 type Member = { id: string; role: "OWNER" | "ADMIN" | "REVIEWER"; status: "ACTIVE" | "ARCHIVED"; user: { displayName: string; email: string; status: "ACTIVE" | "ARCHIVED" }; assignedTargetCount: number };
 type LinkRow = { id: string; reviewer: { id: string; name: string; email: string }; form: { id: string; title: string } | null; formId: string | null; createdAt: string; expiresAt: string | null; revokedAt: string | null; active: boolean; canReveal: boolean };
 type FormSummary = { id: string; title: string; status: string };
@@ -12,6 +13,7 @@ type Invitation = { id: string; email: string | null; displayName: string | null
 type SectionErrors = { invitations?: string; links?: string; forms?: string };
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ search?: string; state?: string; reviewerId?: string }> }) {
+  const t = await getTranslations("team");
   await requireWorkspaceRole(["OWNER", "ADMIN"]);
   const query = await searchParams;
   const assignmentQuery = new URLSearchParams();
@@ -39,17 +41,17 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
   const [linkResult, invitationResult, formResult] = await Promise.allSettled([serverApi("/review-links"), serverApi("/members/invitations"), serverApi("/forms")]);
   if (linkResult.status === "fulfilled" && linkResult.value.ok) links = ((await linkResult.value.json()) as { data: LinkRow[] }).data;
-  else sectionErrors.links = "Form share links could not load. Member and assignment management remain available.";
+  else sectionErrors.links = t("linksLoadError");
   if (invitationResult.status === "fulfilled" && invitationResult.value.ok) {
     const parsed = invitationListResponseSchema.safeParse(await invitationResult.value.json());
     if (parsed.success) invitations = parsed.data.data;
-    else sectionErrors.invitations = "Pending access tokens returned an invalid response. Member and assignment management remain available.";
-  } else sectionErrors.invitations = "Pending access tokens could not load. Member and assignment management remain available.";
+    else sectionErrors.invitations = t("invitationLoadError");
+  } else sectionErrors.invitations = t("invitationLoadError");
   if (formResult.status === "fulfilled" && formResult.value.ok) forms = ((await formResult.value.json()) as { data: FormSummary[] }).data.filter((form) => form.status === "PUBLISHED");
-  else sectionErrors.forms = "Published forms could not load. Existing team links remain visible.";
+  else sectionErrors.forms = t("formsLoadError");
 
   return <div className="page-content team-page">
-    <div className="page-heading"><div><p className="eyebrow">WORKSPACE ADMIN</p><h1>Team access</h1><p>Manage people on your team, reviewer assignments, and form links.</p></div><div className="count-chip">{members.filter((member) => member.status === "ACTIVE").length} active members</div></div>
-    {memberError ? <div className="panel empty-state"><h2>Team members could not load</h2><p>Check your admin access and the API, then refresh this page.</p></div> : <TeamManager initialMembers={members} initialLinks={links} initialInvitations={invitations} forms={forms} isOwner={isOwner} sectionErrors={sectionErrors} assignmentSearch={assignmentQuery.toString()} />}
+    <div className="page-heading"><div><p className="eyebrow">{t("eyebrow")}</p><h1>{t("title")}</h1><p>{t("description")}</p></div><div className="count-chip">{members.filter((member) => member.status === "ACTIVE").length} {t("activeMembers")}</div></div>
+    {memberError ? <div className="panel empty-state"><h2>{t("membersLoadFailed")}</h2><p>{t("adminApiHint")}</p></div> : <TeamManager initialMembers={members} initialLinks={links} initialInvitations={invitations} forms={forms} isOwner={isOwner} sectionErrors={sectionErrors} assignmentSearch={assignmentQuery.toString()} />}
   </div>;
 }

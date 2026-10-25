@@ -4,11 +4,13 @@ import { SubmissionsManager } from "../../../src/features/submissions/submission
 import { sessionResponseSchema } from "@reviewroom/contracts";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 import { activeReviewers } from "../../../src/features/people/available-reviewers";
+import { getTranslations } from "next-intl/server";
 
-export const metadata: Metadata = { title: "Submissions" };
+export async function generateMetadata(): Promise<Metadata> { const t = await getTranslations("metadata"); return { title: t("submissions") }; }
 type Submission = { id: string; submittedAt: string; archivedAt?: string | null; reviewedAt: string | null; target: { id: string; displayName: string }; reviewedPersonName?: string; form: { id: string; title: string }; reviewer: { id: string; user: { displayName: string; email?: string } }; formVersion: { version: number } };
 type Member = { id: string; role: string; status: string; user: { status: string; displayName: string; email: string } };
 export default async function SubmissionsPage() {
+  const t = await getTranslations("submissions");
   await requireWorkspaceRole(["OWNER", "ADMIN", "REVIEWER"]);
   let rows: Submission[] = []; let archivedRows: Submission[] = []; let reviewers: Member[] = []; let error = false; let canManage = false;
   try {
@@ -26,5 +28,5 @@ export default async function SubmissionsPage() {
       const archivedBody: { data: Submission[] } = await archivedResponse.json(); archivedRows = archivedBody.data;
     }
   } catch { error = true; }
-  return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">FEEDBACK INBOX</p><h1>Submissions</h1><p>Review submitted feedback and keep track of what your team has read.</p></div><div className="count-chip">{rows.length} responses</div></div>{error ? <div className="panel empty-state"><h2>Submissions could not load</h2><p>Check your connection and try again.</p></div> : <SubmissionsManager initialRows={rows} initialArchivedRows={archivedRows} reviewers={reviewers} canManage={canManage} />}</div>;
+  return <div className="page-content"><div className="page-heading"><div><p className="eyebrow">{t("eyebrow")}</p><h1>{t("title")}</h1><p>{t("description")}</p></div><div className="count-chip">{rows.length} {t("responses")}</div></div>{error ? <div className="panel empty-state"><h2>{t("loadFailed")}</h2><p>{t("connectionHint")}</p></div> : <SubmissionsManager initialRows={rows} initialArchivedRows={archivedRows} reviewers={reviewers} canManage={canManage} />}</div>;
 }

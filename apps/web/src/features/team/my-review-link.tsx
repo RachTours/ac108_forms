@@ -4,11 +4,14 @@ import { Copy, ExternalLink, Link2, RefreshCw, ShieldCheck, X } from "lucide-rea
 import { useApi } from "../../lib/client-api";
 import { formatDate } from "../../lib/date-format";
 import { getDirectOpenLinkProps } from "./my-review-link-model";
+import { useLocale, useTranslations } from "next-intl";
 
 type FormLink = { id: string; createdAt: string; expiresAt: string | null; revokedAt: string | null; active: boolean; canReveal?: boolean };
 type PublishedForm = { id: string; title: string; description: string; link: FormLink | null };
 
 export function MyReviewLink() {
+  const t = useTranslations("team");
+  const locale = useLocale();
   const api = useApi();
   const [forms, setForms] = useState<PublishedForm[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -20,34 +23,34 @@ export function MyReviewLink() {
   useEffect(() => {
     let live = true;
     void api<{ data: PublishedForm[] }>("/review-links/mine/forms").then((result) => { if (live) setForms(result.data); })
-      .catch((caught: unknown) => { if (live) setError(caught instanceof Error ? caught.message : "Published forms could not load."); })
+      .catch(() => { if (live) setError(t("formSectionFailed")); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [api]);
+  }, [api, t]);
 
   async function issue(form: PublishedForm) {
     const replacing = !!form.link?.active;
-    if (replacing && !window.confirm(`Replace your link for “${form.title}”? The current link will stop working.`)) return;
+    if (replacing && !window.confirm(t("replaceMyLinkConfirm", { title: form.title }))) return;
     setBusyId(form.id); setError(""); setNotice("");
     try {
       const result = await api<{ data: FormLink & { shareUrl: string } }>(`/review-links/mine/forms/${form.id}/rotate`, { method: "POST" });
       setForms((rows) => rows.map((row) => row.id === form.id ? { ...row, link: { ...result.data, active: true, revokedAt: null } } : row));
       setUrls((current) => ({ ...current, [form.id]: result.data.shareUrl }));
-      setNotice(`Share link ready for ${form.title}. Copy it now; the full URL is shown only once.`);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "The form link could not be created."); }
+      setNotice(t("shareLinkReady", { title: form.title }));
+    } catch { setError(t("linkCreateFailed")); }
     finally { setBusyId(""); }
   }
 
   async function revoke(form: PublishedForm) {
     if (!form.link) return;
-    if (!window.confirm(`Revoke your link for “${form.title}”? Anyone using it will lose access.`)) return;
+    if (!window.confirm(t("revokeMyLinkConfirm", { title: form.title }))) return;
     setBusyId(form.id); setError(""); setNotice("");
     try {
       await api(`/review-links/${form.link.id}/revoke`, { method: "POST" });
       setForms((rows) => rows.map((row) => row.id === form.id && row.link ? { ...row, link: { ...row.link, active: false, revokedAt: new Date().toISOString() } } : row));
       setUrls((current) => { const next = { ...current }; delete next[form.id]; return next; });
-      setNotice(`Link revoked for ${form.title}.`);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "The form link could not be revoked."); }
+      setNotice(t("linkRevoked", { form: form.title }));
+    } catch { setError(t("linkRevokeFailed")); }
     finally { setBusyId(""); }
   }
 
@@ -61,19 +64,19 @@ export function MyReviewLink() {
         shareUrl = result.data.shareUrl;
         setUrls((current) => ({ ...current, [formId]: shareUrl! }));
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "The form link could not be loaded.");
+        setError(t("linkLoadFailed"));
         setBusyId("");
         return;
       } finally { setBusyId(""); }
     }
-    try { await navigator.clipboard.writeText(shareUrl); setNotice("Form link copied."); }
-    catch { setNotice("Your active link is ready below. Select it and copy it manually."); }
+    try { await navigator.clipboard.writeText(shareUrl); setNotice(t("formLinkLoaded")); }
+    catch { setNotice(t("manualCopy")); }
   }
 
   async function open(formId: string) {
     setError(""); setNotice("");
     const tab = window.open("about:blank", "_blank");
-    if (!tab) { setError("Your browser blocked the new tab. Allow pop-ups and try again."); return; }
+    if (!tab) { setError(t("openBlocked")); return; }
     tab.opener = null;
     let shareUrl = urls[formId];
     if (!shareUrl) {
@@ -84,7 +87,7 @@ export function MyReviewLink() {
         setUrls((current) => ({ ...current, [formId]: shareUrl! }));
       } catch (caught) {
         tab.close();
-        setError(caught instanceof Error ? caught.message : "The form link could not be opened.");
+        setError(t("openFailed"));
         setBusyId("");
         return;
       } finally { setBusyId(""); }
@@ -94,12 +97,12 @@ export function MyReviewLink() {
 
   return <>
     {error && <p role="alert" className="form-error">{error}</p>}{notice && <p role="status" className="form-success">{notice}</p>}
-    {loading ? <div className="panel empty-inline">Loading published forms…</div> : error && forms.length === 0 ? null : forms.length === 0 ? <section className="panel personal-link-card"><span className="personal-link-icon"><Link2 size={20} /></span><h2>No published forms yet</h2><p>When an admin publishes a form, it will appear here. You can then create a link tied to your reviewer account and assigned targets.</p></section> : <div className="personal-form-links">{forms.map((form) => <section className="panel personal-link-card" key={form.id}>
+    {loading ? <div className="panel empty-inline">{t("loadingForms")}</div> : error && forms.length === 0 ? null : forms.length === 0 ? <section className="panel personal-link-card"><span className="personal-link-icon"><Link2 size={20} /></span><h2>{t("noPublishedForms")}</h2><p>{t("noPublishedHelp")}</p></section> : <div className="personal-form-links">{forms.map((form) => <section className="panel personal-link-card" key={form.id}>
       <span className="personal-link-icon"><Link2 size={20} /></span><h2>{form.title}</h2>{form.description && <p>{form.description}</p>}
-      {form.link?.active ? <div className="personal-link-meta"><span><ShieldCheck size={14} /> Active · reviewer-specific</span><span>Expires {form.link.expiresAt ? formatDate(form.link.expiresAt) : "never"}</span></div> : <p className="muted-caption">{form.link ? "Link revoked or expired" : "No share link created yet"}</p>}
-      <div className="button-row"><button className="button button-primary" disabled={!!busyId} onClick={() => void issue(form)}><RefreshCw size={14} /> {busyId === form.id ? "Working…" : form.link?.active ? "Rotate link" : "Create link"}</button>{form.link?.active && form.link.canReveal && <button className="button button-small" disabled={!!busyId} onClick={() => void copy(form.id)}><Copy size={13} /> {busyId === form.id ? "Loading…" : "Copy link"}</button>}{form.link?.active && <button type="button" className="button button-small icon-button" aria-label={`Open ${form.title} form in a new tab`} title="Open form in a new tab" disabled={!!busyId} onClick={() => void open(form.id)}><ExternalLink size={14} /></button>}{form.link?.active && <button className="button" disabled={!!busyId} onClick={() => void revoke(form)}><X size={14} /> Revoke</button>}{urls[form.id] && !form.link?.canReveal && <button className="button button-small" onClick={() => void copy(form.id)}><Copy size={13} /> Copy link</button>}</div>
-      {urls[form.id] && <div className="one-time-secret reviewer-share-url"><strong>Your active form link</strong><small>This link opens only this form and only reviews assigned to your account. Copying it does not change or rotate the link.</small><div className="reviewer-share-url-controls"><input readOnly value={urls[form.id]} aria-label={`${form.title} share link`} /><span className="reviewer-share-url-actions"><button className="button button-small" onClick={() => void copy(form.id)}><Copy size={13} /> Copy</button><a {...getDirectOpenLinkProps(urls[form.id]!)} className="button button-small icon-button" aria-label={`Open ${form.title} form in a new tab`} title="Open form in a new tab"><ExternalLink size={14} /></a></span></div></div>}
+      {form.link?.active ? <div className="personal-link-meta"><span><ShieldCheck size={14} /> {t("activeReviewerLink")}</span><span>{t("expires", { date: form.link.expiresAt ? formatDate(form.link.expiresAt, locale) : t("never") })}</span></div> : <p className="muted-caption">{form.link ? t("linkRevokedExpired") : t("noShareLink")}</p>}
+      <div className="button-row"><button className="button button-primary" disabled={!!busyId} onClick={() => void issue(form)}><RefreshCw size={14} /> {busyId === form.id ? t("working") : form.link?.active ? t("rotateLink") : t("createLink")}</button>{form.link?.active && form.link.canReveal && <button className="button button-small" disabled={!!busyId} onClick={() => void copy(form.id)}><Copy size={13} /> {busyId === form.id ? t("loading") : t("copyLink")}</button>}{form.link?.active && <button type="button" className="button button-small icon-button" aria-label={t("openForm")} title={t("openForm")} disabled={!!busyId} onClick={() => void open(form.id)}><ExternalLink size={14} /></button>}{form.link?.active && <button className="button" disabled={!!busyId} onClick={() => void revoke(form)}><X size={14} /> {t("revoke")}</button>}{urls[form.id] && !form.link?.canReveal && <button className="button button-small" onClick={() => void copy(form.id)}><Copy size={13} /> {t("copyLink")}</button>}</div>
+      {urls[form.id] && <div className="one-time-secret reviewer-share-url"><strong>{t("yourActiveLink")}</strong><small>{t("linkScope")}</small><div className="reviewer-share-url-controls"><input readOnly value={urls[form.id]} aria-label={`${form.title} ${t("shareLink")}`} /><span className="reviewer-share-url-actions"><button className="button button-small" onClick={() => void copy(form.id)}><Copy size={13} /> {t("copyLink")}</button><a {...getDirectOpenLinkProps(urls[form.id]!)} className="button button-small icon-button" aria-label={t("openForm")} title={t("openForm")}><ExternalLink size={14} /></a></span></div></div>}
     </section>)}</div>}
-    <div className="personal-link-note"><ShieldCheck size={16} /><p>Each link is tied to one published form and your reviewer account. You can revoke or replace your links at any time.</p></div>
+    <div className="personal-link-note"><ShieldCheck size={16} /><p>{t("linkNote")}</p></div>
   </>;
 }

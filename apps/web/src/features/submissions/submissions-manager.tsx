@@ -7,6 +7,7 @@ import { ApiClientError } from "../../lib/api-client";
 import { formatDate } from "../../lib/date-format";
 import { useWorkspaceSession } from "../../components/workspace-shell";
 import { workspacePathForRole } from "../../lib/workspace-access";
+import { useLocale, useTranslations } from "next-intl";
 
 type Submission = { id: string; submittedAt: string; archivedAt?: string | null; reviewedAt: string | null; target: { id: string; displayName: string }; reviewedPersonName?: string; form: { id: string; title: string }; reviewer: { id: string; user: { displayName: string; email?: string } }; formVersion: { version: number } };
 type Reviewer = { id: string; role: string; status: string; user: { displayName: string; email: string } };
@@ -15,6 +16,8 @@ type View = "active" | "archived";
 export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers, canManage }: { initialRows: Submission[]; initialArchivedRows: Submission[]; reviewers: Reviewer[]; canManage: boolean }) {
   const api = useApi();
   const session = useWorkspaceSession();
+  const locale = useLocale();
+  const t = useTranslations("submissions");
   const [rows, setRows] = useState(initialRows);
   const [archivedRows, setArchivedRows] = useState(initialArchivedRows);
   const [view, setView] = useState<View>("active");
@@ -35,9 +38,9 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
     const endpoint = view === "archived" ? "/submissions/archived" : "/submissions";
     void api<{ data: Submission[]; nextCursor: string | null }>(endpoint + "?limit=100&reviewerId=" + encodeURIComponent(reviewerFilter))
       .then((result) => { if (current) { setReviewerData({ key: reviewerQueryKey, rows: result.data, cursor: result.nextCursor }); setError(""); } })
-      .catch((cause) => { if (current) { setReviewerData({ key: reviewerQueryKey, rows: [], cursor: null }); setError(cause instanceof Error ? cause.message : "Reviewer reviews could not be loaded."); } })
+      .catch(() => { if (current) { setReviewerData({ key: reviewerQueryKey, rows: [], cursor: null }); setError(t("reviewerReviewsFailed")); } })
     return () => { current = false; };
-  }, [api, canManage, reviewerFilter, reviewerQueryKey, view]);
+  }, [api, canManage, reviewerFilter, reviewerQueryKey, view, t]);
 
   const sourceRows = reviewerFilter ? (reviewerData?.key === reviewerQueryKey ? reviewerData.rows : []) : view === "archived" ? archivedRows : rows;
   const visibleRows = view === "archived" ? sourceRows : sourceRows.filter((row) => filter === "all" || (filter === "read") === Boolean(row.reviewedAt));
@@ -61,7 +64,7 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
       const endpoint = view === "archived" ? "/submissions/archived" : "/submissions";
       const result = await api<{ data: Submission[]; nextCursor: string | null }>(endpoint + "?limit=100&reviewerId=" + encodeURIComponent(reviewerFilter) + "&cursor=" + encodeURIComponent(reviewerCursor));
       setReviewerData((current) => current?.key === reviewerQueryKey ? { ...current, rows: [...current.rows, ...result.data], cursor: result.nextCursor } : current);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "More reviewer reviews could not be loaded."); }
+    } catch { setError(t("moreReviewerReviewsFailed")); }
     finally { setLoadingMore(false); }
   }
 
@@ -70,12 +73,12 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
       const reviewed = !row.reviewedAt;
       await api(`/submissions/${row.id}/review`, { method: "PATCH", body: JSON.stringify({ reviewed }) });
       setRows((items) => items.map((item) => item.id === row.id ? { ...item, reviewedAt: reviewed ? new Date().toISOString() : null } : item));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Review status could not be updated."); }
+    } catch { setError(t("statusUpdateFailed")); }
   }
 
   async function archiveSelected() {
     if (selectedIds.length === 0 || selectedIds.length > 100) return;
-    if (!window.confirm(`Archive ${selectedIds.length} selected ${selectedIds.length === 1 ? "review" : "reviews"}? They will leave the active inbox and remain available in Archived.`)) return;
+    if (!window.confirm(t("archiveSelectedConfirm", { count: selectedIds.length, items: selectedIds.length === 1 ? t("review") : t("reviews") }))) return;
     setError(""); setNotice(""); setBusyId("bulk");
     try {
       const result = await api<{ data: { archivedIds: string[] } }>("/submissions/archive-batch", { method: "POST", body: JSON.stringify({ submissionIds: selectedIds }) });
@@ -86,14 +89,14 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
       setArchivedRows((items) => [...archived, ...items.filter((row) => !archivedSet.has(row.id))]);
       setReviewerData((current) => current ? { ...current, rows: current.rows.filter((row) => !archivedSet.has(row.id)) } : current);
       setSelectedIds((current) => current.filter((id) => !archivedSet.has(id)));
-      setNotice(`${archivedSet.size} ${archivedSet.size === 1 ? "review" : "reviews"} archived. Restore them from the Archived view any time.`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Selected reviews could not be archived."); }
+      setNotice(t("archivedNotice", { count: archivedSet.size, items: archivedSet.size === 1 ? t("review") : t("reviews") }));
+    } catch { setError(t("archiveFailed")); }
     finally { setBusyId(null); }
   }
 
   async function deleteSelected() {
     if (selectedIds.length === 0 || selectedIds.length > 100) return;
-    const confirmation = window.prompt(`Permanently delete ${selectedIds.length} selected ${selectedIds.length === 1 ? "review" : "reviews"} and their answers? This cannot be undone. Type DELETE to confirm.`);
+    const confirmation = window.prompt(t("deleteSelectedConfirm", { count: selectedIds.length, items: selectedIds.length === 1 ? t("review") : t("reviews") }));
     if (confirmation !== "DELETE") return;
     setError(""); setNotice(""); setBusyId("bulk-delete");
     let deletedIds: string[] = [];
@@ -114,7 +117,7 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
       setArchivedRows((items) => items.filter((row) => !deletedSet.has(row.id)));
       setReviewerData((current) => current ? { ...current, rows: current.rows.filter((row) => !deletedSet.has(row.id)) } : current);
       setSelectedIds((current) => current.filter((id) => !deletedSet.has(id)));
-      setNotice(`${deletedSet.size} ${deletedSet.size === 1 ? "review" : "reviews"} and their answers permanently deleted.`);
+      setNotice(t("deletedNotice", { count: deletedSet.size, items: deletedSet.size === 1 ? t("review") : t("reviews") }));
     } catch (cause) {
       if (deletedIds.length > 0) {
         const deletedSet = new Set(deletedIds);
@@ -122,8 +125,8 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
         setArchivedRows((items) => items.filter((row) => !deletedSet.has(row.id)));
         setReviewerData((current) => current ? { ...current, rows: current.rows.filter((row) => !deletedSet.has(row.id)) } : current);
         setSelectedIds((current) => current.filter((id) => !deletedSet.has(id)));
-        setError(`${deletedIds.length} selected ${deletedIds.length === 1 ? "review was" : "reviews were"} deleted before the remaining request failed. Refresh the page and retry the remaining selection.`);
-      } else setError(cause instanceof Error ? cause.message : "Selected reviews could not be permanently deleted.");
+        setError(t("partialDeleteNotice", { count: deletedIds.length, items: deletedIds.length === 1 ? t("partialSingle") : t("partialMultiple") }));
+      } else setError(t("deleteFailed"));
     }
     finally { setBusyId(null); }
   }
@@ -135,34 +138,34 @@ export function SubmissionsManager({ initialRows, initialArchivedRows, reviewers
       const restored = { ...row, archivedAt: null };
       setArchivedRows((items) => items.filter((item) => item.id !== row.id));
       setRows((items) => [restored, ...items.filter((item) => item.id !== row.id)]);
-      setNotice(`Review for “${row.reviewedPersonName || row.target.displayName}” was restored.`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Review could not be restored."); }
+      setNotice(t("restoreNotice", { name: row.reviewedPersonName || row.target.displayName }));
+    } catch { setError(t("restoreFailed")); }
     finally { setBusyId(null); }
   }
 
   return <>
     {canManage && <div className="manager-toolbar submission-view-toolbar">
-      <div className="filter-pills" aria-label="Submission views">
-        <button type="button" className={view === "active" ? "filter-pill active" : "filter-pill"} onClick={() => { setSelectedIds([]); setView("active"); }}>Active</button>
-        <button type="button" className={view === "archived" ? "filter-pill active" : "filter-pill"} onClick={() => { setSelectedIds([]); setView("archived"); }}>Archived <span>{archivedRows.length}</span></button>
+      <div className="filter-pills" aria-label={t("submissionViews")}>
+        <button type="button" className={view === "active" ? "filter-pill active" : "filter-pill"} onClick={() => { setSelectedIds([]); setView("active"); }}>{t("active")}</button>
+        <button type="button" className={view === "archived" ? "filter-pill active" : "filter-pill"} onClick={() => { setSelectedIds([]); setView("archived"); }}>{t("archived")} <span>{archivedRows.length}</span></button>
       </div>
-      <label className="reviewer-submission-filter"><span>Reviewer</span><select aria-label="Filter submissions by reviewer" value={reviewerFilter} onChange={(event) => { setSelectedIds([]); setReviewerFilter(event.target.value); }}><option value="">All reviewers</option>{reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.user.displayName} · {reviewer.user.email}</option>)}</select></label>
-      {view === "active" && <div className="filter-pills" aria-label="Filter active submissions">{(["all", "unread", "read"] as const).map((value) => <button type="button" key={value} className={filter === value ? "filter-pill active" : "filter-pill"} onClick={() => { setSelectedIds([]); setFilter(value); }}>{value === "all" ? "All responses" : value === "read" ? "Reviewed" : "Needs review"}</button>)}</div>}
-      <span className="muted-caption">{loadingReviewer ? "Loading…" : visibleRows.length + " shown"}</span>
+      <label className="reviewer-submission-filter"><span>{t("reviewer")}</span><select aria-label={t("reviewer")} value={reviewerFilter} onChange={(event) => { setSelectedIds([]); setReviewerFilter(event.target.value); }}><option value="">{t("allReviewers")}</option>{reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.user.displayName} · {reviewer.user.email}</option>)}</select></label>
+      {view === "active" && <div className="filter-pills" aria-label={t("filterActive")}>{(["all", "unread", "read"] as const).map((value) => <button type="button" key={value} className={filter === value ? "filter-pill active" : "filter-pill"} onClick={() => { setSelectedIds([]); setFilter(value); }}>{value === "all" ? t("allResponses") : value === "read" ? t("reviewed") : t("needsReview")}</button>)}</div>}
+      <span className="muted-caption">{loadingReviewer ? t("loading") : t("shown", { count: visibleRows.length })}</span>
     </div>}
-    {!canManage && <div className="manager-toolbar"><div className="filter-pills" aria-label="Filter submissions">{(["all", "unread", "read"] as const).map((value) => <button type="button" key={value} className={filter === value ? "filter-pill active" : "filter-pill"} onClick={() => setFilter(value)}>{value === "all" ? "All responses" : value === "read" ? "Reviewed" : "Needs review"}</button>)}</div><span className="muted-caption">{visibleRows.length} shown</span></div>}
+    {!canManage && <div className="manager-toolbar"><div className="filter-pills" aria-label={t("filterSubmissions")}>{(["all", "unread", "read"] as const).map((value) => <button type="button" key={value} className={filter === value ? "filter-pill active" : "filter-pill"} onClick={() => setFilter(value)}>{value === "all" ? t("allResponses") : value === "read" ? t("reviewed") : t("needsReview")}</button>)}</div><span className="muted-caption">{t("shown", { count: visibleRows.length })}</span></div>}
     {canManage && !loadingReviewer && <div className="submission-bulk-toolbar"><label className="submission-select-all"><input type="checkbox" aria-label="Select all displayed submissions" checked={allVisibleSelected} disabled={visibleIds.length === 0 || busyId !== null} onChange={toggleAllVisible} /><span>{allVisibleSelected ? "Clear visible selection" : `Select all ${visibleIds.length} shown`}</span></label>{selectedIds.length > 0 && <div className="submission-bulk-actions"><span aria-live="polite">{selectedIds.length} selected</span>{view === "active" && <button type="button" className="button button-small" disabled={busyId !== null || selectedIds.length > 100} onClick={() => void archiveSelected()}><Archive size={13} /> {busyId === "bulk" ? "Archiving…" : "Archive"}</button>}<button type="button" className="button button-small danger-action" disabled={busyId !== null || selectedIds.length > 100} onClick={() => void deleteSelected()}><Trash2 size={13} /> {busyId === "bulk-delete" ? "Deleting…" : "Delete permanently"}</button><button type="button" className="icon-button" aria-label="Clear selection" title="Clear selection" disabled={busyId !== null} onClick={() => setSelectedIds([])}><X size={14} /></button></div>}</div>}
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
-    {loadingReviewer ? <div className="panel empty-state"><h2>Loading reviewer reviews</h2><p>Getting the selected reviewer’s submissions.</p></div> : visibleRows.length === 0 ? <div className="panel empty-state"><span className="empty-icon"><ClipboardList /></span><h2>{view === "archived" ? "No archived reviews" : "No responses in this view"}</h2><p>{view === "archived" ? "Archived reviews stay here until you restore or permanently delete them." : "Submitted feedback will appear here."}</p></div> :
+    {loadingReviewer ? <div className="panel empty-state"><h2>{t("reviewerReviewsLoading")}</h2><p>{t("reviewerReviewsHelp")}</p></div> : visibleRows.length === 0 ? <div className="panel empty-state"><span className="empty-icon"><ClipboardList /></span><h2>{view === "archived" ? t("noArchived") : t("noResponses")}</h2><p>{view === "archived" ? t("archiveHelp") : t("noSubmissionsHelp")}</p></div> :
       <div className="panel submission-list">{visibleRows.map((row) => <article className={`submission-row ${canManage ? "submission-row-managed" : ""} ${selectedIds.includes(row.id) ? "submission-row-selected" : ""}`} key={row.id}>
         {canManage && <label className="submission-select"><input type="checkbox" aria-label={`Select review for ${row.reviewedPersonName || row.target.displayName}`} checked={selectedIds.includes(row.id)} disabled={busyId !== null} onChange={() => toggleSelected(row.id)} /></label>}
         <span className={`submission-status ${row.reviewedAt ? "read" : ""}`}>{row.reviewedAt ? <CheckCheck size={15} /> : <ClipboardList size={15} />}</span>
-        <Link className="submission-main" href={`${workspacePathForRole(`/submissions/${row.id}`, session.role)}${view === "archived" ? "?archived=true" : ""}`}><strong>{row.reviewedPersonName || row.target.displayName}</strong><small>{row.form.title} · Submitted by {row.reviewer.user.displayName} · Version {row.formVersion.version}</small></Link>
-        <time className="submission-date">{formatDate(row.submittedAt)}</time>
-        {view === "archived" ? <span className="status status-pending submission-state">Archived</span> : <span className={`status submission-state ${row.reviewedAt ? "" : "status-pending"}`}>{row.reviewedAt ? "Reviewed" : "Needs review"}</span>}
-        {view === "active" && <button className="button button-small submission-mark-action" disabled={busyId !== null} onClick={() => void toggle(row)}><Check size={13} /> {row.reviewedAt ? "Reopen" : "Mark reviewed"}</button>}
-        {canManage && view === "archived" && <button type="button" className="button button-small submission-restore-action" disabled={busyId !== null} onClick={() => void restore(row)}><RotateCcw size={13} /> Restore</button>}
+        <Link className="submission-main" href={`${workspacePathForRole(`/submissions/${row.id}`, session.role)}${view === "archived" ? "?archived=true" : ""}`}><strong>{row.reviewedPersonName || row.target.displayName}</strong><small>{row.form.title} · {t("submittedBy", { name: row.reviewer.user.displayName })} · {t("version", { number: row.formVersion.version })}</small></Link>
+        <time className="submission-date">{formatDate(row.submittedAt, locale)}</time>
+        {view === "archived" ? <span className="status status-pending submission-state">{t("archived")}</span> : <span className={`status submission-state ${row.reviewedAt ? "" : "status-pending"}`}>{row.reviewedAt ? t("reviewed") : t("needsReview")}</span>}
+        {view === "active" && <button className="button button-small submission-mark-action" disabled={busyId !== null} onClick={() => void toggle(row)}><Check size={13} /> {row.reviewedAt ? t("reopen") : t("markReviewed")}</button>}
+        {canManage && view === "archived" && <button type="button" className="button button-small submission-restore-action" disabled={busyId !== null} onClick={() => void restore(row)}><RotateCcw size={13} /> {t("restore")}</button>}
       </article>)}</div>}
-    {canManage && reviewerCursor && !loadingReviewer && <div className="load-more-row"><button type="button" className="button button-small" disabled={loadingMore} onClick={() => void loadMoreReviewerRows()}>{loadingMore ? "Loading…" : "Load more reviewer reviews"}</button></div>}
+    {canManage && reviewerCursor && !loadingReviewer && <div className="load-more-row"><button type="button" className="button button-small" disabled={loadingMore} onClick={() => void loadMoreReviewerRows()}>{loadingMore ? t("loading") : t("loadMoreReviewer")}</button></div>}
   </>;
 }

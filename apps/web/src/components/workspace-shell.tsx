@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, Files, LayoutDashboard, Link2, LogOut, Settings2, UsersRound, UserRoundCog } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { SessionResponse } from "@reviewroom/contracts";
 import { createContext, useContext, useState } from "react";
 import { getNavigationForRole, homePathForRole, signInPathForRole } from "../lib/workspace-access";
 import { workspaceThemeCssVariables, type safeWorkspaceTheme } from "../lib/workspace-theme";
-import { panelNameForAudience } from "../lib/panel-brand";
 import { withSessionSelector, workspaceNavigationTarget } from "../lib/session-url";
 import { requestSignOut, signOutErrorMessage } from "../lib/sign-out";
+import { LanguageSwitcher } from "./language-switcher";
 
 const SessionContext = createContext<SessionResponse | null>(null);
 export function useWorkspaceSession(): SessionResponse {
@@ -23,9 +24,12 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string>();
+  const t = useTranslations("navigation");
   const icons: Record<string, typeof LayoutDashboard> = { "Overview": LayoutDashboard, "People": UsersRound, "Submissions": ClipboardList, "My form links": Link2, "Forms": Files, "Team access": UserRoundCog, "Settings": Settings2 };
-  const navigation = getNavigationForRole(session.role).map((item) => ({ ...item, icon: icons[item.label]! }));
-  const panelName = panelNameForAudience(session.role === "REVIEWER" ? "reviewer" : "admin");
+  const navLabels: Record<string, string> = { "Overview": t("overview"), "People": t("people"), "Submissions": t("submissions"), "My form links": t("myLinks"), "Forms": t("forms"), "Team access": t("team"), "Settings": t("settings") };
+  const navigation = getNavigationForRole(session.role).map((item) => ({ ...item, label: navLabels[item.label] ?? item.label, icon: icons[item.label]! }));
+  const panelName = t(session.role === "REVIEWER" ? "reviewerPanel" : "adminPanel");
+  const roleLabel = t(session.role === "OWNER" ? "roleOwner" : session.role === "ADMIN" ? "roleAdmin" : "roleReviewer");
 
   async function signOut() {
     if (signingOut) return;
@@ -59,22 +63,22 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
     router.push(destination);
   }
 
-  const active = navigation.find((item) => item.href === pathname || (item.href !== "/admin/overview" && item.href !== "/reviewer/progress" && pathname.startsWith(`${item.href}/`)))?.label ?? "Workspace";
+  const active = navigation.find((item) => item.href === pathname || (item.href !== "/admin/overview" && item.href !== "/reviewer/progress" && pathname.startsWith(`${item.href}/`)))?.label ?? t("workspace");
   const initials = session.user.displayName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
 
   return <SessionContext.Provider value={session}><div className="app-shell" onClickCapture={preserveTabSession} style={workspaceThemeCssVariables(theme) as React.CSSProperties}>
     <aside className="sidebar" aria-label="Workspace navigation">
       <Link className="brand" href={withSessionSelector(homePathForRole(session.role), session.sessionId)}><span className="brand-mark">{session.role === "REVIEWER" ? "R" : "A"}</span><span>{panelName}</span></Link>
-      <div className="nav-label">Workspace</div>
-      <nav className="nav-list" aria-label="Main">
+      <div className="nav-label">{t("workspace")}</div>
+      <nav className="nav-list" aria-label={t("main")}>
         {navigation.map(({ href, label, icon: Icon }) => <Link key={href} className="nav-link" href={withSessionSelector(href, session.sessionId)} aria-current={pathname === href ? "page" : undefined}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
       </nav>
-      <div className="side-profile"><span className="avatar" aria-hidden="true">{initials || "U"}</span><div><strong>{session.user.displayName}</strong><small>{session.role.toLowerCase()}</small></div><button className="icon-button" onClick={() => void signOut()} type="button" aria-label="Sign out" title={signingOut ? "Signing out…" : "Sign out"} disabled={signingOut}><LogOut size={15} /></button>{signOutError && <p className="form-error signout-error" role="alert">{signOutError}</p>}</div>
+      <div className="side-profile"><span className="avatar" aria-hidden="true">{initials || "U"}</span><div><strong>{session.user.displayName}</strong><small>{roleLabel}</small></div><button className="icon-button" onClick={() => void signOut()} type="button" aria-label={t("signOut")} title={signingOut ? t("signingOut") : t("signOut")} disabled={signingOut}><LogOut size={15} /></button>{signOutError && <p className="form-error signout-error" role="alert">{signOutError}</p>}</div>
     </aside>
     <main className="main-region">
-      <header className="topbar"><div className="breadcrumb">{panelName}&nbsp; / &nbsp;<strong>{active}</strong></div><div className="top-actions"><span className="avatar" aria-hidden="true">{initials || "U"}</span></div></header>
+      <header className="topbar"><div className="breadcrumb" aria-label={t("breadcrumb")}>{panelName}&nbsp; / &nbsp;<strong>{active}</strong></div><div className="top-actions"><LanguageSwitcher /><span className="avatar" aria-hidden="true">{initials || "U"}</span></div></header>
       {children}
-      <nav className="mobile-nav" aria-label="Workspace navigation">{navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={withSessionSelector(href, session.sessionId)} aria-current={pathname === href ? "page" : undefined}><Icon size={17} /><span>{label}</span></Link>)}</nav>
+      <nav className="mobile-nav" aria-label={t("main")}>{navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={withSessionSelector(href, session.sessionId)} aria-current={pathname === href ? "page" : undefined}><Icon size={17} /><span>{label}</span></Link>)}</nav>
     </main>
   </div></SessionContext.Provider>;
 }
