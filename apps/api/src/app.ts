@@ -20,7 +20,6 @@ import { submissionRouter } from "./modules/submissions/submission.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 import { organizationRouter } from "./modules/organization/organization.routes.js";
 import { assignmentRouter } from "./modules/assignments/assignment.routes.js";
-import { reportRouter } from "./modules/submissions/report.routes.js";
 
 export const app = express();
 
@@ -32,7 +31,6 @@ app.use(requestContext);
 app.use("/api/v1", noStore);
 app.use(helmet());
 app.use(cors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "X-Request-Id", "X-CSRF-Token", "X-Reviewroom-Audience", "X-Reviewroom-Session-Id"] }));
-app.use("/api/v1/review-targets/import", express.text({ type: "text/csv", limit: "512kb" }));
 app.use(express.json({ limit: "64kb", strict: true }));
 app.use(cookieParser());
 app.use("/api/v1", apiRateLimit);
@@ -58,7 +56,6 @@ app.use("/api/v1/public/review", publicReviewRouter);
 app.use("/api/v1/review-targets", targetRouter);
 app.use("/api/v1/assignments", assignmentRouter);
 app.use("/api/v1/submissions", submissionRouter);
-app.use("/api/v1/reports", reportRouter);
 app.use("/api/v1/audit-events", auditRouter);
 app.use("/api/v1/organization", organizationRouter);
 

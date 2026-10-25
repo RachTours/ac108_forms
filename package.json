@@ -17,8 +17,7 @@
     "start": "npm run start --workspace @reviewroom/web",
     "start:hostinger:web": "npm run start --workspace @reviewroom/web",
     "start:hostinger:api": "npm run start --workspace @reviewroom/api",
-    "load:smoke": "node scripts/local-load-check.mjs",
-    "load:roadmap": "npm run build --workspace @reviewroom/api && node scripts/local-roadmap-benchmark.mjs"
+    "load:smoke": "node scripts/local-load-check.mjs"
   },
   "engines": { "node": ">=22.12 <23 || >=24 <25" },
   "devDependencies": { "concurrently": "^9.2.1", "typescript": "^5.9.3" }

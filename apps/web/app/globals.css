@@ -681,18 +681,6 @@ td { font-size: 11px; }
 .field-actions button { min-width: 32px; min-height: 32px; }
 .form-field .preview-select { min-height: 39px; }
 
-.submission-report { display: grid; gap: 18px; }
-.report-filters { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)) auto; align-items: end; gap: 10px; }
-.report-filters label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; }
-.report-filters :is(input,select) { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
-.report-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.report-totals>div { display: grid; gap: 5px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; }
-.report-totals small { color: var(--muted); font-size: 10px; }
-.report-totals strong { font-size: 21px; }
-.public-queue-filters { flex-wrap: wrap; gap: 8px; }
-@media (max-width: 820px) { .report-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .report-filters,.report-totals { grid-template-columns: 1fr; } }
-
 @media (max-width: 620px) {
   .rating-preview { gap: 5px; }
   .rating-preview span { min-width: 34px; height: 34px; }

@@ -123,18 +123,3 @@ export function validateAnswers(definitionValue: unknown, answersValue: unknown)
   }
   return normalized;
 }
-
-export function validatePartialAnswers(definitionValue: unknown, answersValue: unknown): Record<string, JsonAnswer> {
-  const definition = formDefinitionSchema.parse(definitionValue);
-  const answers = z.record(z.string().uuid(), z.unknown()).safeParse(answersValue);
-  if (!answers.success || Object.keys(answers.data).length > 100) throw new HttpError(422, "INVALID_ANSWERS", "Draft answers have an invalid format.");
-  const fieldsById = new Map(definition.fields.map((field) => [field.id, field]));
-  if (Object.keys(answers.data).some((fieldId) => !fieldsById.has(fieldId))) throw new HttpError(422, "UNKNOWN_FIELD", "The draft includes a field that is not part of this form.");
-  const normalized: Record<string, JsonAnswer> = {};
-  for (const field of definition.fields) {
-    const value = answers.data[field.id];
-    if (isBlankAnswer(field, value)) continue;
-    normalized[field.id] = validateFieldValue(field, value);
-  }
-  return normalized;
-}

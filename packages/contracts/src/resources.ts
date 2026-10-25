@@ -25,10 +25,6 @@ export const targetCreateResponseSchema = z.object({ data: targetSummarySchema }
 export const targetUpdateResponseSchema = z.object({
   data: z.object({ id: uuid, displayName: z.string().min(1).max(160), email: email.nullable() }).strict(),
 }).strict();
-export const targetImportErrorSchema = z.object({ rowNumber: z.number().int().positive().nullable(), message: z.string().min(1).max(300) }).strict();
-export const targetImportPreviewSchema = z.object({ rows: z.array(z.object({ rowNumber: z.number().int().positive(), displayName: z.string().max(160), email: z.string().max(254).nullable(), errors: z.array(targetImportErrorSchema).max(3) }).strict()).max(500), errors: z.array(targetImportErrorSchema).max(500), valid: z.boolean() }).strict();
-export const targetImportPreviewResponseSchema = z.object({ data: targetImportPreviewSchema }).strict();
-export const targetImportCommitResponseSchema = z.object({ data: z.object({ importedCount: z.number().int().nonnegative().max(500), assignedCount: z.number().int().nonnegative().max(500) }).strict() }).strict();
 
 export const memberSummarySchema = z.object({
   id: uuid,
@@ -117,17 +113,10 @@ export const publicReviewReadResponseSchema = z.object({
   data: z.object({
     reviewerName: z.string().min(1).max(120),
     theme: z.object({ accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/), fontPreset: z.string().max(16), surfacePreset: z.string().max(16), formStyle: z.string().max(16) }).strict(),
-    targets: z.array(z.object({ id: uuid, displayName: z.string().min(1).max(160), completed: z.boolean().optional(), hasDraft: z.boolean().optional() }).strict()).max(1000),
+    targets: z.array(z.object({ id: uuid, displayName: z.string().min(1).max(160) }).strict()).max(1000),
     forms: z.array(z.object({ id: uuid, title: z.string().min(1).max(160), description: z.string().max(2000), versionId: uuid, definition: formDefinitionSchema }).strict()).max(100),
   }).strict(),
 }).strict();
-
-export const publicReviewQueueResponseSchema = z.object({ data: z.array(z.object({ id: uuid, displayName: z.string().min(1).max(160), completed: z.boolean(), hasDraft: z.boolean() }).strict()).max(200) }).strict();
-export const reviewDraftRequestSchema = z.object({ formId: uuid, formVersionId: uuid, targetId: uuid, answers: z.record(z.string().uuid(), z.unknown()) }).strict();
-export const reviewDraftResponseSchema = z.object({ data: z.object({ answers: z.record(z.string().uuid(), z.unknown()), updatedAt: isoDate }).strict().nullable() }).strict();
-export const submissionReportQuerySchema = z.object({ from: z.iso.date().optional(), to: z.iso.date().optional(), formId: uuid.optional(), reviewerId: uuid.optional() }).strict().refine(({ from, to }) => !from || !to || from <= to, "Start date must come before end date");
-export const submissionReportRowSchema = z.object({ formId: uuid, formTitle: z.string().min(1).max(160), reviewerId: uuid, reviewerName: z.string().min(1).max(120), submissionCount: z.number().int().nonnegative(), completedPeople: z.number().int().nonnegative(), reviewedSubmissionCount: z.number().int().nonnegative() }).strict();
-export const submissionReportResponseSchema = z.object({ data: z.object({ rows: z.array(submissionReportRowSchema).max(1000), totals: z.object({ submissionCount: z.number().int().nonnegative(), completedPeople: z.number().int().nonnegative(), reviewedSubmissionCount: z.number().int().nonnegative() }).strict() }).strict() }).strict();
 
 export const submissionCreateRequestSchema = z.object({
   formId: uuid,

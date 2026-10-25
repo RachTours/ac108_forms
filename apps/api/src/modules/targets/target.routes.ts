@@ -9,32 +9,11 @@ import { createTargetSchema, idSchema, updateTargetSchema } from "./target.schem
 import { toCreatedTargetSummary, toUpdatedTargetSummary } from "./target-response.js";
 import { autoAssignUnassignedTargets, listAssignments, lockAssignmentTarget, removeAssignment, removeTargetAssignment, setAssignment } from "../assignments/assignment.service.js";
 import { activeTargetListFilter, loadTargetAssignments, loadTargetSubmissionCounts } from "./target-submission-counts.js";
-import { commitTargetImport, validateTargetImport } from "./target-import.js";
 
 export const targetRouter = Router();
 const bulkAssignmentSchema = z.object({ targetIds: z.array(idSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "Target IDs must be unique."), reviewerId: idSchema }).strict();
 
 targetRouter.use(requireSession);
-targetRouter.post("/import/preview", requirePermission("targets", "create"), requireCsrf, async (request, response, next) => {
-  try {
-    const auth = request.auth!;
-    if (typeof request.body !== "string") throw new HttpError(415, "CSV_REQUIRED", "Upload a CSV file.");
-    const result = await validateTargetImport(prisma, auth.organizationId, request.body);
-    response.json({ data: { rows: result.rows.map((row) => ({ ...row, email: row.email || null, errors: result.errors.filter((error) => error.rowNumber === row.rowNumber) })), errors: result.errors.filter((error) => error.rowNumber === null), valid: result.errors.length === 0 } });
-  } catch (error) { next(error); }
-});
-
-targetRouter.post("/import", requirePermission("targets", "create"), requireCsrf, async (request, response, next) => {
-  try {
-    const auth = request.auth!;
-    if (typeof request.body !== "string") throw new HttpError(415, "CSV_REQUIRED", "Upload a CSV file.");
-    const csv = request.body;
-    const result = await prisma.$transaction(async (transaction) => {
-      return commitTargetImport(transaction, { organizationId: auth.organizationId, actorId: auth.userId, csv }, (targetIds) => autoAssignUnassignedTargets(transaction, { organizationId: auth.organizationId, actorId: auth.userId, source: "csv-import", targetIds }));
-    });
-    response.status(201).json({ data: result });
-  } catch (error) { next(error); }
-});
 targetRouter.get("/assignment-options", requirePermission("assignments", "read"), async (request, response, next) => {
   try {
     const auth = request.auth!;
