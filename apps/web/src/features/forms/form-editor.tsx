@@ -7,7 +7,7 @@ import { Archive, ArrowDown, ArrowLeft, ArrowUp, CalendarDays, ChevronDown, Circ
 import { formDefinitionSchema, formDefinitionWriteSchema, type FormDefinition, type FormField } from "@reviewroom/contracts/forms";
 import { useApi } from "../../lib/client-api";
 import { duplicateField, moveField, moveFieldTo, persistForm } from "./form-editor-actions";
-import { fieldPalette as palette, makeField } from "./form-editor-model";
+import { changeChoiceMode, fieldPalette as palette, makeField } from "./form-editor-model";
 import { useWorkspaceSession } from "../../components/workspace-shell";
 import { withSessionSelector } from "../../lib/session-url";
 
@@ -80,9 +80,23 @@ export function FormEditor({ initial }: { initial: FormRecord }) {
     catch (error) { setDraftFeedback({ phase: "error", message: error instanceof Error ? error.message : "Could not permanently delete the form." }); setBusy(false); }
   }
   function updateOption(field: FormField, optionId: string, label: string) { if (!("options" in field)) return; updateField(field.id, { options: field.options.map((option) => option.id === optionId ? { ...option, label } : option) } as Partial<FormField>); }
-  function addOption(field: FormField) { if (!("options" in field)) return; updateField(field.id, { options: [...field.options, { id: crypto.randomUUID(), label: `Option ${field.options.length + 1}` }] } as Partial<FormField>); }
+  function addOption(field: FormField) { if (!("options" in field) || field.options.length >= (field.type === "ranking" ? 50 : 100)) return; updateField(field.id, { options: [...field.options, { id: crypto.randomUUID(), label: `Option ${field.options.length + 1}` }] } as Partial<FormField>); }
   function moveOption(field: FormField, index: number, direction: -1 | 1) { if (!("options" in field)) return; const options = [...field.options]; const target = index + direction; if (target < 0 || target >= options.length) return; [options[index], options[target]] = [options[target]!, options[index]!]; updateField(field.id, { options } as Partial<FormField>); }
-  function removeOption(field: FormField, id: string) { if (!("options" in field)) return; updateField(field.id, { options: field.options.filter((option) => option.id !== id) } as Partial<FormField>); }
+  function removeOption(field: FormField, id: string) {
+    if (!("options" in field) || field.options.length <= 2) return;
+    const options = field.options.filter((option) => option.id !== id);
+    if (field.type === "checkboxes") {
+      const minSelections = Math.min(field.minSelections ?? 0, options.length);
+      const maxSelections = field.maxSelections === undefined ? undefined : Math.max(minSelections, Math.min(field.maxSelections, options.length));
+      updateField(field.id, { options, minSelections, maxSelections } as Partial<FormField>);
+      return;
+    }
+    updateField(field.id, { options } as Partial<FormField>);
+  }
+  function setChoiceMode(mode: "single" | "multiple") {
+    if (!current || (current.type !== "singleChoice" && current.type !== "checkboxes")) return;
+    setDefinition((value) => ({ ...value, fields: value.fields.map((field) => field.id === current.id && (field.type === "singleChoice" || field.type === "checkboxes") ? changeChoiceMode(field, mode) : field) }));
+  }
   function renderPreview(field: FormField) {
     if (field.type === "heading") return <div className="section-preview"><h3>{field.label}</h3>{field.description && <p>{field.description}</p>}</div>;
     if (field.type === "singleChoice") return <div className="option-preview">{field.options.map((option) => <div className="option-line" key={option.id}><span className="radio-indicator" />{option.label}</div>)}</div>;
@@ -108,10 +122,64 @@ export function FormEditor({ initial }: { initial: FormRecord }) {
       <section className="builder-panel canvas-panel"><div className="canvas-toolbar"><span><Eye size={14} /> Live form preview</span><span>{definition.fields.length} {definition.fields.length === 1 ? "question" : "questions"}</span></div><div className="form-canvas"><div className="form-sheet"><span className="form-preview-tag">REVIEW FORM</span><h2>{definition.title || "Untitled form"}</h2><p>{definition.description || "Your introduction will appear here."}</p>{definition.fields.length === 0 ? <div className="canvas-empty"><CirclePlus size={19} /><strong>Add the first question</strong><span>Choose a question type from the left.</span></div> : definition.fields.map((field, index) => <article className={`form-field ${selected === field.id ? "form-field-selected" : ""}`} key={field.id} tabIndex={0} aria-label={"Select " + field.label + " field"} onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(field.id); } }} draggable onClick={() => setSelected(field.id)} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", field.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const draggedId = event.dataTransfer.getData("text/plain"); if (draggedId) dropField(draggedId, field.id); }}><div className="field-actions"><span title="Drag to reorder"><Grip size={13} /> {palette.find((item) => item.type === field.type)?.label}</span><span><button type="button" aria-label="Move question up" onClick={(event) => { event.stopPropagation(); reorderField(field.id, -1); }} disabled={index === 0}><ArrowUp size={13} /></button><button type="button" aria-label="Move question down" onClick={(event) => { event.stopPropagation(); reorderField(field.id, 1); }} disabled={index === definition.fields.length - 1}><ArrowDown size={13} /></button><button type="button" aria-label={`Duplicate question: ${field.label}`} onClick={(event) => { event.stopPropagation(); duplicateQuestion(field, index); }}><Copy size={13} /></button><button type="button" aria-label={`Delete question: ${field.label}`} onClick={(event) => { event.stopPropagation(); setDefinition({ ...definition, fields: definition.fields.filter((candidate) => candidate.id !== field.id) }); setSelected(null); }}><Trash2 size={13} /></button></span></div>{field.type === "heading" ? renderPreview(field) : <>
 <label>{field.label}{field.required && <em>Required</em>}</label>{field.description && <small className="field-help">{field.description}</small>}{renderPreview(field)}
 </>}</article>)}<div className="preview-submit">Submit review <span>Responses are saved securely</span></div></div></div></section>
-      <aside className="builder-panel property-panel"><h2>Question settings</h2>{current ? <div className="settings-panel"><label htmlFor="question-label">{current.type === "heading" ? "Heading" : "Question"}</label><input id="question-label" value={current.label} maxLength={160} onChange={(event) => updateField(current.id, { label: event.target.value })} /><label htmlFor="question-help">Description</label><textarea id="question-help" rows={3} maxLength={500} value={current.description} onChange={(event) => updateField(current.id, { description: event.target.value })} />{current.type !== "heading" && <label className="switch-row"><span>Required</span><input className="switch" type="checkbox" checked={current.required} onChange={(event) => updateField(current.id, { required: event.target.checked })} /></label>}{"options" in current && <><div className="setting-subhead">Answer options</div>{current.options.map((option, index) => <div className="option-editor" key={option.id}><input aria-label={`Option ${index + 1}`} value={option.label} maxLength={120} onChange={(event) => updateOption(current, option.id, event.target.value)} /><button className="icon-button" aria-label={`Remove ${option.label}`} onClick={() => removeOption(current, option.id)} type="button"><Trash2 size={13} /></button></div>)}<button className="text-button" type="button" onClick={() => addOption(current)}><Plus size={13} /> Add option</button></>}{current.type === "ranking" && <><label htmlFor="ranking-direction">Ranking instruction</label><input id="ranking-direction" maxLength={240} value={current.direction} onChange={(event) => updateField(current.id, { direction: event.target.value } as Partial<FormField>)} /><p className="help-copy">Reviewers arrange choices in order using arrows. No numeric ranks are shown.</p></>}{(current.type === "name" || current.type === "shortText" || current.type === "longText") && <div className="property-columns"><div><label htmlFor="min-length">Minimum characters</label><input id="min-length" type="number" min={0} max={current.type === "name" ? 160 : current.type === "shortText" ? 5000 : 20000} value={current.minLength ?? ""} onChange={(event) => updateField(current.id, { minLength: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div><div><label htmlFor="max-length">Maximum characters</label><input id="max-length" type="number" min={1} max={current.type === "name" ? 160 : current.type === "shortText" ? 5000 : 20000} value={current.maxLength ?? ""} onChange={(event) => updateField(current.id, { maxLength: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div></div>}
-{current.type === "number" && <div className="property-columns"><div><label htmlFor="number-min">Minimum value</label><input id="number-min" type="number" value={current.min ?? ""} onChange={(event) => updateField(current.id, { min: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div><div><label htmlFor="number-max">Maximum value</label><input id="number-max" type="number" value={current.max ?? ""} onChange={(event) => updateField(current.id, { max: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div></div>}
-{current.type === "checkboxes" && <div className="property-columns"><div><label htmlFor="checkbox-min">Minimum selections</label><input id="checkbox-min" type="number" min={0} max={current.options.length} value={current.minSelections ?? ""} onChange={(event) => updateField(current.id, { minSelections: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div><div><label htmlFor="checkbox-max">Maximum selections</label><input id="checkbox-max" type="number" min={1} max={current.options.length} value={current.maxSelections ?? ""} onChange={(event) => updateField(current.id, { maxSelections: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div></div>}
-{current.type === "rating" && <div className="property-columns"><div><label htmlFor="rating-min">Minimum value</label><input id="rating-min" type="number" value={current.min} onChange={(event) => updateField(current.id, { min: Number(event.target.value) } as Partial<FormField>)} /></div><div><label htmlFor="rating-max">Maximum value</label><input id="rating-max" type="number" value={current.max} onChange={(event) => updateField(current.id, { max: Number(event.target.value) } as Partial<FormField>)} /></div><div><label htmlFor="rating-step">Step size</label><input id="rating-step" type="number" min={1} value={current.step} onChange={(event) => updateField(current.id, { step: Number(event.target.value) } as Partial<FormField>)} /></div></div>}
-{current.type === "date" && <div className="property-columns"><div><label htmlFor="date-min">Earliest date</label><input id="date-min" type="date" value={current.minDate ?? ""} onChange={(event) => updateField(current.id, { minDate: event.target.value || undefined } as Partial<FormField>)} /></div><div><label htmlFor="date-max">Latest date</label><input id="date-max" type="date" value={current.maxDate ?? ""} onChange={(event) => updateField(current.id, { maxDate: event.target.value || undefined } as Partial<FormField>)} /></div></div>}{current.type === "consent" && <><label htmlFor="consent-text">Consent statement</label><textarea id="consent-text" rows={3} value={current.consentText} onChange={(event) => updateField(current.id, { consentText: event.target.value } as Partial<FormField>)} /></>}</div> : <div className="properties-empty"><MessageSquare size={18} /><strong>Select a question</strong><span>Field controls will appear here.</span></div>}</aside></div>
+      <aside className="builder-panel property-panel">
+        <h2>Question settings</h2>
+        {current ? <div className="settings-panel">
+          <label htmlFor="question-label">{current.type === "heading" ? "Heading" : "Question"}</label>
+          <input id="question-label" value={current.label} maxLength={160} onChange={(event) => updateField(current.id, { label: event.target.value })} />
+          <label htmlFor="question-help">Description</label>
+          <textarea id="question-help" rows={3} maxLength={500} value={current.description} onChange={(event) => updateField(current.id, { description: event.target.value })} />
+          {current.type !== "heading" && <label className="switch-row"><span>Required</span><input className="switch" type="checkbox" checked={current.required} onChange={(event) => updateField(current.id, { required: event.target.checked })} /></label>}
+
+          {(current.type === "singleChoice" || current.type === "checkboxes") && <>
+            <label htmlFor="choice-mode">Answer selection</label>
+            <select id="choice-mode" value={current.type === "singleChoice" ? "single" : "multiple"} onChange={(event) => setChoiceMode(event.target.value as "single" | "multiple")}>
+              <option value="single">Choose one answer</option>
+              <option value="multiple">Choose all that apply</option>
+            </select>
+            <p className="help-copy">{current.type === "singleChoice" ? "Reviewers can select one option." : "Reviewers can select several options."}</p>
+          </>}
+
+          {(current.type === "name" || current.type === "shortText" || current.type === "longText" || current.type === "email" || current.type === "url" || current.type === "phone" || current.type === "number" || current.type === "dropdown") && <>
+            <label htmlFor="field-placeholder">Placeholder</label>
+            <input id="field-placeholder" maxLength={250} placeholder={current.type === "url" ? "https://example.com" : current.type === "email" ? "name@example.com" : current.type === "phone" ? "+1 555 123 4567" : current.type === "dropdown" ? "Choose an option" : "Your answer"} value={current.placeholder ?? ""} onChange={(event) => updateField(current.id, { placeholder: event.target.value || undefined } as Partial<FormField>)} />
+          </>}
+
+          {"options" in current && <>
+            <div className="setting-subhead">Answer options</div>
+            {current.options.map((option, index) => <div className="option-editor" key={option.id}>
+              <input aria-label={`Option ${index + 1}`} value={option.label} maxLength={120} onChange={(event) => updateOption(current, option.id, event.target.value)} />
+              <button className="icon-button" aria-label={`Remove ${option.label}`} onClick={() => removeOption(current, option.id)} type="button" disabled={current.options.length <= 2}><Trash2 size={13} /></button>
+            </div>)}
+            <button className="text-button" type="button" onClick={() => addOption(current)} disabled={current.options.length >= (current.type === "ranking" ? 50 : 100)}><Plus size={13} /> Add option</button>
+          </>}
+
+          {(current.type === "name" || current.type === "shortText" || current.type === "longText" || current.type === "email" || current.type === "url") && <div className="property-columns">
+            <div><label htmlFor="min-length">Minimum characters</label><input id="min-length" type="number" min={0} max={current.type === "name" ? 160 : current.type === "shortText" ? 5000 : current.type === "longText" ? 20000 : current.type === "email" ? 254 : 2048} value={current.minLength ?? ""} onChange={(event) => updateField(current.id, { minLength: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+            <div><label htmlFor="max-length">Maximum characters</label><input id="max-length" type="number" min={1} max={current.type === "name" ? 160 : current.type === "shortText" ? 5000 : current.type === "longText" ? 20000 : current.type === "email" ? 254 : 2048} value={current.maxLength ?? ""} onChange={(event) => updateField(current.id, { maxLength: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+          </div>}
+          {current.type === "number" && <div className="property-columns property-columns-three">
+            <div><label htmlFor="number-min">Minimum</label><input id="number-min" type="number" step="any" value={current.min ?? ""} onChange={(event) => updateField(current.id, { min: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+            <div><label htmlFor="number-max">Maximum</label><input id="number-max" type="number" step="any" value={current.max ?? ""} onChange={(event) => updateField(current.id, { max: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+            <div><label htmlFor="number-step">Step</label><input id="number-step" type="number" min="0.000001" step="any" value={current.step ?? 1} onChange={(event) => updateField(current.id, { step: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+          </div>}
+          {current.type === "checkboxes" && <div className="property-columns">
+            <div><label htmlFor="checkbox-min">Minimum selections</label><input id="checkbox-min" type="number" min={0} max={current.options.length} value={current.minSelections ?? ""} onChange={(event) => updateField(current.id, { minSelections: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+            <div><label htmlFor="checkbox-max">Maximum selections</label><input id="checkbox-max" type="number" min={1} max={current.options.length} value={current.maxSelections ?? ""} onChange={(event) => updateField(current.id, { maxSelections: event.target.value ? Number(event.target.value) : undefined } as Partial<FormField>)} /></div>
+          </div>}
+          {current.type === "checkboxes" && <p className="help-copy">Selection limits are checked before submission and on the server.</p>}
+          {current.type === "rating" && <div className="property-columns property-columns-three">
+            <div><label htmlFor="rating-min">Minimum value</label><input id="rating-min" type="number" value={current.min} onChange={(event) => updateField(current.id, { min: Number(event.target.value) } as Partial<FormField>)} /></div>
+            <div><label htmlFor="rating-max">Maximum value</label><input id="rating-max" type="number" value={current.max} onChange={(event) => updateField(current.id, { max: Number(event.target.value) } as Partial<FormField>)} /></div>
+            <div><label htmlFor="rating-step">Step size</label><input id="rating-step" type="number" min={1} value={current.step} onChange={(event) => updateField(current.id, { step: Number(event.target.value) } as Partial<FormField>)} /></div>
+          </div>}
+          {current.type === "date" && <div className="property-columns">
+            <div><label htmlFor="date-min">Earliest date</label><input id="date-min" type="date" value={current.minDate ?? ""} onChange={(event) => updateField(current.id, { minDate: event.target.value || undefined } as Partial<FormField>)} /></div>
+            <div><label htmlFor="date-max">Latest date</label><input id="date-max" type="date" value={current.maxDate ?? ""} onChange={(event) => updateField(current.id, { maxDate: event.target.value || undefined } as Partial<FormField>)} /></div>
+          </div>}
+          {current.type === "consent" && <><label htmlFor="consent-text">Consent statement</label><textarea id="consent-text" rows={3} value={current.consentText} onChange={(event) => updateField(current.id, { consentText: event.target.value } as Partial<FormField>)} /></>}
+          {current.type === "ranking" && <><label htmlFor="ranking-direction">Ranking instruction</label><input id="ranking-direction" maxLength={240} value={current.direction} onChange={(event) => updateField(current.id, { direction: event.target.value } as Partial<FormField>)} /><p className="help-copy">Reviewers arrange choices in order using arrows.</p></>}
+        </div> : <div className="properties-empty"><MessageSquare size={18} /><strong>Select a question</strong><span>Field controls will appear here.</span></div>}
+      </aside></div>
   </div>;
 }

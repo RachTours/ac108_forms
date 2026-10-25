@@ -8,6 +8,8 @@ const baseField = z.object({
 }).strict();
 
 const option = z.object({ id: z.string().uuid(), label: z.string().trim().min(1).max(120) }).strict();
+const placeholder = z.string().max(250).optional();
+const textLength = (max: number) => ({ minLength: z.number().int().min(0).max(max).optional(), maxLength: z.number().int().min(1).max(max).optional() });
 export const signatureAnswerSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("typed"), text: z.string().trim().min(1).max(160) }).strict(),
   z.object({ mode: z.literal("drawn"), strokes: z.array(z.object({ points: z.array(z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict()).min(2).max(1200) }).strict()).min(1).max(20) }).strict().superRefine((value, context) => {
@@ -17,17 +19,17 @@ export const signatureAnswerSchema = z.discriminatedUnion("mode", [
 
 export const formFieldSchema = z.discriminatedUnion("type", [
   baseField.extend({ type: z.literal("heading") }),
-  baseField.extend({ type: z.literal("name"), minLength: z.number().int().min(0).max(160).optional(), maxLength: z.number().int().min(1).max(160).optional() }),
-  baseField.extend({ type: z.literal("shortText"), minLength: z.number().int().min(0).max(5000).optional(), maxLength: z.number().int().min(1).max(5000).optional() }),
-  baseField.extend({ type: z.literal("longText"), minLength: z.number().int().min(0).max(20000).optional(), maxLength: z.number().int().min(1).max(20000).optional() }),
-  baseField.extend({ type: z.literal("email") }),
-  baseField.extend({ type: z.literal("url") }),
-  baseField.extend({ type: z.literal("phone") }),
+  baseField.extend({ type: z.literal("name"), placeholder, ...textLength(160) }),
+  baseField.extend({ type: z.literal("shortText"), placeholder, ...textLength(5000) }),
+  baseField.extend({ type: z.literal("longText"), placeholder, ...textLength(20000) }),
+  baseField.extend({ type: z.literal("email"), placeholder, ...textLength(254) }),
+  baseField.extend({ type: z.literal("url"), placeholder, ...textLength(2048) }),
+  baseField.extend({ type: z.literal("phone"), placeholder }),
   baseField.extend({ type: z.literal("yesNo") }),
-  baseField.extend({ type: z.literal("number"), min: z.number().optional(), max: z.number().optional() }),
+  baseField.extend({ type: z.literal("number"), placeholder, min: z.number().finite().optional(), max: z.number().finite().optional(), step: z.number().finite().positive().optional() }),
   baseField.extend({ type: z.literal("singleChoice"), options: z.array(option).min(2).max(100) }),
   baseField.extend({ type: z.literal("checkboxes"), options: z.array(option).min(2).max(100), minSelections: z.number().int().min(0).optional(), maxSelections: z.number().int().min(1).optional() }),
-  baseField.extend({ type: z.literal("dropdown"), options: z.array(option).min(2).max(100) }),
+  baseField.extend({ type: z.literal("dropdown"), placeholder, options: z.array(option).min(2).max(100) }),
   baseField.extend({ type: z.literal("rating"), min: z.number().int(), max: z.number().int(), step: z.number().int().positive() }),
   baseField.extend({ type: z.literal("date"), minDate: z.iso.date().optional(), maxDate: z.iso.date().optional() }),
   baseField.extend({ type: z.literal("consent"), consentText: z.string().trim().min(1).max(1000) }),
@@ -43,7 +45,7 @@ export const formDefinitionSchema = z.object({
   const ids = fields.map((field) => field.id);
   if (new Set(ids).size !== ids.length) context.addIssue({ code: "custom", message: "Field identifiers must be unique", path: ["fields"] });
   for (const field of fields) {
-    if ((field.type === "name" || field.type === "shortText" || field.type === "longText") && field.minLength !== undefined && field.maxLength !== undefined && field.minLength > field.maxLength) {
+    if ((field.type === "name" || field.type === "shortText" || field.type === "longText" || field.type === "email" || field.type === "url") && field.minLength !== undefined && field.maxLength !== undefined && field.minLength > field.maxLength) {
       context.addIssue({ code: "custom", message: "Minimum length cannot exceed maximum length", path: ["fields", ids.indexOf(field.id)] });
     }
     if ((field.type === "number" || field.type === "rating") && field.min !== undefined && field.max !== undefined && field.min > field.max) {

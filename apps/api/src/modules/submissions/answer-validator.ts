@@ -19,12 +19,12 @@ function validateFieldValue(field: FormDefinition["fields"][number], value: unkn
     }
     case "email": {
       const result = z.string().trim().email().max(254).safeParse(value);
-      if (!result.success) return invalid();
+      if (!result.success || (field.minLength !== undefined && result.data.length < field.minLength) || (field.maxLength !== undefined && result.data.length > field.maxLength)) return invalid();
       return result.data.toLowerCase();
     }
     case "url": {
-      const result = z.string().trim().max(2048).safeParse(value);
-      if (!result.success) return invalid();
+      const result = z.string().trim().max(field.maxLength ?? 2048).safeParse(value);
+      if (!result.success || (field.minLength !== undefined && result.data.length < field.minLength) || (field.maxLength !== undefined && result.data.length > field.maxLength)) return invalid();
       try {
         const url = new URL(result.data);
         if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname) return invalid();
@@ -48,6 +48,9 @@ function validateFieldValue(field: FormDefinition["fields"][number], value: unkn
     case "number": {
       const result = z.number().finite().safeParse(value);
       if (!result.success || (field.min !== undefined && result.data < field.min) || (field.max !== undefined && result.data > field.max)) return invalid();
+      const step = field.step ?? 1;
+      const stepQuotient = (result.data - (field.min ?? 0)) / step;
+      if (Math.abs(stepQuotient - Math.round(stepQuotient)) > 1e-9) return invalid();
       return result.data;
     }
     case "singleChoice":
@@ -92,7 +95,7 @@ function validateFieldValue(field: FormDefinition["fields"][number], value: unkn
 }
 
 function isBlankAnswer(field: FormDefinition["fields"][number], value: unknown): boolean {
-  if (value === undefined) return true;
+  if (value === undefined) return !(field.type === "checkboxes" && (field.minSelections ?? 0) > 0);
   if (field.type === "consent") return value !== true;
   if (field.type === "signature") {
     if (value === undefined) return true;
@@ -101,7 +104,8 @@ function isBlankAnswer(field: FormDefinition["fields"][number], value: unknown):
     return signature.mode === "typed" && typeof signature.text === "string" && signature.text.trim().length === 0 || signature.mode === "drawn" && Array.isArray(signature.strokes) && signature.strokes.length === 0;
   }
   if (typeof value === "string") return value.trim().length === 0;
-  if ((field.type === "checkboxes" || field.type === "ranking") && Array.isArray(value)) return value.length === 0;
+  if (field.type === "checkboxes" && Array.isArray(value)) return value.length === 0 && (field.minSelections === undefined || field.minSelections === 0);
+  if (field.type === "ranking" && Array.isArray(value)) return value.length === 0;
   return false;
 }
 

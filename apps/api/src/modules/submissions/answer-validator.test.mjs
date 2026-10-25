@@ -134,6 +134,26 @@ test("choice and ranking answers reject IDs outside their field options", () => 
   assert.throws(() => validateAnswers(definition, { [uuid(2)]: [uuid(20), uuid(20)] }), (error) => error.code === "INVALID_ANSWER");
 });
 
+test("text placeholders are presentation only while text limits are enforced", () => {
+  const definition = { title: "Review", description: "", fields: [field(1, "shortText", { placeholder: "One sentence", minLength: 3, maxLength: 8 })] };
+  assert.deepEqual(validateAnswers(definition, { [uuid(1)]: "Clear" }), { [uuid(1)]: "Clear" });
+  assert.throws(() => validateAnswers(definition, { [uuid(1)]: "No" }), (error) => error.code === "INVALID_ANSWER");
+  assert.throws(() => validateAnswers(definition, { [uuid(1)]: "Too many characters" }), (error) => error.code === "INVALID_ANSWER");
+});
+
+test("number step is enforced relative to the configured minimum", () => {
+  const definition = { title: "Review", description: "", fields: [field(1, "number", { min: 0.1, max: 2, step: 0.2 })] };
+  assert.deepEqual(validateAnswers(definition, { [uuid(1)]: 0.3 }), { [uuid(1)]: 0.3 });
+  assert.throws(() => validateAnswers(definition, { [uuid(1)]: 0.4 }), (error) => error.code === "INVALID_ANSWER");
+  assert.throws(() => validateAnswers(definition, { [uuid(1)]: 2.1 }), (error) => error.code === "INVALID_ANSWER");
+});
+
+test("checkbox minimum selection is enforced even when the question is optional", () => {
+  const definition = { title: "Review", description: "", fields: [field(1, "checkboxes", { options: [option(10, "A"), option(11, "B")], minSelections: 1 })] };
+  assert.throws(() => validateAnswers(definition, {}), (error) => error.code === "INVALID_ANSWER");
+  assert.deepEqual(validateAnswers(definition, { [uuid(1)]: [uuid(10)] }), { [uuid(1)]: [uuid(10)] });
+});
+
 test("signature answers accept bounded typed names and normalized strokes only", () => {
   const definition = { title: "Review", description: "", fields: [field(1, "signature", {}, true)] };
   assert.deepEqual(validateAnswers(definition, { [uuid(1)]: { mode: "typed", text: "Ada" } }), { [uuid(1)]: { mode: "typed", text: "Ada" } });

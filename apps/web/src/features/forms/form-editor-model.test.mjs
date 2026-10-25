@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { formDefinitionWriteSchema } from "@reviewroom/contracts/forms";
-import { fieldPalette, makeField } from "./form-editor-model.ts";
+import { changeChoiceMode, fieldPalette, makeField } from "./form-editor-model.ts";
 
 test("editor offers a required Full name field with the right input limit", () => {
   const field = makeField("name", () => "00000000-0000-4000-8000-000000000001");
@@ -24,4 +24,19 @@ test("editor offers a non-required section heading for organizing long forms", (
   assert.equal(heading.label, "Section heading");
   assert.equal(heading.required, false);
   assert.equal(formDefinitionWriteSchema.safeParse({ title: "Review", description: "", fields: [heading] }).success, true);
+});
+
+test("choice mode changes preserve the question and answer options", () => {
+  const choice = makeField("singleChoice", () => "00000000-0000-4000-8000-000000000010");
+  const multi = changeChoiceMode(choice, "multiple");
+
+  assert.equal(multi.type, "checkboxes");
+  assert.equal(multi.label, "Multiple choice");
+  assert.deepEqual(multi.options, choice.options);
+
+  const boundedMulti = { ...multi, minSelections: 1, maxSelections: 2 };
+  const single = changeChoiceMode(boundedMulti, "single");
+  assert.equal(single.type, "singleChoice");
+  assert.deepEqual(single.options, choice.options);
+  assert.equal("minSelections" in single, false);
 });

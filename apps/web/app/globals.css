@@ -319,6 +319,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { visibility:hidden
 .reviewer-drawer-heading h2 { margin: 0; font: 500 25px var(--display); }
 .reviewer-drawer-heading p:last-child { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
 .reviewer-drawer-filters { margin: 15px 0; }
+.reviewer-drawer-detail { min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .reviewer-drawer-state { display: grid; justify-items: center; gap: 8px; padding: 42px 15px; color: var(--muted); text-align: center; }
 .reviewer-drawer-state strong { color: var(--ink); font-size: 13px; }
 .reviewer-drawer-state span { font-size: 11px; }
@@ -427,6 +428,7 @@ th { font-size: 9px; }
 td { font-size: 11px; }
 .filter-pill, .muted-caption { font-size: 11px; }
 .field-button { min-height: 36px; font-size: 10px; }
+.property-columns-three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .form-field label, .settings-panel label { font-size: 10px; }
 .settings-panel input, .settings-panel select, .settings-panel textarea { font-size: 12px; }
 .public-step-label { font-size: 9px; }
