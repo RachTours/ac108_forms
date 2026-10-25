@@ -6,6 +6,9 @@ import { apiErrorSchema } from "@reviewroom/contracts";
 import { buildInitialAnswers, shouldShowReviewTargetSelector } from "./review-portal-model";
 import { SignatureInput } from "./signature-input";
 import { safeWorkspaceTheme, workspaceThemeCssVariables } from "../../lib/workspace-theme";
+import { useTranslations } from "next-intl";
+import { directionForLocale } from "../../lib/locale";
+import { LanguageSwitcher } from "../../components/language-switcher";
 type PortalData = { reviewerName: string; theme?: unknown; targets: { id: string; displayName: string }[]; forms: { id: string; title: string; description: string; versionId: string; definition: FormDefinition }[] };
 type Answer = string | number | boolean | string[] | SignatureAnswer;
 function isMissingRequiredAnswer(field: FormField, answer: Answer | undefined): boolean {
@@ -30,6 +33,9 @@ function getRatingValues(field: Extract<FormField, { type: "rating" }>): number[
   return Array.from({ length: valueCount }, (_, index) => field.min + index * field.step);
 }
 export function ReviewPortal({ token, data }: { token: string; data: PortalData }) {
+  const t = useTranslations("publicReview");
+  const tForms = useTranslations("forms");
+  const tNavigation = useTranslations("navigation");
   const theme = safeWorkspaceTheme(data.theme);
   const [targetId, setTargetId] = useState(data.targets[0]?.id ?? ""); const [formId, setFormId] = useState(data.forms[0]?.id ?? ""); const [answers, setAnswers] = useState<Record<string, Answer>>(() => buildInitialAnswers(data.forms[0]?.definition.fields ?? [])); const [error, setError] = useState(""); const [complete, setComplete] = useState(false); const [busy, setBusy] = useState(false);
   const form = data.forms.find((item) => item.id === formId); const fields = form?.definition.fields ?? [];
@@ -40,9 +46,18 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
     setError("");
     if (!targetId || !form) { setError("Choose a review target and a form before continuing."); return; }
     const missing = fields.find((field) => isMissingRequiredAnswer(field, answers[field.id]));
-    if (missing) { setError(`Complete “${missing.label}” before submitting.`); document.getElementById(`field-${missing.id}`)?.focus(); return; }
+    if (missing) { setError(t("needsAnswer", { field: missing.label })); document.getElementById(`field-${missing.id}`)?.focus(); return; }
     const checkboxLimit = fields.map((field) => ({ field, message: getCheckboxLimitError(field, answers[field.id]) })).find((item) => item.message);
-    if (checkboxLimit?.field) { setError(checkboxLimit.message!); document.getElementById(`field-${checkboxLimit.field.id}`)?.focus(); return; }
+    if (checkboxLimit?.field?.type === "checkboxes") {
+      const count = Array.isArray(answers[checkboxLimit.field.id]) ? (answers[checkboxLimit.field.id] as string[]).length : 0;
+      const belowMinimum = checkboxLimit.field.minSelections !== undefined && count < checkboxLimit.field.minSelections;
+      const limit = belowMinimum ? checkboxLimit.field.minSelections! : checkboxLimit.field.maxSelections ?? count;
+      setError(belowMinimum
+        ? t("minSelectionError", { count: limit, field: checkboxLimit.field.label })
+        : t("maxSelectionError", { count: limit, field: checkboxLimit.field.label }));
+      document.getElementById(`field-${checkboxLimit.field.id}`)?.focus();
+      return;
+    }
     setBusy(true);
     try {
       const response = await fetch(`/api/v1/public/review/${encodeURIComponent(token)}/submissions`, {
@@ -71,7 +86,7 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
       {field.description && <p>{field.description}</p>}
     </section>;
     return <div className="public-field" id={`field-${field.id}`} key={field.id} tabIndex={-1}>
-      <div className="public-label" id={labelId}>{field.label}{field.required && <span className="required-mark">Required</span>}</div>
+      <div className="public-label" id={labelId}>{field.label}{field.required && <span className="required-mark">{tForms("fieldRequired")}</span>}</div>
       {field.description && <p className="public-help">{field.description}</p>}
       {field.type === "name" && <input id={inputId} aria-labelledby={labelId} aria-required={field.required} required={field.required} className="public-input" type="text" autoComplete="name" minLength={field.minLength} maxLength={field.maxLength ?? 160} placeholder={field.placeholder} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)} />}
       {field.type === "shortText" && <input id={inputId} aria-labelledby={labelId} aria-required={field.required} required={field.required} className="public-input" type="text" minLength={field.minLength} maxLength={field.maxLength ?? 5000} placeholder={field.placeholder} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)} />}
@@ -105,37 +120,39 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
   return <main className="public-page" style={workspaceThemeCssVariables(theme) as React.CSSProperties}>
     <div className="public-top">
       <a href="/reviewer/login" className="brand"><span className="brand-mark">R</span><span>Reviewer Panel</span></a>
-      <span className="secure-label"><span /> Private review link</span>
+      <span className="secure-label"><span /> {t("privateLink")}</span><LanguageSwitcher />
     </div>
     <div className="public-wrap">
-      {complete ? <section className="public-card success-card"><span className="success-ring"><CheckCircle2 size={27} /></span><p className="eyebrow">RESPONSE RECEIVED</p><h1>Thank you for your review.</h1><p>Your feedback was saved securely. You can close this page.</p></section> : <>
+      {complete ? <section className="public-card success-card"><span className="success-ring"><CheckCircle2 size={27} /></span><p className="eyebrow">{t("responseReceived")}</p><h1>{t("thankYou")}</h1><p>{t("saved")}</p></section> : <>
         <header className="public-intro">
-          <p className="eyebrow">A REVIEW BY {data.reviewerName.toUpperCase()}</p>
-          <h1>Thoughtful feedback<br />starts with you.</h1>
-          <p>Share your perspective with care. Your responses are securely connected to the review team.</p>
+          <p className="eyebrow">{t("reviewBy", { name: data.reviewerName.toUpperCase() })}</p>
+          <h1>{t("headline")}</h1>
+          <p>{t("intro")}</p>
         </header>
-        {data.targets.length === 0 ? <section className="public-card"><h2>No assigned people yet</h2><p>Your reviewer has not been assigned anyone to review.</p></section> : data.forms.length === 0 ? <section className="public-card"><h2>No published forms available</h2><p>Ask your review team to publish a form first.</p></section> : <form className="public-card public-form" onSubmit={(event) => void submit(event)}>
+        {data.targets.length === 0 ? <section className="public-card"><h2>{t("noTargets")}</h2><p>{t("noTargetsHelp")}</p></section> : data.forms.length === 0 ? <section className="public-card"><h2>{t("noForms")}</h2><p>{t("noFormsHelp")}</p></section> : <form className="public-card public-form" onSubmit={(event) => void submit(event)}>
           <div className="public-form-meta">
-            <span className="public-meta-chip"><span className="public-meta-dot" /> Review details</span>
-            <span className="public-meta-chip public-private-chip"><LockKeyhole size={13} /> Private link</span>
+            <span className="public-meta-chip"><span className="public-meta-dot" /> {t("details")}</span>
+            <span className="public-meta-chip public-private-chip"><LockKeyhole size={13} /> {t("privateLink")}</span>
           </div>
           {shouldShowReviewTargetSelector(data.targets.length) ? <div className="public-target-picker">
-            <label htmlFor="review-target">Who are you reviewing?</label>
+            <label htmlFor="review-target">{t("whoReviewing")}</label>
             <div className="select-wrap"><select className="public-input" id="review-target" value={targetId} onChange={(event) => setTargetId(event.target.value)}>{data.targets.map((target) => <option key={target.id} value={target.id}>{target.displayName}</option>)}</select><ChevronDown size={15} /></div>
           </div> : <div className="public-target-context" aria-label={`Reviewing ${data.targets[0]?.displayName}`}>
             <span className="public-target-icon"><UserRoundCheck size={18} aria-hidden="true" /></span>
-            <span><small>Reviewing</small><strong>{data.targets[0]?.displayName}</strong></span>
+            <span><small>{t("reviewing")}</small><strong>{data.targets[0]?.displayName}</strong></span>
           </div>}
-          {data.forms.length > 1 && <div className="public-form-picker"><label htmlFor="review-form">Choose a review form</label><div className="select-wrap"><select className="public-input" id="review-form" value={formId} onChange={(event) => { const nextFormId = event.target.value; setFormId(nextFormId); setAnswers(buildInitialAnswers(data.forms.find((item) => item.id === nextFormId)?.definition.fields ?? [])); }}>{data.forms.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><ChevronDown size={15} /></div></div>}
+          {data.forms.length > 1 && <div className="public-form-picker"><label htmlFor="review-form">{t("chooseForm")}</label><div className="select-wrap"><select className="public-input" id="review-form" value={formId} onChange={(event) => { const nextFormId = event.target.value; setFormId(nextFormId); setAnswers(buildInitialAnswers(data.forms.find((item) => item.id === nextFormId)?.definition.fields ?? [])); }}>{data.forms.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><ChevronDown size={15} /></div></div>}
           <div className="public-divider" />
-          <header className="public-form-heading"><p className="public-form-kicker">Your feedback</p><h2>{form?.definition.title}</h2>{(form?.definition.description || form?.description) && <p className="public-form-description">{form?.definition.description || form?.description}</p>}</header>
-          <div className="public-fields">{fields.map(renderField)}</div>
+          <div lang={form?.definition.language ?? "en"} dir={directionForLocale(form?.definition.language ?? "en")}>
+            <header className="public-form-heading"><p className="public-form-kicker">{t("feedback")}</p><h2>{form?.definition.title}</h2>{(form?.definition.description || form?.description) && <p className="public-form-description">{form?.definition.description || form?.description}</p>}</header>
+            <div className="public-fields">{fields.map(renderField)}</div>
+          </div>
           {error && <p role="alert" className="form-error public-error">{error}</p>}
-          <button className="button button-primary public-submit" disabled={busy}><Send size={14} /> {busy ? "Saving your review…" : "Submit review"}</button>
-          <p className="privacy-note"><LockKeyhole size={12} /> Your response is private and only visible to your review team.</p>
+          <button className="button button-primary public-submit" disabled={busy}><Send size={14} /> {busy ? t("saving") : t("submit")}</button>
+          <p className="privacy-note"><LockKeyhole size={12} /> {t("privacy")}</p>
         </form>}
       </>}
     </div>
-    <footer className="public-footer"><span>Reviewer Panel</span><span>Secure peer feedback</span></footer>
+    <footer className="public-footer"><span>{tNavigation("reviewerPanel")}</span><span>{t("secureFeedback")}</span></footer>
   </main>;
 }
