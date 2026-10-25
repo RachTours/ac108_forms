@@ -6,9 +6,12 @@ import { apiErrorSchema } from "@reviewroom/contracts";
 import { buildInitialAnswers, shouldShowReviewTargetSelector } from "./review-portal-model";
 import { SignatureInput } from "./signature-input";
 import { safeWorkspaceTheme, workspaceThemeCssVariables } from "../../lib/workspace-theme";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { directionForLocale } from "../../lib/locale";
 import { LanguageSwitcher } from "../../components/language-switcher";
+import { localizeApiError } from "../../lib/api-error-locale";
+import { formatNumber, type Locale } from "../../lib/locale";
+import { defaultFieldTranslationKeys, getDefaultFieldDescription, isDefaultFieldLabel } from "../forms/field-default-labels";
 type PortalData = { reviewerName: string; theme?: unknown; targets: { id: string; displayName: string }[]; forms: { id: string; title: string; description: string; versionId: string; definition: FormDefinition }[] };
 type Answer = string | number | boolean | string[] | SignatureAnswer;
 function isMissingRequiredAnswer(field: FormField, answer: Answer | undefined): boolean {
@@ -33,18 +36,32 @@ function getRatingValues(field: Extract<FormField, { type: "rating" }>): number[
   return Array.from({ length: valueCount }, (_, index) => field.min + index * field.step);
 }
 export function ReviewPortal({ token, data }: { token: string; data: PortalData }) {
+  const locale = useLocale() as Locale;
   const t = useTranslations("publicReview");
   const tForms = useTranslations("forms");
+  const tEditor = useTranslations("editor");
+  const tCommon = useTranslations("common");
   const tNavigation = useTranslations("navigation");
   const theme = safeWorkspaceTheme(data.theme);
   const [targetId, setTargetId] = useState(data.targets[0]?.id ?? ""); const [formId, setFormId] = useState(data.forms[0]?.id ?? ""); const [answers, setAnswers] = useState<Record<string, Answer>>(() => buildInitialAnswers(data.forms[0]?.definition.fields ?? [])); const [error, setError] = useState(""); const [complete, setComplete] = useState(false); const [busy, setBusy] = useState(false);
   const form = data.forms.find((item) => item.id === formId); const fields = form?.definition.fields ?? [];
+  function displayedFieldLabel(field: FormField): string {
+    if (!isDefaultFieldLabel(field)) return field.label;
+    if (field.type === "singleChoice") return tEditor("singleChoiceQuestion");
+    if (field.type === "checkboxes") return tEditor("checkboxesQuestion");
+    return tEditor(defaultFieldTranslationKeys[field.type]);
+  }
+  function displayedFieldDescription(field: FormField): string {
+    const original = getDefaultFieldDescription(field);
+    if (original === null) return field.description;
+    return tEditor(field.type === "name" ? "nameDefaultDescription" : "headingDefaultDescription");
+  }
   function setAnswer(id: string, answer: Answer) { setAnswers((current) => ({ ...current, [id]: answer })); }
   function shiftRanking(field: Extract<FormField, { type: "ranking" }>, index: number, delta: -1 | 1) { const list = [...((answers[field.id] as string[] | undefined) ?? field.options.map((option) => option.id))]; const next = index + delta; if (next < 0 || next >= list.length) return; [list[index], list[next]] = [list[next]!, list[index]!]; setAnswer(field.id, list); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (!targetId || !form) { setError("Choose a review target and a form before continuing."); return; }
+    if (!targetId || !form) { setError(t("submitFailed")); return; }
     const missing = fields.find((field) => isMissingRequiredAnswer(field, answers[field.id]));
     if (missing) { setError(t("needsAnswer", { field: missing.label })); document.getElementById(`field-${missing.id}`)?.focus(); return; }
     const checkboxLimit = fields.map((field) => ({ field, message: getCheckboxLimitError(field, answers[field.id]) })).find((item) => item.message);
@@ -53,8 +70,8 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
       const belowMinimum = checkboxLimit.field.minSelections !== undefined && count < checkboxLimit.field.minSelections;
       const limit = belowMinimum ? checkboxLimit.field.minSelections! : checkboxLimit.field.maxSelections ?? count;
       setError(belowMinimum
-        ? t("minSelectionError", { count: limit, field: checkboxLimit.field.label })
-        : t("maxSelectionError", { count: limit, field: checkboxLimit.field.label }));
+        ? t("minSelectionError", { count: formatNumber(limit, locale, 0), field: checkboxLimit.field.label })
+        : t("maxSelectionError", { count: formatNumber(limit, locale, 0), field: checkboxLimit.field.label }));
       document.getElementById(`field-${checkboxLimit.field.id}`)?.focus();
       return;
     }
@@ -68,11 +85,11 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
       const body: unknown = await response.json();
       if (!response.ok) {
         const parsed = apiErrorSchema.safeParse(body);
-        throw new Error(parsed.success ? parsed.data.error.message : "Your review could not be submitted.");
+        throw new Error(parsed.success ? localizeApiError(parsed.data.error.code, locale) : t("submitFailed"));
       }
       setComplete(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Your review could not be submitted.");
+      setError(caught instanceof Error && caught.name !== "TypeError" ? caught.message : t("submitFailed"));
     } finally {
       setBusy(false);
     }
@@ -82,12 +99,12 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
     const labelId = `question-label-${field.id}`;
     const inputId = `question-input-${field.id}`;
     if (field.type === "heading") return <section className="public-form-section" key={field.id} aria-labelledby={labelId}>
-      <h3 id={labelId} dir="auto">{field.label}</h3>
-      {field.description && <p dir="auto">{field.description}</p>}
+      <h3 id={labelId} dir="auto">{displayedFieldLabel(field)}</h3>
+      {field.description && <p dir="auto">{displayedFieldDescription(field)}</p>}
     </section>;
     return <div className="public-field" id={`field-${field.id}`} key={field.id} tabIndex={-1}>
-      <div className="public-label" id={labelId} dir="auto">{field.label}{field.required && <span className="required-mark">{tForms("fieldRequired")}</span>}</div>
-      {field.description && <p className="public-help" dir="auto">{field.description}</p>}
+      <div className="public-label" id={labelId} dir="auto">{displayedFieldLabel(field)}{field.required && <span className="required-mark">{tForms("fieldRequired")}</span>}</div>
+      {field.description && <p className="public-help" dir="auto">{displayedFieldDescription(field)}</p>}
       {field.type === "name" && <input id={inputId} aria-labelledby={labelId} aria-required={field.required} required={field.required} className="public-input" type="text" autoComplete="name" minLength={field.minLength} maxLength={field.maxLength ?? 160} placeholder={field.placeholder} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)} />}
       {field.type === "shortText" && <input id={inputId} aria-labelledby={labelId} aria-required={field.required} required={field.required} className="public-input" type="text" minLength={field.minLength} maxLength={field.maxLength ?? 5000} placeholder={field.placeholder} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)} />}
       {field.type === "longText" && <textarea id={inputId} aria-labelledby={labelId} aria-required={field.required} required={field.required} className="public-input public-textarea" minLength={field.minLength} maxLength={field.maxLength ?? 20000} placeholder={field.placeholder} rows={4} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)} />}
@@ -106,20 +123,20 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
             const checked = selectedOptions.includes(option.id);
             return <label className="public-option" key={option.id}><input type="checkbox" checked={checked} disabled={!checked && maximumReached} onChange={(event) => setAnswer(field.id, event.target.checked ? [...selectedOptions, option.id] : selectedOptions.filter((id) => id !== option.id))} /><span dir="auto">{option.label}</span></label>;
           })}
-          {hasLimits && <small className="public-help" id={`${labelId}-selection-help`} role="status">{field.minSelections !== undefined && `Choose at least ${field.minSelections}. `}{field.maxSelections !== undefined && `Choose up to ${field.maxSelections}.`}</small>}
+          {hasLimits && <small className="public-help" id={`${labelId}-selection-help`} role="status">{field.minSelections !== undefined && tForms("chooseAtLeast", { count: formatNumber(field.minSelections, locale, 0) })} {field.maxSelections !== undefined && tForms("chooseUpTo", { count: formatNumber(field.maxSelections, locale, 0) })}</small>}
         </div>;
       })()}
-      {field.type === "dropdown" && <div className="select-wrap"><select id={inputId} aria-labelledby={labelId} aria-required={field.required} className="public-input" required={field.required} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)}><option value="" dir="auto">{field.placeholder ?? "Choose an option"}</option>{field.options.map((option) => <option key={option.id} value={option.id} dir="auto">{option.label}</option>)}</select><ChevronDown size={15} /></div>}
-      {field.type === "yesNo" && <div className="public-options" role="radiogroup" aria-labelledby={labelId}><label className="public-option"><input type="radio" name={field.id} required={field.required} checked={value === true} onChange={() => setAnswer(field.id, true)} /><span>Yes</span></label><label className="public-option"><input type="radio" name={field.id} required={field.required} checked={value === false} onChange={() => setAnswer(field.id, false)} /><span>No</span></label></div>}
+      {field.type === "dropdown" && <div className="select-wrap"><select id={inputId} aria-labelledby={labelId} aria-required={field.required} className="public-input" required={field.required} value={typeof value === "string" ? value : ""} onChange={(event) => setAnswer(field.id, event.target.value)}><option value="" dir="auto">{field.placeholder ?? tForms("chooseOption")}</option>{field.options.map((option) => <option key={option.id} value={option.id} dir="auto">{option.label}</option>)}</select><ChevronDown size={15} /></div>}
+      {field.type === "yesNo" && <div className="public-options" role="radiogroup" aria-labelledby={labelId}><label className="public-option"><input type="radio" name={field.id} required={field.required} checked={value === true} onChange={() => setAnswer(field.id, true)} /><span>{tCommon("yes")}</span></label><label className="public-option"><input type="radio" name={field.id} required={field.required} checked={value === false} onChange={() => setAnswer(field.id, false)} /><span>{tCommon("no")}</span></label></div>}
       {field.type === "rating" && (() => { const ratings = getRatingValues(field); return ratings ? <div className="rating-picker" role="radiogroup" aria-labelledby={labelId}>{ratings.map((rating) => <button type="button" key={rating} className={value === rating ? "rating-option rating-selected" : "rating-option"} role="radio" aria-checked={value === rating} onClick={() => setAnswer(field.id, rating)}>{rating}</button>)}</div> : <input id={inputId} aria-labelledby={labelId} aria-required={field.required} className="public-input" type="number" min={field.min} max={field.max} step={field.step} value={typeof value === "number" ? value : ""} onChange={(event) => event.target.value === "" ? setAnswer(field.id, "") : setAnswer(field.id, Number(event.target.value))} />; })()}
       {field.type === "consent" && <label className="public-option consent-option"><input type="checkbox" checked={value === true} onChange={(event) => setAnswer(field.id, event.target.checked)} /><span dir="auto">{field.consentText}</span></label>}
       {field.type === "signature" && <SignatureInput id={inputId} value={value && typeof value === "object" && !Array.isArray(value) ? value as SignatureAnswer : undefined} onChange={(answer) => setAnswer(field.id, answer)} />}
-      {field.type === "ranking" && <div className="public-ranking"><p dir="auto">{field.direction}</p>{(typeof value === "object" && Array.isArray(value) ? value : field.options.map((option) => option.id)).map((id, index, list) => { const option = field.options.find((item) => item.id === id); if (!option) return null; return <div className="public-rank-row" key={option.id}><MoveVertical size={16} /><span dir="auto">{option.label}</span><span className="rank-controls"><button type="button" aria-label={`Move ${option.label} up`} onClick={() => shiftRanking(field, index, -1)} disabled={index === 0}><ArrowUp size={14} /></button><button type="button" aria-label={`Move ${option.label} down`} onClick={() => shiftRanking(field, index, 1)} disabled={index === list.length - 1}><ArrowDown size={14} /></button></span></div>; })}<small>First choice is most preferred. Use the arrows to reorder.</small></div>}
+      {field.type === "ranking" && <div className="public-ranking"><p dir="auto">{field.direction}</p>{(typeof value === "object" && Array.isArray(value) ? value : field.options.map((option) => option.id)).map((id, index, list) => { const option = field.options.find((item) => item.id === id); if (!option) return null; return <div className="public-rank-row" key={option.id}><MoveVertical size={16} /><span dir="auto">{option.label}</span><span className="rank-controls"><button type="button" aria-label={tForms("moveOptionUp", { option: option.label })} onClick={() => shiftRanking(field, index, -1)} disabled={index === 0}><ArrowUp size={14} /></button><button type="button" aria-label={tForms("moveOptionDown", { option: option.label })} onClick={() => shiftRanking(field, index, 1)} disabled={index === list.length - 1}><ArrowDown size={14} /></button></span></div>; })}<small>{tForms("rankHelp")}</small></div>}
     </div>;
   }
   return <main className="public-page" style={workspaceThemeCssVariables(theme) as React.CSSProperties}>
     <div className="public-top">
-      <a href="/reviewer/login" className="brand"><span className="brand-mark">R</span><span>Reviewer Panel</span></a>
+      <a href="/reviewer/login" className="brand"><span className="brand-mark">R</span><span>{tNavigation("reviewerPanel")}</span></a>
       <span className="secure-label"><span /> {t("privateLink")}</span><LanguageSwitcher />
     </div>
     <div className="public-wrap">
@@ -137,7 +154,7 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
           {shouldShowReviewTargetSelector(data.targets.length) ? <div className="public-target-picker">
             <label htmlFor="review-target">{t("whoReviewing")}</label>
             <div className="select-wrap"><select className="public-input" id="review-target" value={targetId} onChange={(event) => setTargetId(event.target.value)}>{data.targets.map((target) => <option key={target.id} value={target.id}>{target.displayName}</option>)}</select><ChevronDown size={15} /></div>
-          </div> : <div className="public-target-context" aria-label={`Reviewing ${data.targets[0]?.displayName}`}>
+          </div> : <div className="public-target-context" aria-label={`${t("reviewing")} ${data.targets[0]?.displayName}`}>
             <span className="public-target-icon"><UserRoundCheck size={18} aria-hidden="true" /></span>
             <span><small>{t("reviewing")}</small><strong>{data.targets[0]?.displayName}</strong></span>
           </div>}

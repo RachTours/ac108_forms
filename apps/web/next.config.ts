@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import dotenv from "dotenv";
 import { resolve } from "node:path";
+import createNextIntlPlugin from "next-intl/plugin";
 import { resolveServerApiOrigin } from "./src/lib/server-api-origin";
 
 dotenv.config({ path: resolve(import.meta.dirname, "../../.env") });
@@ -52,4 +53,4 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+export default createNextIntlPlugin("./i18n/request.ts")(config);

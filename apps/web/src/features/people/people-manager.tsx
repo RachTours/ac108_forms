@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Pencil, Plus, Search, UserRound, X } from "lucide-react";
 import { paginatedResponseSchema, targetCreateResponseSchema, targetSummarySchema, targetUpdateResponseSchema, targetWriteSchema, type TargetSummary } from "@reviewroom/contracts";
 import { useApi } from "../../lib/client-api";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { formatNumber, type Locale } from "../../lib/locale";
 
 type Target = Omit<TargetSummary, "createdAt" | "updatedAt"> & Partial<Pick<TargetSummary, "createdAt" | "updatedAt">>;
 const targetListResponseSchema = paginatedResponseSchema(targetSummarySchema);
@@ -14,6 +15,7 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
   const api = useApi();
   const t = useTranslations("people");
   const ui = useTranslations("workspaceUi");
+  const locale = useLocale() as Locale;
   const [targets, setTargets] = useState(initialTargets);
   const [cursor, setCursor] = useState(initialCursor);
   const [search, setSearch] = useState("");
@@ -106,7 +108,7 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
   return <div className="people-manager">
     <div className="manager-toolbar">
       <label className="search-box"><Search size={15} /><input aria-label={t("search")} placeholder={t("search")} value={search} onChange={(event) => setSearch(event.target.value)} />{search && <button type="button" className="icon-button" aria-label={ui("clearSearch")} onClick={() => setSearch("")}><X size={14} /></button>}</label>
-      <span className="muted-caption">{cursor ? ui("shownLoadedMore", { shown: shown.length, loaded: targets.length }) : ui("shownLoaded", { shown: shown.length, loaded: targets.length })}</span>
+      <span className="muted-caption">{cursor ? ui("shownLoadedMore", { shown: formatNumber(shown.length, locale, 0), loaded: formatNumber(targets.length, locale, 0) }) : ui("shownLoaded", { shown: formatNumber(shown.length, locale, 0), loaded: formatNumber(targets.length, locale, 0) })}</span>
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}
     {canManage && <>
@@ -122,12 +124,12 @@ export function PeopleManager({ initialTargets, initialCursor, canManage }: { in
       {shown.map((target) => <tr className={`review-target-row ${canManage ? "managed" : ""}`} key={target.id}>
         <td className="target-person-cell">{editingId === target.id ? <div className="edit-person"><input aria-label={ui("editName")} value={editName} maxLength={160} onChange={(event) => setEditName(event.target.value)} /><input aria-label={ui("editEmail")} type="email" value={editEmail} maxLength={254} onChange={(event) => setEditEmail(event.target.value)} /><button className="icon-button" aria-label={ui("savePerson")} disabled={busy} onClick={() => void saveEdit(target.id)}><span>{ui("savePerson")}</span></button></div> : <div className="person-cell"><span className="avatar avatar-soft">{target.displayName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span><span><strong>{target.displayName}</strong><small>{target.email || ui("noEmail")}</small></span></div>}</td>
         {canManage && <td className="target-assignment-cell" data-label={t("assignedReviewer")}>{target.assignedReviewer ? <Link className="assignment-context-link" href={`/admin/team?reviewerId=${encodeURIComponent(target.assignedReviewer.membershipId)}`}><strong>{target.assignedReviewer.displayName}</strong><small>{ui("manageTeam")}</small></Link> : <Link className="assignment-context-link unassigned" href="/admin/team?state=unassigned"><strong>{t("unassigned")}</strong><small>{ui("assignTeam")}</small></Link>}</td>}
-        <td className="target-response-cell" data-label={t("responses")}>{target.submissionCount}</td>
+        <td className="target-response-cell" data-label={t("responses")}>{formatNumber(target.submissionCount, locale, 0)}</td>
         {canManage && <td className="target-actions-cell"><div className="button-row"><button className="icon-button table-action" aria-label={ui("editPerson", { name: target.displayName })} title={ui("editTitle", { name: target.displayName })} disabled={busy} onClick={() => beginEdit(target)}><Pencil size={13} /></button><button className="icon-button table-action" aria-label={ui("archivePerson", { name: target.displayName })} title={ui("archivePerson", { name: target.displayName })} disabled={busy} onClick={() => void archive(target)}><X size={14} /></button></div></td>}
       </tr>)}
       {shown.length === 0 && <tr><td colSpan={canManage ? 4 : 2} className="no-results">{ui("noMatches")}</td></tr>}
     </tbody></table></div>}
-    {cursor && <div className="load-more-row"><button className="button button-small" disabled={busy} onClick={() => void loadMore()}>{busy ? ui("loading") : ui("loadMore", { count: targets.length })}</button></div>}
+    {cursor && <div className="load-more-row"><button className="button button-small" disabled={busy} onClick={() => void loadMore()}>{busy ? ui("loading") : ui("loadMore", { count: formatNumber(targets.length, locale, 0) })}</button></div>}
   </div>;
 }
 

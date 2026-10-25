@@ -4,8 +4,10 @@ import { useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from "react";
 import type { SignatureAnswer } from "@reviewroom/contracts/forms";
 import { normalizeSignaturePoint, shouldIgnoreMouseAfterTouch } from "./signature-input-model";
+import { useTranslations } from "next-intl";
 
 export function SignatureInput({ id, value, onChange }: { id: string; value: SignatureAnswer | undefined; onChange: (value: SignatureAnswer) => void }) {
+  const t = useTranslations("editor");
   const activeGesture = useRef<{ kind: "pointer" | "touch" | "mouse"; id: number } | null>(null);
   const lastTouchAt = useRef(0);
   function coordinate(event: ReactPointerEvent<SVGSVGElement>) {
@@ -75,15 +77,15 @@ export function SignatureInput({ id, value, onChange }: { id: string; value: Sig
   function endMouse() { finish("mouse", 1); }
   const drawing = value?.mode === "drawn";
   return <div className="signature-control" id={id}>
-    <div className="signature-mode" role="group" aria-label="Signature input method">
-      <button type="button" className={!drawing ? "button button-small button-primary" : "button button-small"} aria-pressed={!drawing} onClick={() => onChange({ mode: "typed", text: value?.mode === "typed" ? value.text : "" })}>Type name</button>
-      <button type="button" className={drawing ? "button button-small button-primary" : "button button-small"} aria-pressed={drawing} onClick={() => onChange({ mode: "drawn", strokes: value?.mode === "drawn" ? value.strokes : [] })}>Draw signature</button>
+    <div className="signature-mode" role="group" aria-label={t("signatureMethod")}>
+      <button type="button" className={!drawing ? "button button-small button-primary" : "button button-small"} aria-pressed={!drawing} onClick={() => onChange({ mode: "typed", text: value?.mode === "typed" ? value.text : "" })}>{t("typeSignatureName")}</button>
+      <button type="button" className={drawing ? "button button-small button-primary" : "button button-small"} aria-pressed={drawing} onClick={() => onChange({ mode: "drawn", strokes: value?.mode === "drawn" ? value.strokes : [] })}>{t("drawSignature")}</button>
     </div>
-    {!drawing ? <input className="public-input signature-typed" type="text" autoComplete="name" maxLength={160} aria-label="Type your signature" value={value?.mode === "typed" ? value.text : ""} onChange={(event) => onChange({ mode: "typed", text: event.target.value })} /> : <>
-      <svg className="signature-pad" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Signature drawing area. Use a mouse, touch screen, or stylus. Type your name is available as an accessible alternative." onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onTouchStart={startTouch} onTouchMove={moveTouch} onTouchEnd={endTouch} onTouchCancel={endTouch} onMouseDown={startMouse} onMouseMove={moveMouse} onMouseUp={endMouse} onMouseLeave={endMouse}>
+    {!drawing ? <input className="public-input signature-typed" type="text" autoComplete="name" maxLength={160} aria-label={t("typeYourSignature")} value={value?.mode === "typed" ? value.text : ""} onChange={(event) => onChange({ mode: "typed", text: event.target.value })} /> : <>
+      <svg className="signature-pad" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label={t("signatureDrawingArea")} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onTouchStart={startTouch} onTouchMove={moveTouch} onTouchEnd={endTouch} onTouchCancel={endTouch} onMouseDown={startMouse} onMouseMove={moveMouse} onMouseUp={endMouse} onMouseLeave={endMouse}>
         {value.strokes.map((stroke, index) => <polyline key={index} points={stroke.points.map((point) => `${point.x * 600},${point.y * 180}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
       </svg>
-      <button className="button button-small" type="button" onClick={() => onChange({ mode: "drawn", strokes: [] })}>Clear signature</button>
+      <button className="button button-small" type="button" onClick={() => onChange({ mode: "drawn", strokes: [] })}>{t("clearSignature")}</button>
     </>}
   </div>;
 }

@@ -6,8 +6,8 @@ import { Palette, Save, Target } from "lucide-react";
 import { useApi } from "../../lib/client-api";
 import { themeUpdatePayload } from "../../lib/theme-settings";
 import { workspaceThemeCssVariables } from "../../lib/workspace-theme";
-import { formatReviewerSubmissionGoal } from "./reviewer-submission-goal";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { formatNumber, type Locale } from "../../lib/locale";
 
 type Summary = { targetCount: number; submissionGoal: number; activeReviewerCount: number; completionRule: string; activeTargets: number; completedTargets: number; completionPercent: number };
 type Theme = { accentColor: string; fontPreset: "sans" | "serif" | "system"; surfacePreset: "mist" | "warm" | "cool"; formStyle: "clean" | "soft" };
@@ -18,6 +18,7 @@ const accentChoices = [{ value: "#167354", label: "Forest" }, { value: "#2457A6"
 
 export function SettingsManager({ summary, initialTheme }: { summary: Summary; initialTheme: Theme }) {
   const t = useTranslations("settings");
+  const locale = useLocale();
   const api = useApi();
   const router = useRouter();
   const [targetCount, setTargetCount] = useState(summary.targetCount);
@@ -55,7 +56,7 @@ export function SettingsManager({ summary, initialTheme }: { summary: Summary; i
     <form className="panel workspace-setting" onSubmit={(event) => { event.preventDefault(); void submit("submission", async () => { await api("/progress/config", { method: "PATCH", body: JSON.stringify({ submissionGoal, completionRule: "ONE_RESPONSE" }) }); router.refresh(); }); }}>
       <div className="setting-heading"><span className="setting-icon"><Target size={16} /></span><div><h2>{t("workspaceSubmissionGoal")}</h2><p>{t("submissionGoalHelp")}</p></div></div>
       <label htmlFor="submission-goal">{t("totalSubmissions")}</label><div className="goal-input"><input id="submission-goal" type="number" min={1} max={100000} value={submissionGoal} onChange={(event) => setSubmissionGoal(Number(event.target.value))} /><span>{t("submissions")}</span></div>
-      <div className="rule-summary"><strong>{t("sharedReviewerGoal")}</strong><span>{formatReviewerSubmissionGoal(submissionGoal, summary.activeReviewerCount)}</span></div>
+      <div className="rule-summary"><strong>{t("sharedReviewerGoal")}</strong><span>{summary.activeReviewerCount === 0 ? t("reviewerGoalNoActive") : t("reviewerGoalCalculation", { goal: formatNumber(submissionGoal, locale as Locale, 0), reviewers: formatNumber(summary.activeReviewerCount, locale as Locale, 0), perReviewer: formatNumber(submissionGoal / summary.activeReviewerCount, locale as Locale) })}</span></div>
       <div className="setting-actions"><button type="submit" className="button button-primary" disabled={saving !== null}><Save size={14} />{saving === "submission" ? t("saving") : t("saveSubmissionGoal")}</button>{status("submission")}</div>
     </form>
 

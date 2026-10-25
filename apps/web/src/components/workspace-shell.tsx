@@ -67,7 +67,7 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
   const initials = session.user.displayName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
 
   return <SessionContext.Provider value={session}><div className="app-shell" onClickCapture={preserveTabSession} style={workspaceThemeCssVariables(theme) as React.CSSProperties}>
-    <aside className="sidebar" aria-label="Workspace navigation">
+    <aside className="sidebar" aria-label={t("workspace")}>
       <Link className="brand" href={withSessionSelector(homePathForRole(session.role), session.sessionId)}><span className="brand-mark">{session.role === "REVIEWER" ? "R" : "A"}</span><span>{panelName}</span></Link>
       <div className="nav-label">{t("workspace")}</div>
       <nav className="nav-list" aria-label={t("main")}>
