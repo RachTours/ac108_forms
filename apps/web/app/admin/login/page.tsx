@@ -1,16 +1,24 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { LoginForm } from "../../../src/features/auth/login-form";
+import { LanguageSwitcher } from "../../../src/components/language-switcher";
 
-export const metadata: Metadata = { title: "Sign in" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth");
+  return { title: t("signIn") };
+}
 
-export default function AdminLoginPage() {
+export default async function AdminLoginPage() {
+  const t = await getTranslations("auth");
+  const navigation = await getTranslations("navigation");
   return <main className="login-page"><section className="login-card" aria-labelledby="login-title">
-    <Brand />
-    <p className="eyebrow">ADMIN ACCESS</p>
-    <h1 id="login-title">Workspace administration</h1>
-    <p>Sign in with an owner or administrator account.</p>
+    <LanguageSwitcher />
+    <Brand label={navigation("adminPanel")} />
+    <p className="eyebrow">{t("adminAccess")}</p>
+    <h1 id="login-title">{t("adminTitle")}</h1>
+    <p>{t("adminDescription")}</p>
     <LoginForm audience="admin" />
   </section></main>;
 }
 
-function Brand() { return <div className="brand"><span className="brand-mark">A</span><span>Admin Panel</span></div>; }
+function Brand({ label }: { label: string }) { return <div className="brand"><span className="brand-mark">A</span><span>{label}</span></div>; }
