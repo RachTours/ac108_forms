@@ -290,7 +290,7 @@
     "submitReview": "Submit review",
     "responsesSaved": "Responses are saved securely",
     "chooseDate": "Select a date",
-    "signaturePrompt": "Draw or type your signature",
+    "signaturePrompt": "Draw your signature",
     "ratingRange": "Rating from {min} to {max} in steps of {step}",
     "ratingFallback": "Rating from {min} to {max} by {step}",
     "lowest": "Lowest",
@@ -323,11 +323,8 @@
     "checkboxesQuestion": "Checkboxes",
     "nameDefaultDescription": "This name appears as the reviewed person in submissions.",
     "headingDefaultDescription": "Add context for the questions in this section.",
-    "signatureMethod": "Signature input method",
-    "typeSignatureName": "Type name",
     "drawSignature": "Draw signature",
-    "typeYourSignature": "Type your signature",
-    "signatureDrawingArea": "Signature drawing area. Use a mouse, touch screen, or stylus. You can type your name instead.",
+    "signatureDrawingArea": "Signature drawing area. Draw with a mouse, touch screen, or stylus.",
     "clearSignature": "Clear signature"
   },
   "publicReview": {

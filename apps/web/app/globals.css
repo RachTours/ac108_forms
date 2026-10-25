@@ -304,6 +304,7 @@ html[dir="rtl"] .settings-panel input.switch:checked::before { transform: transl
 input[type="password"]::-ms-reveal,input[type="password"]::-ms-clear { display:none; }
 input[type="password"]::-webkit-credentials-auto-fill-button { visibility:hidden; pointer-events:none; }
 .signature-control { display:grid; gap:8px; }
+.signature-instruction { color: var(--muted); font-size: 10px; }
 
 /* Guided assignments, reviewer drill-down, and the shared theme preview. */
 .add-person-guided { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }

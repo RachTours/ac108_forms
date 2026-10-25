@@ -290,7 +290,7 @@
     "submitReview": "Envoyer l’évaluation",
     "responsesSaved": "Les réponses sont enregistrées en toute sécurité",
     "chooseDate": "Sélectionner une date",
-    "signaturePrompt": "Dessinez ou saisissez votre signature",
+    "signaturePrompt": "Dessinez votre signature",
     "ratingRange": "Échelle de {min} à {max}, par incréments de {step}",
     "ratingFallback": "Échelle de {min} à {max}, par {step}",
     "lowest": "Le plus bas",
@@ -323,11 +323,8 @@
     "checkboxesQuestion": "Cases à cocher",
     "nameDefaultDescription": "Ce nom apparaît comme la personne évaluée dans les réponses.",
     "headingDefaultDescription": "Ajoutez du contexte aux questions de cette section.",
-    "signatureMethod": "Mode de saisie de la signature",
-    "typeSignatureName": "Saisir le nom",
     "drawSignature": "Dessiner la signature",
-    "typeYourSignature": "Saisissez votre signature",
-    "signatureDrawingArea": "Zone de dessin de la signature. Utilisez une souris, un écran tactile ou un stylet. Vous pouvez saisir votre nom à la place.",
+    "signatureDrawingArea": "Zone de dessin de la signature. Dessinez avec une souris, un écran tactile ou un stylet.",
     "clearSignature": "Effacer la signature"
   },
   "publicReview": {

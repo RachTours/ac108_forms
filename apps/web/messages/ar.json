@@ -290,7 +290,7 @@
     "submitReview": "إرسال المراجعة",
     "responsesSaved": "تُحفظ الإجابات بأمان",
     "chooseDate": "اختر تاريخاً",
-    "signaturePrompt": "ارسم توقيعك أو اكتبه",
+    "signaturePrompt": "ارسم توقيعك",
     "ratingRange": "التقييم من {min} إلى {max} بخطوات مقدارها {step}",
     "ratingFallback": "التقييم من {min} إلى {max} بمقدار {step}",
     "lowest": "الأدنى",
@@ -323,11 +323,8 @@
     "checkboxesQuestion": "مربعات الاختيار",
     "nameDefaultDescription": "يظهر هذا الاسم بوصفه الشخص الذي تتم مراجعته في الإجابات.",
     "headingDefaultDescription": "أضف سياقاً لأسئلة هذا القسم.",
-    "signatureMethod": "طريقة إدخال التوقيع",
-    "typeSignatureName": "اكتب الاسم",
     "drawSignature": "ارسم التوقيع",
-    "typeYourSignature": "اكتب توقيعك",
-    "signatureDrawingArea": "منطقة رسم التوقيع. استخدم الفأرة أو شاشة اللمس أو القلم. يمكنك كتابة اسمك بدلاً من ذلك.",
+    "signatureDrawingArea": "منطقة رسم التوقيع. ارسم باستخدام الفأرة أو شاشة اللمس أو القلم.",
     "clearSignature": "مسح التوقيع"
   },
   "publicReview": {

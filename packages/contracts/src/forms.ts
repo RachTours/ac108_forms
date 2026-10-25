@@ -10,11 +10,14 @@ const baseField = z.object({
 const option = z.object({ id: z.string().uuid(), label: z.string().trim().min(1).max(120) }).strict();
 const placeholder = z.string().max(250).optional();
 const textLength = (max: number) => ({ minLength: z.number().int().min(0).max(max).optional(), maxLength: z.number().int().min(1).max(max).optional() });
+export const signatureDrawingAnswerSchema = z.object({ mode: z.literal("drawn"), strokes: z.array(z.object({ points: z.array(z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict()).min(2).max(1200) }).strict()).min(1).max(20) }).strict().superRefine((value, context) => {
+  if (value.strokes.reduce((total, stroke) => total + stroke.points.length, 0) > 1200) context.addIssue({ code: "custom", message: "Signature contains too many points." });
+});
+
+// Historical submissions may contain typed signatures; new submissions use the drawing-only schema.
 export const signatureAnswerSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("typed"), text: z.string().trim().min(1).max(160) }).strict(),
-  z.object({ mode: z.literal("drawn"), strokes: z.array(z.object({ points: z.array(z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict()).min(2).max(1200) }).strict()).min(1).max(20) }).strict().superRefine((value, context) => {
-    if (value.strokes.reduce((total, stroke) => total + stroke.points.length, 0) > 1200) context.addIssue({ code: "custom", message: "Signature contains too many points." });
-  }),
+  signatureDrawingAnswerSchema,
 ]);
 
 export const formFieldSchema = z.discriminatedUnion("type", [

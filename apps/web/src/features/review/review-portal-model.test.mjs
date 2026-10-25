@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInitialAnswers, shouldShowReviewTargetSelector } from "./review-portal-model.ts";
+import { buildInitialAnswers, shouldShowReviewTargetSelector, signatureAnswerIsComplete } from "./review-portal-model.ts";
 
 test("required ranking fields start with every option in the displayed order", () => {
   const fields = [
@@ -22,4 +22,11 @@ test("target selector is omitted for private links with zero or one assigned per
 
 test("target selector stays available when a reviewer has multiple assigned people", () => {
   assert.equal(shouldShowReviewTargetSelector(2), true);
+});
+
+test("signature completion requires a drawn stroke with at least two points", () => {
+  assert.equal(signatureAnswerIsComplete({ mode: "typed", text: "Ada" }), false);
+  assert.equal(signatureAnswerIsComplete({ mode: "drawn", strokes: [] }), false);
+  assert.equal(signatureAnswerIsComplete({ mode: "drawn", strokes: [{ points: [{ x: 0, y: 0 }] }] }), false);
+  assert.equal(signatureAnswerIsComplete({ mode: "drawn", strokes: [{ points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }] }), true);
 });

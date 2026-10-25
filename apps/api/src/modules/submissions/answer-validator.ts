@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { formDefinitionSchema, rankingAnswerSchema, signatureAnswerSchema, type FormDefinition } from "@reviewroom/contracts/forms";
+import { formDefinitionSchema, rankingAnswerSchema, signatureDrawingAnswerSchema, type FormDefinition } from "@reviewroom/contracts/forms";
 import { HttpError } from "../../http/errors.js";
 
 type JsonAnswer = string | number | boolean | string[] | { mode: "typed"; text: string } | { mode: "drawn"; strokes: Array<{ points: Array<{ x: number; y: number }> }> };
@@ -86,7 +86,7 @@ function validateFieldValue(field: FormDefinition["fields"][number], value: unkn
       return result.data;
     }
     case "signature": {
-      const result = signatureAnswerSchema.safeParse(value);
+      const result = signatureDrawingAnswerSchema.safeParse(value);
       if (!result.success) return invalid();
       return result.data;
     }

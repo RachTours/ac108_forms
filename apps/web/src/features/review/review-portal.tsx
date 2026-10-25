@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronDown, LockKeyhole, MoveVertical, Send, UserRoundCheck } from "lucide-react";
 import type { FormDefinition, FormField, SignatureAnswer } from "@reviewroom/contracts/forms";
 import { apiErrorSchema } from "@reviewroom/contracts";
-import { buildInitialAnswers, shouldShowReviewTargetSelector } from "./review-portal-model";
+import { buildInitialAnswers, shouldShowReviewTargetSelector, signatureAnswerIsComplete } from "./review-portal-model";
 import { SignatureInput } from "./signature-input";
 import { safeWorkspaceTheme, workspaceThemeCssVariables } from "../../lib/workspace-theme";
 import { useLocale, useTranslations } from "next-intl";
@@ -18,7 +18,7 @@ function isMissingRequiredAnswer(field: FormField, answer: Answer | undefined): 
   if (!field.required) return false;
   if (answer === undefined) return true;
   if (field.type === "consent") return answer !== true;
-  if (field.type === "signature") return !answer || typeof answer !== "object" || ("mode" in answer && (answer.mode === "typed" ? !answer.text.trim() : !answer.strokes.some((stroke) => stroke.points.length >= 2)));
+  if (field.type === "signature") return !answer || typeof answer !== "object" || !signatureAnswerIsComplete(answer as SignatureAnswer);
   if (typeof answer === "string") return answer.trim().length === 0;
   if ((field.type === "checkboxes" || field.type === "ranking") && Array.isArray(answer)) return answer.length === 0;
   return false;

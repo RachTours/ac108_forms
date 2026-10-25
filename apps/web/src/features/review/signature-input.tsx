@@ -75,17 +75,12 @@ export function SignatureInput({ id, value, onChange }: { id: string; value: Sig
     append("mouse", 1, pointAt(event.currentTarget, event.clientX, event.clientY));
   }
   function endMouse() { finish("mouse", 1); }
-  const drawing = value?.mode === "drawn";
+  const strokes = value?.mode === "drawn" ? value.strokes : [];
   return <div className="signature-control" id={id}>
-    <div className="signature-mode" role="group" aria-label={t("signatureMethod")}>
-      <button type="button" className={!drawing ? "button button-small button-primary" : "button button-small"} aria-pressed={!drawing} onClick={() => onChange({ mode: "typed", text: value?.mode === "typed" ? value.text : "" })}>{t("typeSignatureName")}</button>
-      <button type="button" className={drawing ? "button button-small button-primary" : "button button-small"} aria-pressed={drawing} onClick={() => onChange({ mode: "drawn", strokes: value?.mode === "drawn" ? value.strokes : [] })}>{t("drawSignature")}</button>
-    </div>
-    {!drawing ? <input className="public-input signature-typed" type="text" autoComplete="name" maxLength={160} aria-label={t("typeYourSignature")} value={value?.mode === "typed" ? value.text : ""} onChange={(event) => onChange({ mode: "typed", text: event.target.value })} /> : <>
-      <svg className="signature-pad" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label={t("signatureDrawingArea")} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onTouchStart={startTouch} onTouchMove={moveTouch} onTouchEnd={endTouch} onTouchCancel={endTouch} onMouseDown={startMouse} onMouseMove={moveMouse} onMouseUp={endMouse} onMouseLeave={endMouse}>
-        {value.strokes.map((stroke, index) => <polyline key={index} points={stroke.points.map((point) => `${point.x * 600},${point.y * 180}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-      </svg>
-      <button className="button button-small" type="button" onClick={() => onChange({ mode: "drawn", strokes: [] })}>{t("clearSignature")}</button>
-    </>}
+    <span className="signature-instruction">{t("signaturePrompt")}</span>
+    <svg className="signature-pad" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label={`${t("drawSignature")}. ${t("signatureDrawingArea")}`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onTouchStart={startTouch} onTouchMove={moveTouch} onTouchEnd={endTouch} onTouchCancel={endTouch} onMouseDown={startMouse} onMouseMove={moveMouse} onMouseUp={endMouse} onMouseLeave={endMouse}>
+      {strokes.map((stroke, index) => <polyline key={index} points={stroke.points.map((point) => `${point.x * 600},${point.y * 180}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+    </svg>
+    <button className="button button-small" type="button" onClick={() => onChange({ mode: "drawn", strokes: [] })}>{t("clearSignature")}</button>
   </div>;
 }

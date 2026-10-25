@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formDefinitionSchema, formDefinitionWriteSchema } from "@reviewroom/contracts/forms";
+import { formDefinitionSchema, formDefinitionWriteSchema, signatureAnswerSchema } from "@reviewroom/contracts/forms";
 import { validateAnswers } from "../../../dist/modules/submissions/answer-validator.js";
 
 const uuid = (number) => `00000000-0000-4000-8000-${String(number).padStart(12, "0")}`;
@@ -43,7 +43,7 @@ test("accepts a valid response for every supported field type", () => {
     [uuid(12)]: "https://example.edu/review",
     [uuid(13)]: "+1 (555) 123-4567",
     [uuid(14)]: false,
-    [uuid(16)]: { mode: "typed", text: "Moha Example" },
+    [uuid(16)]: { mode: "drawn", strokes: [{ points: [{ x: 0.1, y: 0.2 }, { x: 0.8, y: 0.7 }] }] },
   };
 
   const parsed = formDefinitionSchema.safeParse(definition);
@@ -154,10 +154,13 @@ test("checkbox minimum selection is enforced even when the question is optional"
   assert.deepEqual(validateAnswers(definition, { [uuid(1)]: [uuid(10)] }), { [uuid(1)]: [uuid(10)] });
 });
 
-test("signature answers accept bounded typed names and normalized strokes only", () => {
+test("signature answers accept drawn strokes only", () => {
   const definition = { title: "Review", description: "", fields: [field(1, "signature", {}, true)] };
-  assert.deepEqual(validateAnswers(definition, { [uuid(1)]: { mode: "typed", text: "Ada" } }), { [uuid(1)]: { mode: "typed", text: "Ada" } });
   assert.deepEqual(validateAnswers(definition, { [uuid(1)]: { mode: "drawn", strokes: [{ points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }] } }), { [uuid(1)]: { mode: "drawn", strokes: [{ points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }] } });
+  assert.throws(() => validateAnswers(definition, { [uuid(1)]: { mode: "typed", text: "Ada" } }), (error) => error.code === "INVALID_ANSWER");
   assert.throws(() => validateAnswers(definition, { [uuid(1)]: { mode: "drawn", strokes: [{ points: [{ x: 2, y: 0 }, { x: 1, y: 1 }] }] } }), (error) => error.code === "INVALID_ANSWER");
-  assert.throws(() => validateAnswers(definition, { [uuid(1)]: { mode: "typed", text: " " } }), (error) => error.code === "REQUIRED_ANSWER_MISSING");
+});
+
+test("historical typed signatures remain parseable for existing submissions", () => {
+  assert.equal(signatureAnswerSchema.safeParse({ mode: "typed", text: "Ada" }).success, true);
 });
