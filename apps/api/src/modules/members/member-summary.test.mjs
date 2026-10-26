@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { memberSummarySchema } from "@reviewroom/contracts";
+import { reviewerMemberSummarySchema } from "@reviewroom/contracts";
 import { toMemberSummary } from "../../../dist/modules/members/member-summary.js";
 
 test("member response includes only the safe membership and user summary", () => {
@@ -34,5 +34,5 @@ test("member response includes only the safe membership and user summary", () =>
   assert.equal("passwordHash" in result, false);
   assert.equal("privateField" in result, false);
   assert.equal("privateField" in result.user, false);
-  assert.equal(memberSummarySchema.safeParse(result).success, true, "serialized member summary must satisfy the shared API response contract");
+  assert.equal(reviewerMemberSummarySchema.safeParse(result).success, true, "serialized member summary must satisfy the shared API response contract");
 });

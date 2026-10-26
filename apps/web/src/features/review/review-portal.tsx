@@ -119,7 +119,7 @@ export function ReviewPortal({ token, data }: { token: string; data: PortalData 
     }
     setBusy(true);
     try {
-      const response = await fetch(`/api/v1/public/review/${encodeURIComponent(token)}/submissions`, {
+      const response = await fetch(`/api/v2/public/review/${encodeURIComponent(token)}/submissions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({ formId: form.id, formVersionId: form.versionId, targetId, answers }),

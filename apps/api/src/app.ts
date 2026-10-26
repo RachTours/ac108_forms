@@ -21,6 +21,7 @@ import { auditRouter } from "./modules/audit/audit.routes.js";
 import { organizationRouter } from "./modules/organization/organization.routes.js";
 import { assignmentRouter } from "./modules/assignments/assignment.routes.js";
 import { reviewerGroupRouter } from "./modules/members/group.routes.js";
+import { legacyProgressRouter } from "./modules/progress/legacy-progress.routes.js";
 
 export const app = express();
 
@@ -30,11 +31,13 @@ app.disable("x-powered-by");
 app.set("trust proxy", trustedProxies.length > 0 ? trustedProxies : 1);
 app.use(requestContext);
 app.use("/api/v1", noStore);
+app.use("/api/v2", noStore);
 app.use(helmet());
 app.use(cors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "X-Request-Id", "X-CSRF-Token", "X-Reviewroom-Audience", "X-Reviewroom-Session-Id"] }));
 app.use(express.json({ limit: "64kb", strict: true }));
 app.use(cookieParser());
 app.use("/api/v1", apiRateLimit);
+app.use("/api/v2", apiRateLimit);
 
 app.get("/health", noStore, (_request, response) => response.status(200).json({ status: "ok" }));
 app.get("/api/v1/health/live", (_request, response) => response.status(200).json({ status: "ok" }));
@@ -50,7 +53,7 @@ app.get("/api/v1/health/ready", async (_request, response, next) => {
 });
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/forms", formRouter);
-app.use("/api/v1/progress", progressRouter);
+app.use("/api/v1/progress", legacyProgressRouter);
 app.use("/api/v1/members", memberRouter);
 app.use("/api/v1/groups", reviewerGroupRouter);
 app.use("/api/v1/review-links", reviewLinkRouter);
@@ -60,6 +63,19 @@ app.use("/api/v1/assignments", assignmentRouter);
 app.use("/api/v1/submissions", submissionRouter);
 app.use("/api/v1/audit-events", auditRouter);
 app.use("/api/v1/organization", organizationRouter);
+
+app.use("/api/v2/auth", authRouter);
+app.use("/api/v2/forms", formRouter);
+app.use("/api/v2/progress", progressRouter);
+app.use("/api/v2/members", memberRouter);
+app.use("/api/v2/groups", reviewerGroupRouter);
+app.use("/api/v2/review-links", reviewLinkRouter);
+app.use("/api/v2/public/review", publicReviewRouter);
+app.use("/api/v2/review-targets", targetRouter);
+app.use("/api/v2/assignments", assignmentRouter);
+app.use("/api/v2/submissions", submissionRouter);
+app.use("/api/v2/audit-events", auditRouter);
+app.use("/api/v2/organization", organizationRouter);
 
 app.use(notFound);
 app.use(errorHandler);

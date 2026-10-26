@@ -7,6 +7,7 @@ import { env } from "../../env.js";
 import { HttpError } from "../../http/errors.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
 import { requirePermission } from "../../middleware/require-permission.js";
+import { lockAssignmentOrganization } from "../assignments/assignment.service.js";
 import { authorize } from "@reviewroom/domain";
 import { activeReviewerKey, calculateLinkExpiry } from "./review-link-scope.js";
 import { decryptSecret, encryptSecret } from "../secrets/secret-box.js";
@@ -28,17 +29,23 @@ reviewLinkRouter.get("/mine/forms", requireSession, requirePermission("reviewLin
   try {
     const auth = request.auth!;
     const scope = await reviewerFormScope(prisma, auth.organizationId, auth.membershipId);
+    const legacy = await prisma.reviewLink.findMany({ where: { organizationId: auth.organizationId, reviewerId: auth.membershipId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { formId: true } });
+    const preserveAllForms = legacy.some((link) => link.formId === null);
+    const legacyFormIds = legacy.flatMap((link) => link.formId ? [link.formId] : []);
     const [forms, links] = await Promise.all([
-      prisma.form.findMany({ where: { organizationId: auth.organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null }, ...scope }, select: { id: true, title: true, description: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 }),
+      prisma.form.findMany({ where: { organizationId: auth.organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null }, ...(preserveAllForms ? {} : { OR: [scope, { id: { in: legacyFormIds } }] }) }, select: { id: true, title: true, description: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 }),
       prisma.reviewLink.findMany({ where: { organizationId: auth.organizationId, reviewerId: auth.membershipId, formId: { not: null } }, select: { id: true, formId: true, createdAt: true, expiresAt: true, revokedAt: true, encryptedToken: true }, orderBy: { createdAt: "desc" }, take: 200 }),
     ]);
+    const creatableForms = await prisma.form.findMany({ where: { organizationId: auth.organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null }, ...scope }, select: { id: true }, take: 100 });
+    const creatable = new Set(creatableForms.map((form) => form.id));
     const currentByForm = new Map<string, (typeof links)[number]>();
     for (const link of links) if (link.formId && !currentByForm.has(link.formId)) currentByForm.set(link.formId, link);
     response.json({ data: forms.map((form) => {
       const link = currentByForm.get(form.id);
-      if (!link) return { ...form, link: null };
+      const policy = request.baseUrl.startsWith("/api/v2/") ? { canGenerate: creatable.has(form.id) } : {};
+      if (!link) return { ...form, ...policy, link: null };
       const { encryptedToken, ...safeLink } = link;
-      return { ...form, link: { ...safeLink, canReveal: encryptedToken !== null, active: link.revokedAt === null && (link.expiresAt === null || link.expiresAt > new Date()) } };
+      return { ...form, ...policy, link: { ...safeLink, canReveal: encryptedToken !== null, active: link.revokedAt === null && (link.expiresAt === null || link.expiresAt > new Date()) } };
     }) });
   } catch (error) { next(error); }
 });
@@ -50,7 +57,7 @@ reviewLinkRouter.get("/", requireSession, requirePermission("reviewLinks", "read
       include: { reviewer: { include: { user: { select: { displayName: true, email: true } } } }, form: { select: { id: true, title: true } } },
       orderBy: { createdAt: "desc" }, take: 200,
     });
-    response.json({ data: links.map(({ tokenHash: _secret, encryptedToken, reviewer, ...link }) => ({ ...link, canReveal: encryptedToken !== null, reviewer: { id: reviewer.id, name: reviewer.user.displayName, email: reviewer.user.email }, active: link.revokedAt === null && (link.expiresAt === null || link.expiresAt > new Date()) })) });
+    response.json({ data: links.map(({ tokenHash: _secret, encryptedToken, reviewer, groupId, accessPolicyVersion, ...link }) => ({ ...link, ...(request.originalUrl.startsWith("/api/v2/") ? { groupId, accessPolicyVersion } : {}), canReveal: encryptedToken !== null, reviewer: { id: reviewer.id, name: reviewer.user.displayName, email: reviewer.user.email }, active: link.revokedAt === null && (link.expiresAt === null || link.expiresAt > new Date()) })) });
   } catch (error) { next(error); }
 });
 
@@ -59,15 +66,17 @@ async function issueLink(organizationId: string, actorId: string, reviewerId: st
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const expiresAt = calculateLinkExpiry(expiresInDays);
   const link = await prisma.$transaction(async (transaction) => {
-    const reviewer = await transaction.membership.findFirst({ where: { id: reviewerId, organizationId, role: "REVIEWER", status: "ACTIVE" } });
+    await lockAssignmentOrganization(transaction, organizationId);
+    const reviewer = await transaction.membership.findFirst({ where: { id: reviewerId, organizationId, role: "REVIEWER", status: "ACTIVE" }, include: { organization: { select: { groupWorkflowsEnabled: true } } } });
     if (!reviewer) throw new HttpError(404, "REVIEWER_NOT_FOUND", "Active reviewer not found.");
+    if (reviewer.organization.groupWorkflowsEnabled && !formId) throw new HttpError(409, "GROUP_FORM_REQUIRED", "Choose one of your group's assigned forms to create a link.");
     if (formId) {
       await assertReviewerFormAccess(transaction, organizationId, reviewerId, formId);
       const form = await transaction.form.findFirst({ where: { id: formId, organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null } }, select: { id: true } });
       if (!form) throw new HttpError(404, "FORM_NOT_FOUND", "Published form not found.");
     }
     await transaction.reviewLink.updateMany({ where: { organizationId, reviewerId, formId, revokedAt: null }, data: { revokedAt: new Date(), activeReviewerKey: null } });
-    const created = await transaction.reviewLink.create({ data: { organizationId, reviewerId, formId, tokenHash, encryptedToken: encryptSecret(token, env.TOKEN_ENCRYPTION_KEY), activeReviewerKey: activeReviewerKey(reviewerId, formId), expiresAt } });
+    const created = await transaction.reviewLink.create({ data: { organizationId, reviewerId, formId, tokenHash, encryptedToken: encryptSecret(token, env.TOKEN_ENCRYPTION_KEY), activeReviewerKey: activeReviewerKey(reviewerId, formId), expiresAt, accessPolicyVersion: reviewer.organization.groupWorkflowsEnabled ? 2 : 1, groupId: reviewer.organization.groupWorkflowsEnabled ? reviewer.groupId : null } });
     await transaction.auditEvent.create({ data: { organizationId, actorId, action: "REVIEW_LINK_ISSUED", entityType: "ReviewLink", entityId: created.id, ...(formId ? { metadata: { formId } } : {}) } });
     return created;
   });

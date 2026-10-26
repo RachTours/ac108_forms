@@ -1,6 +1,9 @@
 import type { Locale } from "./locale";
 
 const messages: Record<string, Record<Locale, string>> = {
+  GROUP_CHANGED: { en: "This group changed. Close this dialog and refresh before saving.", fr: "Ce groupe a changé. Fermez cette fenêtre et actualisez avant d’enregistrer.", ar: "تغيّرت هذه المجموعة. أغلق النافذة وحدّث الصفحة قبل الحفظ." },
+  GROUP_SETUP_INCOMPLETE: { en: "Set each group goal and assign active reviewers before activation.", fr: "Définissez chaque objectif et attribuez les évaluateurs actifs avant activation.", ar: "حدّد أهداف المجموعات وعيّن المقيّمين النشطين قبل التفعيل." },
+  GROUP_FORM_REQUIRED: { en: "Choose an assigned group form to create a new link.", fr: "Choisissez un formulaire attribué au groupe pour créer un lien.", ar: "اختر نموذجًا معيّنًا للمجموعة لإنشاء رابط جديد." },
   GROUP_NAME_EXISTS: { en: 'A group with this name already exists.', fr: 'Un groupe porte déjà ce nom.', ar: 'توجد مجموعة بهذا الاسم بالفعل.' },
   GROUP_NOT_FOUND: { en: 'Reviewer group not found. Refresh and try again.', fr: 'Groupe introuvable. Actualisez et réessayez.', ar: 'لم يتم العثور على المجموعة. حدّث الصفحة وحاول مرة أخرى.' },
   FORM_ASSIGNMENT_INVALID: { en: 'Select published forms from this workspace only.', fr: 'Sélectionnez uniquement les formulaires publiés dans cet espace.', ar: 'اختر نماذج منشورة في مساحة العمل هذه فقط.' },

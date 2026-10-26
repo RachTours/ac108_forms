@@ -1,0 +1,200 @@
+/* Shared control surfaces: settings, both workspaces, sign-in and public forms. */
+:root {
+  --muted: #617269;
+  --control-surface: var(--paper);
+  --control-border: #bdccc3;
+  --control-placeholder: #66796e;
+  --hover-surface: color-mix(in srgb, var(--green) 6%, var(--paper));
+  --accent-ink: var(--green);
+  --focus-ring: color-mix(in srgb, var(--green) 55%, transparent);
+  --status-surface: #e8f3ed;
+  --status-ink: #246449;
+}
+
+html[data-ui-theme="dark"] {
+  --muted: #afbeb5;
+  --control-surface: #17211c;
+  --control-border: #65796c;
+  --control-placeholder: #a3b4a9;
+  --hover-surface: #293d31;
+  --accent-ink: color-mix(in srgb, var(--green) 35%, white);
+  --focus-ring: color-mix(in srgb, var(--accent-ink) 60%, transparent);
+  --status-surface: #293f32;
+  --status-ink: #b9e4c9;
+}
+
+html[data-ui-theme="dark"][data-platform="admin"] {
+  --paper: #1b2933;
+  --line: #354b58;
+  --canvas: #111b24;
+  --control-surface: #17232c;
+  --control-border: #617885;
+  --control-placeholder: #a8b8c2;
+  --hover-surface: #263a43;
+  --status-surface: #243c43;
+  --status-ink: #c1e0e8;
+}
+
+/* Resolve derived colors where the workspace's saved accent is applied. */
+html :is(.app-shell, .public-page, .login-page) {
+  --accent-ink: var(--green);
+  --hover-surface: color-mix(in srgb, var(--green) 6%, var(--paper));
+  --focus-ring: color-mix(in srgb, var(--green) 55%, transparent);
+}
+html[data-ui-theme="dark"] :is(.app-shell, .public-page, .login-page) {
+  --accent-ink: color-mix(in srgb, var(--green) 35%, white);
+  --hover-surface: color-mix(in srgb, var(--green) 12%, var(--paper));
+  --focus-ring: color-mix(in srgb, var(--accent-ink) 60%, transparent);
+}
+
+/* Native controls retain keyboard, validation and screen-reader behavior. */
+html :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), textarea, select) {
+  min-width: 0;
+  max-width: 100%;
+  border-color: var(--control-border);
+  background-color: var(--control-surface);
+  color: var(--ink);
+  caret-color: var(--ink);
+}
+
+html[data-ui-theme="dark"] :is(input, textarea, select) {
+  background-color: var(--control-surface) !important;
+  border-color: var(--control-border) !important;
+  color: var(--ink) !important;
+}
+
+html :is(input, textarea)::placeholder { color: var(--control-placeholder); opacity: 1; }
+html :is(input, textarea, select):disabled { opacity: .65; cursor: not-allowed; }
+html :is(input, textarea):read-only { cursor: text; }
+html :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--green); }
+html :is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+html select {
+  min-height: 40px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 9px;
+  padding-block: 8px;
+  padding-inline: 12px 30px;
+  line-height: 1.4;
+}
+html select option { background: var(--control-surface); color: var(--ink); }
+html input:is(:autofill, :-webkit-autofill) {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--control-surface) inset;
+  caret-color: var(--ink);
+}
+
+/* Previously hard-coded label and caption colors became unreadable in dark mode. */
+html :is(.workspace-setting, .invite-form, .form-create, .settings-panel, .assignment-workspace-select) > label,
+html .appearance-controls label,
+html .assignment-workspace-select > span,
+html label.people-field,
+html .public-target-picker label,
+html .public-form-picker label,
+html .public-label,
+html .setting-heading h2 { color: var(--ink); }
+html :is(.muted-caption, .help-copy, .table-subline, .assignment-workspace-current small,
+  .assignment-workspace-person small, .palette-group-title, .field-type-label,
+  .form-preview-tag, .field-actions > span, .secure-label, .public-form-kicker,
+  .privacy-note, .public-footer, .mobile-nav a, .filter-pill, .feature-kicker) { color: var(--muted); }
+html .eyebrow { color: var(--muted) !important; }
+html .inline-count { color: var(--ink); background: var(--hover-surface); }
+html .assignment-filter span { color: var(--ink); background: var(--hover-surface); }
+html .filter-pill.active { color: var(--accent-ink); }
+html .personal-link-note { color: var(--accent-ink); }
+html .personal-link-note p { color: var(--ink); }
+html .personal-link-meta span:first-child { color: var(--accent-ink); }
+html :is(.setting-icon, .invite-intro, .language-switcher, .link-symbol, .empty-icon) { color: var(--accent-ink); }
+
+html :is(.search-box, .add-person-panel, .one-time-secret, .assignment-workspace-row,
+  .permission-note, .rule-summary, .count-chip, .rank-option, .preview-input,
+  .preview-select, .preview-textarea, .rating-preview span, .signature-preview) {
+  background-color: var(--paper);
+  border-color: var(--line);
+  color: var(--ink);
+}
+html :is(.permission-note, .rule-summary, .one-time-secret) { background-color: var(--hover-surface); }
+html :is(.permission-note strong, .one-time-secret strong, .rule-summary strong) { color: var(--ink); }
+html :is(.permission-note small, .one-time-secret small, .rule-summary span) { color: var(--muted); }
+html :is(.form-list-row, .panel-row, .reviewer-progress-row):hover { background-color: var(--hover-surface); }
+html .form-field-selected { background: var(--hover-surface); box-shadow: 0 0 0 2px var(--green-soft); }
+html :is(.status:not(.status-pending), .progress-status-complete, .avatar-soft, .public-meta-chip) {
+  background-color: var(--status-surface);
+  color: var(--status-ink);
+}
+html .status-pending { color: #805212; background: var(--amber-soft); }
+html[data-ui-theme="dark"] .status-pending { color: #f2d49d; background: #46361c; }
+html[data-ui-theme="dark"] :is(.role-label, .progress-status, .assignment-filter.active, .filter-pill.active) {
+  color: var(--ink);
+  background-color: var(--hover-surface);
+  border-color: var(--control-border);
+}
+html[data-ui-theme="dark"] :is(.form-success, .success-message) { color: #c1ecd2; background: #244434; }
+html[data-ui-theme="dark"] :is(.form-error, .public-error-summary) { color: #ffc5bd; background: #482b28; }
+html[data-ui-theme="dark"] .danger-action:hover { background: #482b28; border-color: #b77c75; }
+html[data-ui-theme="dark"] :is(.empty-inline, .table-wrap, .form-list, .group-member-editor) { border-color: var(--line); }
+html[data-ui-theme="dark"] .public-target-context { background: var(--paper); border-color: var(--line); }
+html[data-ui-theme="dark"] :is(.text-button, .text-link) { color: var(--accent-ink); }
+html[data-ui-theme="dark"] :is(.assignment-context-link small, .login-secondary-link, .feedback-success) { color: var(--accent-ink); }
+html[data-ui-theme="dark"] .mobile-nav a { color: var(--muted); }
+html[data-ui-theme="dark"] .mobile-nav a[aria-current="page"] { color: var(--ink); }
+
+/* Toolbars share a baseline instead of inheriting the login form's label spacing. */
+html .login-card-tools { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-block: 0 24px; }
+html .login-card-tools > .language-switcher,
+html .top-actions > .language-switcher,
+html .public-top > .language-switcher { width: auto; max-width: 100%; margin: 0; }
+html :is(.login-card-tools, .top-actions, .public-top) .platform-theme-toggle { min-height: 42px; }
+html .language-switcher { min-height: 42px; color: var(--accent-ink); }
+html .language-switcher select { min-height: 32px; margin: 0; border: 0; padding-block: 4px; background: transparent; box-shadow: none; }
+html .language-switcher:focus-within { outline: none; box-shadow: none; }
+html .language-switcher select:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 4px; }
+html :is(.reviewer-sort, .reviewer-sort-control) { min-width: 0; max-width: 100%; }
+html .reviewer-sort { flex-wrap: wrap; }
+html .reviewer-sort select { min-width: 0; max-width: 100%; width: min(100%, 240px); }
+html .button-row:has(> .reviewer-sort) { flex-wrap: wrap; gap: 12px; }
+html .button-row > .reviewer-sort { display: grid; flex: 1 1 220px; gap: 6px; }
+html .button-row > .reviewer-sort select { width: 100%; }
+html .settings-manager { grid-template-columns: minmax(0, 1fr); }
+html .settings-group-goal { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 22px; align-items: center; }
+html .settings-group-goal .setting-heading { margin: 0; }
+html .settings-group-goal .settings-goal-total { grid-column: 2; grid-row: 1; }
+html .settings-group-goal .help-copy { margin: 0; }
+html .settings-group-goal > .button { grid-column: 2; grid-row: 2; }
+html .settings-theme-preview { color: var(--ink); }
+html .settings-manager .settings-preview-light { --ink: #20382c; --muted: #596f61; }
+html .settings-manager .settings-preview-dark { --ink: #e8efeb; --muted: #afbeb5; }
+
+/* Calm feedback animation; keyboard focus and reduced-motion users stay in control. */
+@media (prefers-reduced-motion: no-preference) {
+  html :is(.button, .icon-button, .nav-link, .filter-pill, .platform-theme-toggle, select, input, textarea) {
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  }
+  html .progress-fill { transition: width 240ms ease; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html *, html *::before, html *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media (max-width: 700px) {
+  html .settings-group-goal { grid-template-columns: minmax(0, 1fr); }
+  html .settings-group-goal .settings-goal-total,
+  html .settings-group-goal > .button { grid-column: 1; grid-row: auto; }
+  html .settings-group-goal > .button { width: 100%; }
+}
+@media (max-width: 620px) {
+  html :is(.login-card input, .public-input, .settings-panel input:not([type="checkbox"]):not([type="radio"]),
+    .settings-panel textarea, .settings-panel select, .appearance-controls select,
+    .assignment-workspace-select select, .invite-form select, .form-create input, .form-create textarea) { font-size: 16px; min-height: 44px; }
+  html :is(.top-actions, .login-card-tools) { gap: 8px; }
+  html .language-switcher { padding-inline: 8px; }
+  html .settings-manager .settings-accent-picker label { min-width: 56px; }
+  html .reviewer-board-heading { flex-wrap: wrap; }
+  html .reviewer-sort-control { width: 100%; justify-items: stretch; }
+  html .reviewer-sort-control > .reviewer-sort { display: grid; grid-template-columns: minmax(0, 1fr); }
+  html .reviewer-sort-control select { width: 100%; }
+  html .public-top { flex-wrap: wrap; min-height: 58px; height: auto; padding-block: 8px; }
+}

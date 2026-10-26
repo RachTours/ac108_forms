@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import "./globals.css";
+import "./ui-theme.css";
 import { directionForLocale, type Locale } from "../src/lib/locale";
 import { PlatformThemePreferences } from "../src/components/platform-theme-toggle";
 

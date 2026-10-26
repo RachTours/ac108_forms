@@ -6,10 +6,12 @@ import { prisma } from "../../db/client.js";
 import { HttpError } from "../../http/errors.js";
 import { publicReadRateLimit, publicSubmitRateLimit } from "../../http/rate-limits.js";
 import { validateAnswers } from "./answer-validator.js";
+import { lockAssignmentOrganization } from "../assignments/assignment.service.js";
 import { allowsForm } from "../links/review-link-scope.js";
 import { assertPublicReviewAccess } from "./public-review-access.js";
-import { assertReviewerFormAccess, reviewerFormScope } from "../members/reviewer-form-access.js";
 import { resolvePlatformTheme } from "../organization/theme.js";
+
+import { toLegacyDefinition } from "../forms/legacy-definition.js";
 
 export const publicReviewRouter = Router();
 const tokenSchema = z.string().min(40).max(100);
@@ -37,13 +39,12 @@ publicReviewRouter.get("/:token", publicReadRateLimit, async (request, response,
     if (!link) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
     assertPublicReviewAccess({ organizationId: link.organizationId, reviewerOrganizationId: link.reviewer.organizationId, reviewerRole: link.reviewer.role, reviewerStatus: link.reviewer.status, revokedAt: link.revokedAt, expiresAt: link.expiresAt }, "read");
     const targets = await prisma.assignment.findMany({ where: { organizationId: link.organizationId, reviewerId: link.reviewerId, target: { status: "ACTIVE", archivedAt: null } }, include: { target: { select: { id: true, displayName: true } } }, orderBy: { target: { displayName: "asc" } }, take: 200 });
-    const scope = await reviewerFormScope(prisma, link.organizationId, link.reviewerId);
-    const forms = await prisma.form.findMany({ where: { organizationId: link.organizationId, ...(link.formId ? { id: link.formId } : {}), status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null }, ...scope }, select: { id: true, title: true, description: true, currentPublishedId: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 });
+    const forms = await prisma.form.findMany({ where: { organizationId: link.organizationId, ...(link.formId ? { id: link.formId } : {}), status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null } }, select: { id: true, title: true, description: true, currentPublishedId: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 });
     const versions = await prisma.formVersion.findMany({ where: { id: { in: forms.map((form) => form.currentPublishedId).filter((id): id is string => id !== null) }, publishedAt: { not: null } }, select: { id: true, definition: true } });
     const versionById = new Map(versions.map((version) => [version.id, version]));
     const appearance = await prisma.organizationTheme.findUnique({ where: { organizationId: link.organizationId } });
-    const theme = resolvePlatformTheme(appearance, "reviewer");
-    response.json({ data: { reviewerName: link.reviewer.user.displayName, theme: theme ?? { accentColor: "#167354", fontPreset: "sans", surfacePreset: "mist", formStyle: "clean" }, targets: targets.map(({ target }) => target), forms: forms.flatMap((form) => { const version = form.currentPublishedId ? versionById.get(form.currentPublishedId) : undefined; return version ? [{ id: form.id, title: form.title, description: form.description, versionId: version.id, definition: version.definition }] : []; }) } });
+    const theme = resolvePlatformTheme(appearance && !request.originalUrl.startsWith("/api/v2/") ? { accentColor: appearance.accentColor, fontPreset: appearance.fontPreset, surfacePreset: appearance.surfacePreset, formStyle: appearance.formStyle } : appearance, "reviewer");
+    response.json({ data: { reviewerName: link.reviewer.user.displayName, theme: theme ?? { accentColor: "#167354", fontPreset: "sans", surfacePreset: "mist", formStyle: "clean" }, targets: targets.map(({ target }) => target), forms: forms.flatMap((form) => { const version = form.currentPublishedId ? versionById.get(form.currentPublishedId) : undefined; return version ? [{ id: form.id, title: form.title, description: form.description, versionId: version.id, definition: request.originalUrl.startsWith("/api/v2/") ? version.definition : toLegacyDefinition(version.definition) }] : []; }) } });
   } catch (error) { next(error); }
 });
 
@@ -53,12 +54,14 @@ publicReviewRouter.post("/:token/submissions", publicSubmitRateLimit, async (req
     const tokenHash = createHash("sha256").update(tokenSchema.parse(request.params.token)).digest("hex");
     const idempotencyKey = z.string().uuid().parse(request.get("idempotency-key"));
     const input = submissionSchema.parse(request.body);
+    const scope = await prisma.reviewLink.findUnique({ where: { tokenHash }, select: { organizationId: true } });
+    if (!scope) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
     const result = await prisma.$transaction(async (transaction) => {
+      await lockAssignmentOrganization(transaction, scope.organizationId);
       const link = await transaction.reviewLink.findUnique({ where: { tokenHash }, include: { reviewer: true } });
       if (!link) throw new HttpError(404, "LINK_NOT_FOUND", "This review link is unavailable.");
       assertPublicReviewAccess({ organizationId: link.organizationId, reviewerOrganizationId: link.reviewer.organizationId, reviewerRole: link.reviewer.role, reviewerStatus: link.reviewer.status, revokedAt: link.revokedAt, expiresAt: link.expiresAt }, "submit");
       if (!allowsForm(link.formId, input.formId)) throw new HttpError(404, "FORM_NOT_FOUND", "This form is not available through this review link.");
-      await assertReviewerFormAccess(transaction, link.organizationId, link.reviewerId, input.formId);
       const assignment = await transaction.assignment.findUnique({ where: { organizationId_targetId: { organizationId: link.organizationId, targetId: input.targetId } }, include: { target: true } });
       if (!assignment || assignment.reviewerId !== link.reviewerId || assignment.target.status !== "ACTIVE" || assignment.target.archivedAt) throw new HttpError(404, "TARGET_NOT_FOUND", "This person is not available through this review link.");
       const form = await transaction.form.findFirst({ where: { id: input.formId, organizationId: link.organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: input.formVersionId } });
@@ -76,6 +79,7 @@ publicReviewRouter.post("/:token/submissions", publicSubmitRateLimit, async (req
       const submission = await transaction.submission.create({ data: {
         organizationId: link.organizationId, formId: form.id, formVersionId: version.id,
         targetId: assignment.targetId, reviewerId: link.reviewerId, idempotencyKey, payloadHash, answers,
+        groupId: (await transaction.organization.findUniqueOrThrow({ where: { id: link.organizationId }, select: { groupWorkflowsEnabled: true } })).groupWorkflowsEnabled ? link.reviewer.groupId : null,
       }, select: { id: true, submittedAt: true } });
       await transaction.auditEvent.create({ data: { organizationId: link.organizationId, action: "SUBMISSION_CREATED", entityType: "Submission", entityId: submission.id, metadata: { formId: form.id, targetId: assignment.targetId, reviewerId: link.reviewerId } } });
       return { ...submission, replay: false };

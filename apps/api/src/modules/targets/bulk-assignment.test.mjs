@@ -10,6 +10,7 @@ function createFixture({ targets = targetIds.map((id) => ({ id, organizationId: 
   const tx = {
     $queryRaw: async () => [],
     reviewTarget: {
+      updateMany: async () => ({ count: 1 }),
       findMany: async ({ where }) => targets.filter((target) => where.id.in.includes(target.id) && target.organizationId === where.organizationId && target.status === where.status && target.archivedAt === null).map(({ id }) => ({ id })),
       findFirst: async ({ where }) => targets.find((target) => target.id === where.id && target.organizationId === where.organizationId && target.status === where.status && target.archivedAt === where.archivedAt) ?? null,
     },

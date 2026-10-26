@@ -1,0 +1,53 @@
+.settings-manager { min-width: 0; }
+.settings-manager .workspace-setting { min-width: 0; }
+.settings-manager .rule-summary { background: var(--canvas); }
+.settings-manager .settings-group-goal { align-content: start; }
+.settings-manager .settings-goal-total { display: flex; align-items: baseline; gap: 10px; padding-block: 8px; }
+.settings-manager .settings-goal-total strong { font-size: 38px; font-weight: 600; line-height: 1.15; letter-spacing: -1px; }
+.settings-manager .settings-goal-total span { color: var(--muted); font-size: 12px; }
+.settings-manager .settings-group-goal .button { width: fit-content; }
+.settings-manager .settings-platform-picker,
+.settings-manager .settings-appearance-fields,
+.settings-manager .settings-accent-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.settings-manager fieldset legend { margin-block-end: 9px; color: var(--ink); font-size: 11px; font-weight: 600; }
+.settings-manager .settings-platform-picker > div { display: flex; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
+.settings-manager .settings-platform-picker label { position: relative; display: flex; flex: 1; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 8px; color: var(--muted); text-align: center; font-size: 12px; cursor: pointer; }
+.settings-manager .settings-platform-picker label.is-selected { border-color: var(--line); background: var(--paper); color: var(--ink); box-shadow: 0 2px 5px #00000008; }
+.settings-manager .settings-platform-picker input,
+.settings-manager .settings-accent-picker input,
+.settings-manager .settings-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.settings-manager label:has(input:focus-visible) { outline: 2px solid var(--green); outline-offset: 3px; }
+.settings-manager fieldset:disabled label { cursor: wait; opacity: .65; }
+.settings-manager .settings-appearance-fields { margin-block: 18px 8px; }
+.settings-manager .appearance-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.settings-manager .appearance-controls label { color: var(--ink); }
+.settings-manager .settings-accent-picker { grid-column: 1 / -1; }
+.settings-manager .settings-accent-picker > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.settings-manager .settings-accent-picker label { display: grid; position: relative; justify-items: center; gap: 6px; min-width: 64px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: 10px; cursor: pointer; }
+.settings-manager .settings-accent-picker label:has(input:checked) { border-color: var(--green); background: var(--green-soft); color: var(--ink); }
+.settings-manager .settings-accent-swatch { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; }
+.settings-manager .settings-preview-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-block: 20px 8px; font-size: 10px; }
+.settings-manager .settings-preview-heading strong { letter-spacing: .08em; }
+.settings-manager .settings-preview-heading > span { color: var(--muted); }
+.settings-manager .settings-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.settings-manager .settings-theme-preview { --ink: #20382c; --muted: #596f61; --line: #dfe7e1; min-width: 0; max-width: none; margin: 0; padding: 20px; gap: 12px; color: var(--ink); background: var(--canvas); border-color: var(--line); font-family: var(--sans); color-scheme: light; }
+.settings-manager .settings-theme-preview > strong { color: var(--ink); font-size: 22px; }
+.settings-manager .settings-theme-preview .settings-preview-mode { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 600; }
+.settings-manager .settings-theme-preview .theme-preview-form { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--form-border); border-radius: 9px; background: var(--form-surface); }
+.settings-manager .settings-theme-preview .theme-preview-form strong { color: var(--ink); font-size: 14px; }
+.settings-manager .settings-preview-input { height: 32px; margin-block-start: 5px; border: 1px solid var(--form-border); border-radius: 5px; background: var(--canvas); }
+.settings-manager .settings-theme-preview .settings-preview-action { display: block; width: fit-content; padding: 10px 16px; border-radius: 7px; background: var(--green); color: #fff; font-size: 11px; font-weight: 600; }
+.settings-manager .settings-preview-dark { --ink: #e8efeb; --muted: #a4b2aa; --line: #35443c; color-scheme: dark; background: #121a16; }
+.settings-manager .settings-preview-dark .theme-preview-form { background: #1d2923; border-color: #35443c; }
+.settings-manager .settings-preview-dark .settings-preview-input { border-color: #415148; background: #17211b; }
+.settings-manager .setting-actions { margin-block-start: 14px; }
+@media (max-width: 700px) {
+  .settings-manager .appearance-controls { grid-template-columns: 1fr; }
+  .settings-manager .settings-preview-grid { grid-template-columns: 1fr; }
+  .settings-manager .settings-platform-picker label { padding-inline: 8px; font-size: 11px; }
+  .settings-manager .settings-theme-preview { padding: 16px; }
+}
+
+.settings-manager [data-preview-platform=admin] .settings-preview-dark { background: #111b24; --line: #354b58; }
+.settings-manager [data-preview-platform=admin] .settings-preview-dark .theme-preview-form { background: #1b2933; border-color: #354b58; }
+.settings-manager [data-preview-platform=admin] .settings-preview-dark .settings-preview-input { background: #17232c; border-color: #617885; }

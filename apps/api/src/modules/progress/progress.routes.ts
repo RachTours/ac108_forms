@@ -69,6 +69,9 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
   try {
     const auth = request.auth!;
     const reviewerOnly = auth.role === "REVIEWER";
+    const organization = await prisma.organization.findUniqueOrThrow({ where: { id: auth.organizationId }, select: { groupWorkflowsEnabled: true } });
+    const groups = organization.groupWorkflowsEnabled ? await prisma.reviewerGroup.findMany({ where: { organizationId: auth.organizationId, archivedAt: null }, select: { id: true, submissionGoal: true, _count: { select: { members: { where: { role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } } } } } }) : [];
+    const byGroup = new Map(groups.map((group) => [group.id, group]));
     const [rows, activeReviewerCount, config] = await Promise.all([
       prisma.$queryRaw<ReviewerBoardQueryRow[]>`
       SELECT m.id AS reviewerId, u.displayName AS displayName, m.submissionGoalOverride, m.groupId,
@@ -79,6 +82,7 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
           WHERE authored.organizationId = m.organizationId
             AND authored.reviewerId = m.id
             AND authored.archivedAt IS NULL
+            AND (${!organization.groupWorkflowsEnabled} OR authored.groupId = m.groupId)
         ) AS submissionCount
       FROM Membership m
       INNER JOIN User u ON u.id = m.userId AND u.status = 'ACTIVE'
@@ -93,7 +97,11 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
       prisma.progressConfig.findUnique({ where: { organizationId: auth.organizationId }, select: { submissionGoal: true } }),
     ]);
     const submissionGoal = getWorkspaceSubmissionGoal(config?.submissionGoal);
-    response.json({ data: rows.map((row) => toReviewerBoardRow(row, submissionGoal, activeReviewerCount)) });
+    response.json({ data: rows.map((row) => {
+      if (!organization.groupWorkflowsEnabled) return toReviewerBoardRow(row, submissionGoal, activeReviewerCount);
+      const group = row.groupId ? byGroup.get(row.groupId) : undefined;
+      return toReviewerBoardRow({ ...row, submissionGoalOverride: group?.submissionGoal ? row.submissionGoalOverride ?? null : null }, group?.submissionGoal ?? 0, group?.submissionGoal ? group._count.members : 0);
+    }) });
   } catch (error) { next(error); }
 });
 
@@ -122,10 +130,27 @@ progressRouter.get("/summary", async (request, response, next) => {
       prisma.membership.count({ where: { organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } }),
     ]);
     const completedTargets = Number(completedRows[0]?.completed ?? 0n);
-    const reviewerConfig = reviewerScope ? await prisma.membership.findFirst({ where: { id: auth.membershipId, organizationId }, select: { submissionGoalOverride: true } }) : null;
+    const [organization, reviewerConfig, groupAggregate, groupResponseCount, legacySubmissionCount] = await Promise.all([
+      prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { groupWorkflowsEnabled: true } }),
+      reviewerScope ? prisma.membership.findFirst({
+        where: { id: auth.membershipId, organizationId },
+        select: {
+          groupId: true, submissionGoalOverride: true,
+          reviewerGroup: {
+            select: {
+              name: true, archivedAt: true, submissionGoal: true,
+              _count: { select: { members: { where: { role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } } } },
+            },
+          },
+        },
+      }) : Promise.resolve(null),
+      prisma.reviewerGroup.aggregate({ where: { organizationId, archivedAt: null }, _sum: { submissionGoal: true } }),
+      prisma.submission.count({ where: { organizationId, archivedAt: null, groupId: { not: null }, group: { archivedAt: null } } }),
+      prisma.submission.count({ where: { organizationId, archivedAt: null, groupId: null, ...(reviewerScope ?? {}) } }),
+    ]);
     const targetCount = config?.targetCount ?? organizationTargetCount;
     const submissionGoal = getWorkspaceSubmissionGoal(config?.submissionGoal);
-    response.json({ data: toProgressSummaryResponse({
+    const data = toProgressSummaryResponse({
       activeTargets,
       assignedTargets,
       completedTargets,
@@ -137,7 +162,16 @@ progressRouter.get("/summary", async (request, response, next) => {
       activeReviewerCount,
       reviewerAudience: Boolean(reviewerScope),
       reviewerGoalOverride: reviewerConfig?.submissionGoalOverride ?? null,
-    }) });
+    });
+    const group = reviewerConfig?.reviewerGroup;
+    const currentGroupCount = reviewerScope && reviewerConfig?.groupId ? await prisma.submission.count({ where: { organizationId, reviewerId: auth.membershipId, groupId: reviewerConfig.groupId, archivedAt: null } }) : 0;
+    const grouped = organization.groupWorkflowsEnabled;
+    const reviewerMetrics = getReviewerSubmissionMetrics(currentGroupCount, group?.submissionGoal ?? 0, group?.submissionGoal && !group.archivedAt ? group._count.members : 0, group?.submissionGoal ? reviewerConfig?.submissionGoalOverride : null);
+    response.json({ data: {
+      ...data, groupWorkflowsEnabled: grouped, groupGoalTotal: groupAggregate._sum.submissionGoal ?? 0, groupSubmissionCount: groupResponseCount, legacySubmissionCount, lifetimeResponseCount: responseCount,
+      ...(grouped && !reviewerScope ? { submissionGoal: groupAggregate._sum.submissionGoal ?? 0, submissionCompletionPercent: getSubmissionCompletionPercent(groupResponseCount, groupAggregate._sum.submissionGoal ?? 0) } : {}),
+      ...(grouped && reviewerScope ? { responseCount: currentGroupCount, groupName: group?.name ?? null, reviewerSubmissionGoal: reviewerMetrics.reviewerSubmissionGoal, reviewerSubmissionRatio: reviewerMetrics.submissionRatio, reviewerSubmissionsRemaining: reviewerMetrics.submissionsRemaining, reviewerSubmissionPercent: reviewerMetrics.submissionPercent, reviewerSubmissionGoalMet: reviewerMetrics.submissionGoalMet } : {}),
+    } });
   } catch (error) { next(error); }
 });
 

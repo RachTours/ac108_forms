@@ -28,6 +28,7 @@ export async function requestApi<T>(
     sessionId: string | null;
     fetcher?: typeof fetch;
     schema?: RuntimeSchema<T>;
+    version?: "v1" | "v2";
   },
 ): Promise<T> {
   if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) {
@@ -43,7 +44,7 @@ export async function requestApi<T>(
 
   let response: Response;
   try {
-    response = await (options.fetcher ?? fetch)(`/api/v1${path}`, {
+    response = await (options.fetcher ?? fetch)(`/api/${options.version ?? "v1"}${path}`, {
       ...init,
       method,
       headers,

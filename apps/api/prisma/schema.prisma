@@ -40,6 +40,7 @@ model Organization {
   passwordResetTokens PasswordResetToken[]
   theme               OrganizationTheme?
   reviewerGroups      ReviewerGroup[]
+  groupWorkflowsEnabled Boolean @default(false)
 }
 
 model User {
@@ -114,6 +115,7 @@ model Form {
   submissions        Submission[]
   reviewLinks        ReviewLink[]
   reviewerFormGrants ReviewerFormGrant[]
+  groupFormGrants ReviewerGroupFormGrant[]
 
   @@index([organizationId, status, updatedAt, id])
   @@unique([organizationId, id])
@@ -142,6 +144,7 @@ model ReviewTarget {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   archivedAt     DateTime?
+  assignmentPaused Boolean @default(false)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignments    Assignment[]
   submissions    Submission[]
@@ -156,12 +159,29 @@ model ReviewerGroup {
   name           String       @db.VarChar(100)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  submissionGoal Int?
+  archivedAt     DateTime?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members        Membership[]
+  forms          ReviewerGroupFormGrant[]
+  submissions    Submission[] @relation("SubmissionGroup")
+  reviewLinks    ReviewLink[] @relation("ReviewLinkGroup")
 
   @@unique([organizationId, id])
   @@unique([organizationId, name])
   @@index([organizationId, createdAt, id])
+}
+
+model ReviewerGroupFormGrant {
+  id             String @id @default(uuid()) @db.VarChar(36)
+  organizationId String @db.VarChar(36)
+  groupId        String @db.VarChar(36)
+  formId         String @db.VarChar(36)
+  group          ReviewerGroup @relation(fields: [organizationId, groupId], references: [organizationId, id], onDelete: Cascade, map: "GroupForm_group_org_fkey")
+  form           Form @relation(fields: [organizationId, formId], references: [organizationId, id], onDelete: Cascade, map: "GroupForm_form_org_fkey")
+
+  @@unique([organizationId, groupId, formId], map: "GroupForm_org_group_form_key")
+  @@index([organizationId, formId], map: "GroupForm_org_form_idx")
 }
 
 model ReviewerFormGrant {
@@ -202,6 +222,9 @@ model ReviewLink {
   expiresAt         DateTime?
   revokedAt         DateTime?
   createdAt         DateTime   @default(now())
+  groupId           String?    @db.VarChar(36)
+  accessPolicyVersion Int      @default(1)
+  group             ReviewerGroup? @relation("ReviewLinkGroup", fields: [organizationId, groupId], references: [organizationId, id], onDelete: Restrict, map: "ReviewLink_group_org_fkey")
   reviewer          Membership @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   form              Form?      @relation(fields: [formId], references: [id], onDelete: Cascade)
 
@@ -222,6 +245,8 @@ model Submission {
   reviewedAt     DateTime?
   archivedAt     DateTime?
   submittedAt    DateTime     @default(now())
+  groupId        String?      @db.VarChar(36)
+  group          ReviewerGroup? @relation("SubmissionGroup", fields: [organizationId, groupId], references: [organizationId, id], onDelete: Restrict, map: "Submission_group_org_fkey")
   form           Form         @relation(fields: [formId], references: [id], onDelete: Restrict)
   formVersion    FormVersion  @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
   target         ReviewTarget @relation(fields: [targetId], references: [id], onDelete: Restrict)
@@ -233,6 +258,7 @@ model Submission {
   @@index([organizationId, reviewerId, archivedAt, submittedAt, id], map: "Submission_review_filter_idx")
   @@index([organizationId, formId])
   @@index([organizationId, archivedAt, submittedAt, id])
+  @@index([organizationId, groupId, archivedAt, submittedAt, id], map: "Submission_group_filter_idx")
 }
 
 model ProgressConfig {

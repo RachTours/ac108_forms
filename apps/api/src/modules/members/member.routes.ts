@@ -15,8 +15,10 @@ import { InvitationAcceptanceError, parseInvitationAcceptanceInput, resolveInvit
 import { toMemberSummary } from "./member-summary.js";
 import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
-import { invitationCreateRequestSchema, memberListResponseSchema, reviewerSettingsRequestSchema } from "@reviewroom/contracts";
+import { invitationCreateRequestSchema, memberListResponseSchema, reviewerMemberListResponseSchema, reviewerSettingsRequestSchema, memberUpdateRequestSchema } from "@reviewroom/contracts";
 import { loadMemberCounts } from "./member-counts.js";
+
+import { bumpGroupVersions } from "./group-version.js";
 
 export const memberRouter = Router();
 const memberIdSchema = z.string().uuid();
@@ -38,9 +40,9 @@ memberRouter.get("/", requireSession, requirePermission("members", "read"), asyn
       orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
     });
     const counts = await loadMemberCounts(prisma, organizationId, members.map(({ id }) => id));
-    const body = memberListResponseSchema.parse({
-      data: members.map((member) => toMemberSummary({ ...member, _count: counts.get(member.id) ?? { assignments: 0, reviewLinks: 0 } })),
-    });
+    const rows = members.map((member) => toMemberSummary({ ...member, _count: counts.get(member.id) ?? { assignments: 0, reviewLinks: 0 } }));
+    const version2 = request.baseUrl.startsWith("/api/v2/");
+    const body = version2 ? reviewerMemberListResponseSchema.parse({ data: rows }) : memberListResponseSchema.parse({ data: rows.map(({ group: _group, submissionGoalOverride: _goal, formAssignmentsConfigured: _configured, assignedFormIds: _forms, ...legacy }) => legacy) });
     response.json(body);
   } catch (error) { next(error); }
 });
@@ -245,7 +247,7 @@ memberRouter.delete("/:membershipId/password-reset-tokens/:resetTokenId", requir
 memberRouter.patch("/:membershipId", requireSession, requirePermission("members", "update"), requireCsrf, async (request, response, next) => {
   try {
     const membershipId = memberIdSchema.parse(request.params.membershipId);
-    const input = reviewerSettingsRequestSchema.parse(request.body);
+    const input = request.baseUrl.startsWith("/api/v2/") ? reviewerSettingsRequestSchema.parse(request.body) : memberUpdateRequestSchema.parse(request.body) as ReturnType<typeof reviewerSettingsRequestSchema.parse>;
     const auth = request.auth!;
     const updated = await prisma.$transaction(async (transaction) => {
       await lockAssignmentReviewer(transaction, auth.organizationId, membershipId);
@@ -255,7 +257,7 @@ memberRouter.patch("/:membershipId", requireSession, requirePermission("members"
       if (current.role === "OWNER" && (input.role !== undefined || input.status === "ARCHIVED")) throw new HttpError(409, "OWNER_PROTECTED", "Transfer ownership before changing the owner account.");
       if ((input.groupId !== undefined || input.submissionGoalOverride !== undefined || input.formIds !== undefined) && current.role !== "REVIEWER") throw new HttpError(400, "REVIEWER_SETTINGS_ONLY", "These settings apply to reviewers only.");
       if (input.groupId) {
-        const group = await transaction.reviewerGroup.findFirst({ where: { id: input.groupId, organizationId: auth.organizationId }, select: { id: true } });
+        const group = await transaction.reviewerGroup.findFirst({ where: { id: input.groupId, organizationId: auth.organizationId, archivedAt: null }, select: { id: true } });
         if (!group) throw new HttpError(404, "GROUP_NOT_FOUND", "Reviewer group not found.");
       }
       if (input.formIds) {
@@ -274,13 +276,14 @@ memberRouter.patch("/:membershipId", requireSession, requirePermission("members"
         ...(input.formIds !== undefined ? { formAssignmentsConfigured: input.formIds !== null } : {}),
       };
       const saved = await transaction.membership.update({ where: { id: current.id }, data: updateData });
+      await bumpGroupVersions(transaction, auth.organizationId, [current.groupId, saved.groupId]);
       if (input.status === "ARCHIVED" || input.role === "ADMIN") {
         await transaction.session.deleteMany({ where: { membershipId: current.id } });
         if (current.role === "REVIEWER") await removeReviewerAssignments(transaction, { organizationId: auth.organizationId, reviewerId: current.id, actorId: auth.userId, reason: input.status === "ARCHIVED" ? "reviewer-archived" : "reviewer-promoted" });
         await transaction.reviewLink.updateMany({ where: { reviewerId: current.id, revokedAt: null }, data: { revokedAt: new Date(), activeReviewerKey: null } });
       }
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "MEMBER_UPDATED", entityType: "Membership", entityId: current.id, metadata: input } });
-      if ((saved.status === "ACTIVE" && saved.role === "REVIEWER" && current.user.status === "ACTIVE") || input.status === "ARCHIVED" || input.role === "ADMIN") {
+      if ((saved.status === "ACTIVE" && saved.role === "REVIEWER" && current.user.status === "ACTIVE" && (input.status === "ACTIVE" || input.role === "REVIEWER")) || input.status === "ARCHIVED" || input.role === "ADMIN") {
         await autoAssignUnassignedTargets(transaction, { organizationId: auth.organizationId, actorId: auth.userId, source: "auto-balance-reviewer-updated" });
       }
       return saved;
@@ -299,6 +302,7 @@ memberRouter.delete("/:membershipId", requireSession, requirePermission("members
       if (!member) throw new HttpError(404, "MEMBER_NOT_FOUND", "Team member not found.");
       if (member.role === "OWNER") throw new HttpError(409, "OWNER_PROTECTED", "Transfer ownership before removing the owner account.");
       await transaction.membership.update({ where: { id: member.id }, data: { status: "ARCHIVED" } });
+      await bumpGroupVersions(transaction, auth.organizationId, [member.groupId]);
       await transaction.session.deleteMany({ where: { membershipId: member.id } });
       if (member.role === "REVIEWER") await removeReviewerAssignments(transaction, { organizationId: auth.organizationId, reviewerId: member.id, actorId: auth.userId, reason: "reviewer-archived" });
       if (member.role === "REVIEWER") await autoAssignUnassignedTargets(transaction, { organizationId: auth.organizationId, actorId: auth.userId, source: "auto-balance-reviewer-removed" });

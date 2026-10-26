@@ -143,6 +143,7 @@ export async function setAssignment(
 
   const writeVersion = current && input.expectedUpdatedAt === null && !currentReviewerEligible ? current.updatedAt : input.expectedUpdatedAt;
 
+  await transaction.reviewTarget.updateMany({ where: { id: input.targetId, organizationId: input.organizationId }, data: { assignmentPaused: false } });
   const now = new Date();
   let saved;
   if (!current) {
@@ -205,7 +206,7 @@ export async function autoAssignUnassignedTargets(
   });
 
   const targets = await transaction.reviewTarget.findMany({
-    where: {
+    where: { assignmentPaused: false,
       organizationId: input.organizationId,
       status: "ACTIVE",
       archivedAt: null,
@@ -277,6 +278,7 @@ export async function removeAssignment(
   }
   const removed = await transaction.assignment.deleteMany({ where: { id: current.id, organizationId: input.organizationId, updatedAt: input.expectedUpdatedAt } });
   if (removed.count !== 1) throw new HttpError(409, "ASSIGNMENT_CHANGED", "Another administrator changed this assignment. Refresh and try again.");
+  await transaction.reviewTarget.updateMany({ where: { id: input.targetId, organizationId: input.organizationId }, data: { assignmentPaused: true } });
   await transaction.auditEvent.create({ data: {
     organizationId: input.organizationId,
     actorId: input.actorId,

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { serverApi } from "../../../src/lib/api";
 import { TeamManager } from "../../../src/features/team/team-manager";
-import { invitationListResponseSchema, memberListResponseSchema, sessionResponseSchema } from "@reviewroom/contracts";
+import { invitationListResponseSchema, reviewerMemberListResponseSchema, sessionResponseSchema } from "@reviewroom/contracts";
 import { requireWorkspaceRole } from "../../../src/lib/page-access";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatNumber, type Locale } from "../../../src/lib/locale";
@@ -32,7 +32,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
   const [memberResult, sessionResult] = await Promise.allSettled([serverApi("/members"), serverApi("/auth/session")]);
   if (memberResult.status === "fulfilled" && memberResult.value.ok) {
-    const parsed = memberListResponseSchema.safeParse(await memberResult.value.json());
+    const parsed = reviewerMemberListResponseSchema.safeParse(await memberResult.value.json());
     if (parsed.success) members = parsed.data.data;
     else memberError = true;
   } else memberError = true;

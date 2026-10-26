@@ -7,6 +7,8 @@ import { assignmentListResponseSchema, assignmentMutationResponseSchema, assignm
 import { useApi } from "../../lib/client-api";
 import { buildAssignmentListUrl, readAssignmentFilters, type AssignmentState } from "./assignment-view";
 import { useTranslations } from "next-intl";
+import { useWorkspaceSession } from "../../components/workspace-shell";
+import { withSessionSelector } from "../../lib/session-url";
 
 type Reviewer = { id: string; user: { displayName: string; email: string } };
 type AssignmentTarget = {
@@ -20,6 +22,7 @@ type AssignmentPage = { data: AssignmentTarget[]; nextCursor: string | null; cou
 export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, initialSearch }: { reviewers: Reviewer[]; onAssignmentsChanged: () => void; initialSearch: string }) {
   const t = useTranslations("team");
   const api = useApi();
+  const session = useWorkspaceSession();
   const [targets, setTargets] = useState<AssignmentTarget[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -45,8 +48,8 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
 
   useEffect(() => {
     const queryUrl = buildAssignmentListUrl({ search, state, reviewerId, cursor: null });
-    window.history.replaceState(null, "", `${window.location.pathname}${queryUrl.slice("/assignments".length)}`);
-  }, [search, state, reviewerId]);
+    window.history.replaceState(null, "", withSessionSelector(`${window.location.pathname}${queryUrl.slice("/assignments".length)}`, session.sessionId));
+  }, [search, state, reviewerId, session.sessionId]);
 
   useEffect(() => {
     let active = true;
@@ -75,7 +78,8 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
 
   async function save(target: AssignmentTarget) {
     const nextReviewerId = selectedReviewers[target.id] ?? "";
-    if (!nextReviewerId || nextReviewerId === target.assignment?.reviewerId) return;
+    if (!nextReviewerId) { if (target.assignment) await unassign(target); return; }
+    if (nextReviewerId === target.assignment?.reviewerId) return;
     const nextReviewer = reviewers.find((reviewer) => reviewer.id === nextReviewerId);
     if (!nextReviewer) return;
     if (target.assignment && !window.confirm(t("reassignConfirm", { person: target.displayName, from: target.assignment.reviewer.displayName, to: nextReviewer.user.displayName }))) return;
@@ -128,10 +132,10 @@ export function ReviewerAssignmentManager({ reviewers, onAssignmentsChanged, ini
         const hasChanges = selected !== (target.assignment?.reviewerId ?? "");
         return <article className="assignment-workspace-row" key={target.id}>
           <span className="avatar avatar-soft" aria-hidden="true">{target.displayName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span>
-          <span className="assignment-workspace-person"><strong>{target.displayName}</strong><small>{target.email ?? "No email added"}</small></span>
+          <span className="assignment-workspace-person"><strong>{target.displayName}</strong><small>{target.email ?? t("noEmail")}</small></span>
           <span className="assignment-workspace-current"><small>{t("currentlyAssigned")}</small><strong>{target.assignment?.reviewer.displayName ?? t("unassigned")}</strong></span>
-          <label className="assignment-workspace-select"><span>{t("assignReviewer")}</span><select aria-label={`${t("assignReviewer")} · ${target.displayName}`} value={selected} onChange={(event) => setSelectedReviewers((current) => ({ ...current, [target.id]: event.target.value }))} disabled={reviewers.length === 0 || busyTarget !== null}><option value="">{t("chooseReviewer")}</option>{reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.user.displayName}</option>)}</select></label>
-          <span className="assignment-workspace-actions"><button type="button" className="button button-small button-primary" disabled={!hasChanges || !selected || busyTarget !== null} onClick={() => void save(target)}>{busyTarget === target.id ? t("saving") : target.assignment ? t("saveChange") : t("assign")}</button>{target.assignment && <button type="button" className="button button-small" disabled={busyTarget !== null} onClick={() => void unassign(target)}>{t("unassign")}</button>}</span>
+          <label className="assignment-workspace-select"><span>{t("assignReviewer")}</span><select aria-label={`${t("assignReviewer")} · ${target.displayName}`} value={selected} onChange={(event) => setSelectedReviewers((current) => ({ ...current, [target.id]: event.target.value }))} disabled={reviewers.length === 0 || busyTarget !== null}><option value="">{t("noneUnassigned")}</option>{reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.user.displayName}</option>)}</select></label>
+          <span className="assignment-workspace-actions"><button type="button" className="button button-small button-primary" disabled={!hasChanges || busyTarget !== null} onClick={() => void save(target)}>{busyTarget === target.id ? t("saving") : target.assignment ? t("saveChange") : t("assign")}</button>{target.assignment && <button type="button" className="button button-small" disabled={busyTarget !== null} onClick={() => void unassign(target)}>{t("unassign")}</button>}</span>
         </article>;
       })}
     </div>}

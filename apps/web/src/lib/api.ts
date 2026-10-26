@@ -11,11 +11,11 @@ export async function serverApi(path: string, init: RequestInit = {}): Promise<R
   headers.set("x-reviewroom-audience", audience === "reviewer" ? "reviewer" : "admin");
   const sessionId = incomingHeaders.get("x-reviewroom-session-id");
   if (sessionId) headers.set("x-reviewroom-session-id", sessionId);
-  return fetch(`${apiOrigin}/api/v1${path}`, { ...init, headers, cache: "no-store" });
+  return fetch(`${apiOrigin}/api/v2${path}`, { ...init, headers, cache: "no-store" });
 }
 
 export async function publicApi(path: string): Promise<Response> {
-  return fetch(`${apiOrigin}/api/v1${path}`, { cache: "no-store" });
+  return fetch(`${apiOrigin}/api/v2${path}`, { cache: "no-store" });
 }
 
 export async function readData<T>(response: Response, parse: (value: unknown) => T): Promise<T> {

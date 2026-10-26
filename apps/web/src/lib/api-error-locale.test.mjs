@@ -13,3 +13,11 @@ test("unknown API errors use a localized generic message", () => {
   assert.equal(localizeApiError("NEW_SERVER_CODE", "fr"), "Une erreur s’est produite. Veuillez réessayer.");
   assert.equal(localizeApiError("NEW_SERVER_CODE", "ar"), "حدث خطأ. يرجى المحاولة مرة أخرى.");
 });
+
+test("group concurrency and activation failures have actionable messages in every language",()=>{
+ for(const code of ["GROUP_CHANGED","GROUP_SETUP_INCOMPLETE","GROUP_FORM_REQUIRED"]){
+  const values=["en","fr","ar"].map(locale=>localizeApiError(code,locale));
+  assert.equal(new Set(values).size,3);
+  for(const locale of ["en","fr","ar"])assert.notEqual(localizeApiError(code,locale),localizeApiError("UNKNOWN",locale));
+ }
+});

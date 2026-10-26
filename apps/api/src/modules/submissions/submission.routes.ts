@@ -8,6 +8,8 @@ import { getReviewedPersonName } from "./submission-display.js";
 import { permanentlyDeleteSubmission, setSubmissionArchived } from "./submission-lifecycle.js";
 import { requestedReviewerScope } from "./submission-scope.js";
 
+import { toLegacyDefinition } from "../forms/legacy-definition.js";
+
 export const submissionRouter = Router();
 const idSchema = z.string().uuid();
 const archiveBatchSchema = z.object({
@@ -29,12 +31,12 @@ submissionRouter.get("/", async (request, response, next) => {
     const reviewerId = requestedReviewerScope(auth.role, auth.membershipId, requestedReviewerId);
     const rows = await prisma.submission.findMany({
       where: { organizationId: auth.organizationId, archivedAt: null, ...(reviewerId ? { reviewerId } : {}), ...(reviewed === undefined ? {} : { reviewedAt: reviewed === "true" ? { not: null } : null }) },
-      include: { target: { select: { id: true, displayName: true } }, form: { select: { id: true, title: true } }, reviewer: { include: { user: { select: { displayName: true } } } }, formVersion: { select: { version: true, definition: true } } },
+      include: { target: { select: { id: true, displayName: true } }, form: { select: { id: true, title: true } }, reviewer: { select: { user: { select: { displayName: true } } } }, formVersion: { select: { version: true, definition: true } } },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }], take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit);
-    response.json({ data: page.map(({ formVersion, answers, target, ...row }) => ({ ...row, target, formVersion: { version: formVersion.version }, reviewedPersonName: getReviewedPersonName(formVersion.definition, answers, target.displayName) })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
+    response.json({ data: page.map(({ formVersion, answers, target, ...row }) => ({ id: row.id, formId: row.formId, formVersionId: row.formVersionId, targetId: row.targetId, reviewerId: row.reviewerId, reviewedAt: row.reviewedAt, archivedAt: row.archivedAt, submittedAt: row.submittedAt, form: row.form, reviewer: row.reviewer, target, formVersion: { version: formVersion.version }, reviewedPersonName: getReviewedPersonName(formVersion.definition, answers, target.displayName) })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
   } catch (error) { next(error); }
 });
 
@@ -50,12 +52,12 @@ submissionRouter.get("/archived", requirePermission("submissions", "read"), asyn
     }
     const rows = await prisma.submission.findMany({
       where: { organizationId: auth.organizationId, archivedAt: { not: null }, ...(reviewerId ? { reviewerId } : {}) },
-      include: { target: { select: { id: true, displayName: true } }, form: { select: { id: true, title: true } }, reviewer: { include: { user: { select: { displayName: true } } } }, formVersion: { select: { version: true, definition: true } } },
+      include: { target: { select: { id: true, displayName: true } }, form: { select: { id: true, title: true } }, reviewer: { select: { user: { select: { displayName: true } } } }, formVersion: { select: { version: true, definition: true } } },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }], take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit);
-    response.json({ data: page.map(({ formVersion, answers, target, ...row }) => ({ ...row, target, formVersion: { version: formVersion.version }, reviewedPersonName: getReviewedPersonName(formVersion.definition, answers, target.displayName) })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
+    response.json({ data: page.map(({ formVersion, answers, target, ...row }) => ({ id: row.id, formId: row.formId, formVersionId: row.formVersionId, targetId: row.targetId, reviewerId: row.reviewerId, reviewedAt: row.reviewedAt, archivedAt: row.archivedAt, submittedAt: row.submittedAt, form: row.form, reviewer: row.reviewer, target, formVersion: { version: formVersion.version }, reviewedPersonName: getReviewedPersonName(formVersion.definition, answers, target.displayName) })), nextCursor: hasMore ? page.at(-1)?.id ?? null : null });
   } catch (error) { next(error); }
 });
 
@@ -118,9 +120,9 @@ submissionRouter.get("/:submissionId", async (request, response, next) => {
     const archivedQuery = z.enum(["true"]).optional().parse(request.query.archived) === "true";
     if (archivedQuery && auth.role === "REVIEWER") throw new HttpError(404, "SUBMISSION_NOT_FOUND", "Submission not found.");
     const includeArchived = archivedQuery;
-    const submission = await prisma.submission.findFirst({ where: { id: submissionId, organizationId: auth.organizationId, archivedAt: includeArchived ? { not: null } : null, ...(auth.role === "REVIEWER" ? { reviewerId: auth.membershipId } : {}) }, include: { target: { select: { id: true, displayName: true } }, form: { select: { id: true, title: true } }, reviewer: { include: { user: { select: { displayName: true } } } }, formVersion: { select: { version: true, definition: true } } } });
+    const submission = await prisma.submission.findFirst({ where: { id: submissionId, organizationId: auth.organizationId, archivedAt: includeArchived ? { not: null } : null, ...(auth.role === "REVIEWER" ? { reviewerId: auth.membershipId } : {}) }, include: { target: { select: { id: true, displayName: true } }, form: { select: { id: true, title: true } }, reviewer: { select: { user: { select: { displayName: true } } } }, formVersion: { select: { version: true, definition: true } } } });
     if (!submission) throw new HttpError(404, "SUBMISSION_NOT_FOUND", "Submission not found.");
-    response.json({ data: { ...submission, reviewedPersonName: getReviewedPersonName(submission.formVersion.definition, submission.answers, submission.target.displayName) } });
+    response.json({ data: { ...submission, formVersion: { ...submission.formVersion, definition: request.originalUrl.startsWith("/api/v2/") ? submission.formVersion.definition : toLegacyDefinition(submission.formVersion.definition) }, reviewedPersonName: getReviewedPersonName(submission.formVersion.definition, submission.answers, submission.target.displayName) } });
   } catch (error) { next(error); }
 });
 

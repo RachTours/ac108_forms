@@ -16,10 +16,10 @@ test("active assignment reads exclude inactive reviewers and archived targets", 
 });
 
 function fixture({ assignment = null, target = { id: targetId }, reviewer = { id: reviewerId } } = {}) {
-  const state = { assignment: assignment && { id: "assignment-a", organizationId, targetId, reviewerId: "reviewer-old", createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), ...assignment }, audits: [], locks: [] };
+  const state = { assignment: assignment && { id: "assignment-a", organizationId, targetId, reviewerId: "reviewer-old", createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), ...assignment }, audits: [], locks: [], assignmentPaused: false };
   const tx = {
     $queryRaw: async (query) => { state.locks.push(query); return []; },
-    reviewTarget: { findFirst: async ({ where }) => where.id === targetId && where.organizationId === organizationId && target ? target : null },
+    reviewTarget: { updateMany: async ({ data }) => { state.assignmentPaused = data.assignmentPaused; return { count: 1 }; }, findFirst: async ({ where }) => where.id === targetId && where.organizationId === organizationId && target ? target : null },
     membership: { findFirst: async ({ where }) => where.id === reviewerId && where.organizationId === organizationId && reviewer ? reviewer : null },
     assignment: {
       findUnique: async () => state.assignment,
@@ -150,7 +150,8 @@ test("auto assignment balances unassigned targets across active reviewers and pr
       },
     },
     reviewTarget: {
-      findMany: async () => { events.push("targets"); return targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })); },
+      updateMany: async () => ({ count: 1 }),
+      findMany: async ({where}) => { assert.equal(where.assignmentPaused, false); events.push("targets"); return targetIds.filter((id) => !assignments.has(id)).map((id) => ({ id, organizationId, status: "ACTIVE", archivedAt: null })); },
       findFirst: async ({ where }) => targetIds.includes(where.id) ? { id: where.id } : null,
     },
     auditEvent: { create: async ({ data }) => { audits.push(data); } },

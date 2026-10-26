@@ -19,7 +19,7 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, request, respo
       response.status(error.status).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred.", requestId } });
       return;
     }
-    response.status(error.status).json({ error: { code: error.code, message: error.message, requestId, ...(error.fieldId ? { fieldId: error.fieldId } : {}) } });
+    response.status(error.status).json({ error: { code: error.code, message: error.message, requestId, ...(error.fieldId && request.originalUrl?.startsWith("/api/v2/") ? { fieldId: error.fieldId } : {}) } });
     return;
   }
   process.stderr.write(`${formatInternalErrorLog(error, request, requestId)}\n`);

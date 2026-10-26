@@ -5,15 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, Files, LayoutDashboard, Link2, LogOut, Settings2, UsersRound, UserRoundCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { SessionResponse } from "@reviewroom/contracts";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { getNavigationForRole, homePathForRole, signInPathForRole } from "../lib/workspace-access";
 import { workspaceThemeCssVariables, type safeWorkspaceTheme } from "../lib/workspace-theme";
 import { withSessionSelector, workspaceNavigationTarget } from "../lib/session-url";
 import { requestSignOut, signOutErrorMessage } from "../lib/sign-out";
 import { LanguageSwitcher } from "./language-switcher";
 import { PlatformThemeToggle } from "./platform-theme-toggle";
+import { workspaceUpdateKey } from "../lib/workspace-updates";
 
 const SessionContext = createContext<SessionResponse | null>(null);
+const RevisionContext = createContext(0);
+export function useWorkspaceRevision() { return useContext(RevisionContext); }
 export function useWorkspaceSession(): SessionResponse {
   const session = useContext(SessionContext);
   if (!session) throw new Error("Workspace session is unavailable.");
@@ -24,6 +27,24 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let lastRefresh = 0;
+    function refresh(force = false) {
+      if (document.visibilityState !== "visible") return;
+      if (!force && Date.now() - lastRefresh < 10000) return;
+      lastRefresh = Date.now(); setRevision((value) => value + 1); router.refresh();
+    }
+    function focused() { refresh(); }
+    function localUpdate(event: Event) { if ((event as CustomEvent<{ organizationId: string }>).detail?.organizationId === session.organizationId) refresh(true); }
+    function storage(event: StorageEvent) {
+      if (event.key !== workspaceUpdateKey || !event.newValue) return;
+      try { if (JSON.parse(event.newValue).organizationId === session.organizationId) refresh(true); } catch { /* Ignore unrelated or malformed browser messages. */ }
+    }
+    window.addEventListener("focus", focused); document.addEventListener("visibilitychange", focused);
+    window.addEventListener(workspaceUpdateKey, localUpdate); window.addEventListener("storage", storage);
+    return () => { window.removeEventListener("focus", focused); document.removeEventListener("visibilitychange", focused); window.removeEventListener(workspaceUpdateKey, localUpdate); window.removeEventListener("storage", storage); };
+  }, [router, session.organizationId]);
   const [signOutError, setSignOutError] = useState<string>();
   const t = useTranslations("navigation");
   const icons: Record<string, typeof LayoutDashboard> = { "Overview": LayoutDashboard, "People": UsersRound, "Submissions": ClipboardList, "My form links": Link2, "Forms": Files, "Team access": UserRoundCog, "Settings": Settings2 };
@@ -67,7 +88,7 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
   const active = navigation.find((item) => item.href === pathname || (item.href !== "/admin/overview" && item.href !== "/reviewer/progress" && pathname.startsWith(`${item.href}/`)))?.label ?? t("workspace");
   const initials = session.user.displayName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
 
-  return <SessionContext.Provider value={session}><div className="app-shell" onClickCapture={preserveTabSession} style={workspaceThemeCssVariables(theme) as React.CSSProperties}>
+  return <SessionContext.Provider value={session}><RevisionContext.Provider value={revision}><div className="app-shell" onClickCapture={preserveTabSession} style={workspaceThemeCssVariables(theme) as React.CSSProperties}>
     <aside className="sidebar" aria-label={t("workspace")}>
       <Link className="brand" href={withSessionSelector(homePathForRole(session.role), session.sessionId)}><span className="brand-mark">{session.role === "REVIEWER" ? "R" : "A"}</span><span>{panelName}</span></Link>
       <div className="nav-label">{t("workspace")}</div>
@@ -81,5 +102,5 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
       {children}
       <nav className="mobile-nav" aria-label={t("main")}>{navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={withSessionSelector(href, session.sessionId)} aria-current={pathname === href ? "page" : undefined}><Icon size={17} /><span>{label}</span></Link>)}</nav>
     </main>
-  </div></SessionContext.Provider>;
+  </div></RevisionContext.Provider></SessionContext.Provider>;
 }

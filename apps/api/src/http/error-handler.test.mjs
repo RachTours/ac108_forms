@@ -6,7 +6,7 @@ test("answer errors expose a safe field identifier while generic errors keep the
   const { HttpError } = await import("../../dist/http/errors.js");
   const response = { locals: {}, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   const id = "11111111-1111-4111-8111-111111111111";
-  errorHandler(new HttpError(422, "INVALID_ANSWER", "Check this answer.", id), {}, response, () => {});
+  errorHandler(new HttpError(422, "INVALID_ANSWER", "Check this answer.", id), { originalUrl: "/api/v2/public/review/token/submissions" }, response, () => {});
   assert.equal(response.statusCode, 422);
   assert.equal(response.body.error.fieldId, id);
   assert.equal("answers" in response.body.error, false);
@@ -99,4 +99,11 @@ test("root route fallback derives a path without retaining query credentials", a
   const event = JSON.parse(line);
   assert.equal(event.route, "/api/v1/members/:id");
   assert.doesNotMatch(line, /password|private|aaaaaaaa/);
+});
+
+test("legacy answer error envelopes do not add v2 field metadata", async () => {
+ const { HttpError } = await import("../../dist/http/errors.js");
+ const response = { locals: {}, status() { return this; }, json(body) { this.body=body; } };
+ errorHandler(new HttpError(422,"INVALID_ANSWER","Check answer.","field-id"),{originalUrl:"/api/v1/public/review/token/submissions"},response,()=>{});
+ assert.deepEqual(response.body.error,{code:"INVALID_ANSWER",message:"Check answer.",requestId:undefined});
 });

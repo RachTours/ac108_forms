@@ -34,14 +34,13 @@ function runNpm(args) {
 }
 
 runNpm(["run", "db:generate"]);
-runNpm(["run", "db:assignment-preflight", "--workspace", "@reviewroom/api"]);
-runNpm(["run", "db:migrate"]);
 runNpm(["run", "build", "--workspace", "@reviewroom/contracts"]);
 runNpm(["run", "build", "--workspace", "@reviewroom/domain"]);
+runNpm(["run", "build", "--workspace", "@reviewroom/api"]);
+runNpm(["run", "db:assignment-preflight", "--workspace", "@reviewroom/api"]);
+runNpm(["run", "db:migrate"]);
 
 if (bootstrapRequested) {
   runNpm(["run", "db:bootstrap-owner", "--workspace", "@reviewroom/api"]);
   process.stdout.write("One-time owner bootstrap completed. Remove BOOTSTRAP_OWNER_ON_DEPLOY and all BOOTSTRAP_* variables now.\n");
 }
-
-runNpm(["run", "build", "--workspace", "@reviewroom/api"]);

@@ -17,20 +17,20 @@ organizationRouter.get("/theme", requireSession, async (request, response, next)
   try {
     const platform = z.enum(["admin", "reviewer"]).default(request.auth!.role === "REVIEWER" ? "reviewer" : "admin").parse(request.query.platform);
     const theme = await prisma.organizationTheme.findUnique({ where: { organizationId: request.auth!.organizationId } });
-    response.json({ data: { ...resolvePlatformTheme(theme, platform), updatedAt: theme?.updatedAt ?? null } });
+    response.json({ data: { ...resolvePlatformTheme(theme && !request.originalUrl.startsWith("/api/v2/") ? { accentColor: theme.accentColor, fontPreset: theme.fontPreset, surfacePreset: theme.surfacePreset, formStyle: theme.formStyle } : theme, platform), updatedAt: theme?.updatedAt ?? null } });
   } catch (error) { next(error); }
 });
 
 organizationRouter.put("/theme", requireSession, requirePermission("settings", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const input = themeSchema.parse(request.body);
-    const platform = request.query.platform === undefined ? undefined : z.enum(["admin", "reviewer"]).parse(request.query.platform);
+    const platform = !request.originalUrl.startsWith("/api/v2/") || request.query.platform === undefined ? undefined : z.enum(["admin", "reviewer"]).parse(request.query.platform);
     const auth = request.auth!;
     const theme = await prisma.$transaction(async (transaction) => {
       const appearance = platform ? platform === "admin" ? { adminAppearance: input } : { reviewerAppearance: input } : input;
       const saved = await transaction.organizationTheme.upsert({ where: { organizationId: auth.organizationId }, create: { organizationId: auth.organizationId, ...appearance }, update: appearance });
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "WORKSPACE_THEME_UPDATED", entityType: "Organization", entityId: auth.organizationId, metadata: input } });
-      return { ...resolvePlatformTheme(saved, platform ?? "admin"), updatedAt: saved.updatedAt };
+      return { ...resolvePlatformTheme(!request.originalUrl.startsWith("/api/v2/") ? { accentColor: saved.accentColor, fontPreset: saved.fontPreset, surfacePreset: saved.surfacePreset, formStyle: saved.formStyle } : saved, platform ?? "admin"), updatedAt: saved.updatedAt };
     });
     response.json({ data: theme });
   } catch (error) { next(error); }

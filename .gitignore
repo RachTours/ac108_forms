@@ -19,3 +19,10 @@ coverage/
 apps/api/src/generated/
 *.log
 *.tsbuildinfo
+
+# Local QA builds, snapshots and synthetic credentials
+output/group-workflows-*
+output/theme-ui-audit/
+apps/web/.next-groups-production-check/
+apps/web/.next-theme-ui-*/
+apps/web/.next-*/
