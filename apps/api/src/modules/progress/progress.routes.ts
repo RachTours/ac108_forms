@@ -6,6 +6,8 @@ import { requireCsrf, requireSession } from "../../middleware/require-session.js
 import { requirePermission } from "../../middleware/require-permission.js";
 import { getReviewerSubmissionMetrics, getSubmissionCompletionPercent, getWorkspaceSubmissionGoal } from "./progress-metrics.js";
 
+import { currentGroupSubmissionWhere } from "../members/group-history.js";
+
 export const progressRouter = Router();
 progressRouter.use(requireSession);
 
@@ -82,7 +84,6 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
           WHERE authored.organizationId = m.organizationId
             AND authored.reviewerId = m.id
             AND authored.archivedAt IS NULL
-            AND (${!organization.groupWorkflowsEnabled} OR authored.groupId = m.groupId)
         ) AS submissionCount
       FROM Membership m
       INNER JOIN User u ON u.id = m.userId AND u.status = 'ACTIVE'
@@ -145,7 +146,7 @@ progressRouter.get("/summary", async (request, response, next) => {
         },
       }) : Promise.resolve(null),
       prisma.reviewerGroup.aggregate({ where: { organizationId, archivedAt: null }, _sum: { submissionGoal: true } }),
-      prisma.submission.count({ where: { organizationId, archivedAt: null, groupId: { not: null }, group: { archivedAt: null } } }),
+      prisma.submission.count({ where: currentGroupSubmissionWhere(organizationId) }),
       prisma.submission.count({ where: { organizationId, archivedAt: null, groupId: null, ...(reviewerScope ?? {}) } }),
     ]);
     const targetCount = config?.targetCount ?? organizationTargetCount;
@@ -164,7 +165,7 @@ progressRouter.get("/summary", async (request, response, next) => {
       reviewerGoalOverride: reviewerConfig?.submissionGoalOverride ?? null,
     });
     const group = reviewerConfig?.reviewerGroup;
-    const currentGroupCount = reviewerScope && reviewerConfig?.groupId ? await prisma.submission.count({ where: { organizationId, reviewerId: auth.membershipId, groupId: reviewerConfig.groupId, archivedAt: null } }) : 0;
+    const currentGroupCount = reviewerScope && reviewerConfig?.groupId && !group?.archivedAt ? responseCount : 0;
     const grouped = organization.groupWorkflowsEnabled;
     const reviewerMetrics = getReviewerSubmissionMetrics(currentGroupCount, group?.submissionGoal ?? 0, group?.submissionGoal && !group.archivedAt ? group._count.members : 0, group?.submissionGoal ? reviewerConfig?.submissionGoalOverride : null);
     response.json({ data: {

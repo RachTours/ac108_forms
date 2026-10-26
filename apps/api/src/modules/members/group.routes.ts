@@ -7,6 +7,7 @@ import { requirePermission } from "../../middleware/require-permission.js";
 import { lockAssignmentOrganization } from "../assignments/assignment.service.js";
 import { reviewerGroupWriteSchema } from "@reviewroom/contracts";
 
+import { currentGroupSubmissionWhere } from "./group-history.js";
 import { bumpGroupVersions } from "./group-version.js";
 
 export const reviewerGroupRouter = Router();
@@ -54,10 +55,11 @@ reviewerGroupRouter.get("/", requirePermission("members", "read"), async (reques
     const state = z.enum(["active", "archived"]).default("active").parse(request.query.state);
     const [groups, counts] = await Promise.all([
       prisma.reviewerGroup.findMany({ where: { organizationId, archivedAt: state === "active" ? null : { not: null } }, select: { id: true, name: true, submissionGoal: true, archivedAt: true, createdAt: true, updatedAt: true, members: { where: activeReviewers, select: { id: true } }, forms: { select: { formId: true } } }, orderBy: [{ name: "asc" }, { id: "asc" }] }),
-      prisma.submission.groupBy({ by: ["groupId"], where: { organizationId, groupId: { not: null }, archivedAt: null }, _count: { _all: true } }),
+      state === "active"
+        ? prisma.submission.groupBy({ by: ["reviewerId"], where: currentGroupSubmissionWhere(organizationId), _count: { _all: true } }).then((rows) => new Map(rows.map((row) => [row.reviewerId, row._count._all])))
+        : prisma.submission.groupBy({ by: ["groupId"], where: { organizationId, groupId: { not: null }, archivedAt: null }, _count: { _all: true } }).then((rows) => new Map(rows.map((row) => [row.groupId!, row._count._all]))),
     ]);
-    const countMap = new Map(counts.map((row) => [row.groupId, row._count._all]));
-    response.json({ data: groups.map(({ members, forms, ...group }) => ({ ...group, memberCount: members.length, submissionCount: countMap.get(group.id) ?? 0, formIds: forms.map((form) => form.formId) })) });
+    response.json({ data: groups.map(({ members, forms, ...group }) => ({ ...group, memberCount: members.length, submissionCount: state === "active" ? members.reduce((sum, member) => sum + (counts.get(member.id) ?? 0), 0) : counts.get(group.id) ?? 0, formIds: forms.map((form) => form.formId) })) });
   } catch (error) { next(error); }
 });
 reviewerGroupRouter.post("/", requirePermission("members", "create"), requireCsrf, async (request, response, next) => {
@@ -154,9 +156,9 @@ reviewerGroupRouter.get("/:groupId/submissions", requirePermission("members", "r
     const auth = request.auth!, groupId = idSchema.parse(request.params.groupId);
     const limit = z.coerce.number().int().min(1).max(100).default(25).parse(request.query.limit);
     const cursor = request.query.cursor ? idSchema.parse(request.query.cursor) : undefined;
-    const group = await prisma.reviewerGroup.findFirst({ where: { id: groupId, organizationId: auth.organizationId }, select: { id: true, name: true } });
+    const group = await prisma.reviewerGroup.findFirst({ where: { id: groupId, organizationId: auth.organizationId }, select: { id: true, name: true, archivedAt: true } });
     if (!group) throw new HttpError(404, "GROUP_NOT_FOUND", "Reviewer group not found.");
-    const where = { organizationId: auth.organizationId, groupId, archivedAt: null };
+    const where = group.archivedAt ? { organizationId: auth.organizationId, groupId, archivedAt: null } : currentGroupSubmissionWhere(auth.organizationId, groupId);
     if (cursor && !await prisma.submission.findFirst({ where: { ...where, id: cursor }, select: { id: true } })) throw new HttpError(400, "INVALID_CURSOR", "Refresh this list.");
     const [rows, total] = await Promise.all([
       prisma.submission.findMany({ where, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), orderBy: [{ submittedAt: "desc" }, { id: "desc" }], take: limit + 1, select: { id: true, submittedAt: true, reviewedAt: true, target: { select: { displayName: true } }, form: { select: { title: true } }, formVersion: { select: { version: true } }, reviewer: { select: { user: { select: { displayName: true } } } } } }),

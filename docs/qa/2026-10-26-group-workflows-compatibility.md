@@ -1,5 +1,7 @@
 # Group workflows and production compatibility — local verification
 
+Update: the user subsequently approved past submission totals following current group membership. See [current-group history QA](2026-10-26-current-group-history.md). The evidence below records the preceding implementation.
+
 Date: 2026-10-26. Branch: codex/reviewer-groups-platform-themes. Nothing pushed or deployed.
 
 ## Behavior

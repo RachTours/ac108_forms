@@ -143,6 +143,7 @@ if (process.argv.includes("--cleanup")) {
     equal((await post(admin, "/groups/config", { enabled: true, confirmed: true }, 409)).error.code, "GROUP_SETUP_INCOMPLETE");
     await patch(admin, `/groups/${alpha.id}`, { submissionGoal: 20, formIds: [first.id], reviewerIds: [alice.id], reviewerGoals: [{ reviewerId: alice.id, goal: 10 }] });
     equal((await post(admin, "/groups/config", { enabled: true, confirmed: true }, 409)).error.code, "GROUP_SETUP_INCOMPLETE");
+    equal((await request(admin, "/groups")).data.find((row) => row.id === alpha.id).submissionCount, 1, "Earlier ungrouped submissions must count when the author joins a group.");
     await patch(admin, `/members/${bob.id}`, { groupId: beta.id, submissionGoalOverride: 12, formIds: [first.id] });
     await patch(admin, `/members/${alice.id}`, { formIds: [second.id] });
     // Hold the same policy lock, start issuance against the old disabled state,
@@ -216,19 +217,27 @@ if (process.argv.includes("--cleanup")) {
     let groups = reviewerGroupListResponseSchema.parse(await request(admin, "/groups")).data;
     equal(groups.find((row) => row.id === alpha.id).memberCount, 1);
     equal(groups.find((row) => row.id === beta.id).memberCount, 1);
-    equal(groups.find((row) => row.id === alpha.id).submissionCount, 3);
+    equal(groups.find((row) => row.id === alpha.id).submissionCount, 4);
     equal(groups.find((row) => row.id === beta.id).submissionCount, 0);
-    equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 3);
+    equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 4);
     const page = (await request(admin, `/groups/${alpha.id}/submissions?limit=2`)).data;
-    equal(page.total, 3); equal(page.submissions.length, 2); assert.ok(page.nextCursor);
+    equal(page.total, 4); equal(page.submissions.length, 2); assert.ok(page.nextCursor);
     equal(page.submissions.some((row) => "answers" in row), false);
     const next = (await request(admin, `/groups/${alpha.id}/submissions?limit=2&cursor=${page.nextCursor}`)).data;
-    equal(next.submissions.length, 1); equal(new Set([...page.submissions, ...next.submissions].map((row) => row.id)).size, 3);
+    equal(next.submissions.length, 2); equal(new Set([...page.submissions, ...next.submissions].map((row) => row.id)).size, 4);
 
+    equal(groups.reduce((sum, row) => sum + row.submissionCount, 0), 4, "Group totals must count each review once.");
+    await prisma.submission.update({ where: { id: legacyReceipt.id }, data: { archivedAt: new Date() } });
+    equal((await request(admin, "/groups")).data.find((row) => row.id === alpha.id).submissionCount, 3, "Archived answers must not count.");
+    equal((await request(admin, `/groups/${alpha.id}/submissions`)).data.total, 3);
+    await prisma.submission.update({ where: { id: legacyReceipt.id }, data: { archivedAt: null } });
     const sourceBeforeMemberMove = groups.find((row) => row.id === alpha.id);
     await patch(admin, `/members/${alice.id}`, { groupId: beta.id });
     equal((await patch(admin, `/groups/${alpha.id}`, { name: "Stale member-move save", reviewerIds: [alice.id], expectedUpdatedAt: sourceBeforeMemberMove.updatedAt }, 409)).error.code, "GROUP_CHANGED");
     equal((await prisma.membership.findUnique({ where: { id: alice.id } })).groupId, beta.id);
+    equal((await request(admin, "/groups")).data.find((row) => row.id === alpha.id).submissionCount, 0, "Moving a reviewer removes all their past reviews from the old group.");
+    equal((await request(admin, `/groups/${beta.id}/submissions`)).data.total, 4, "The new group history includes earlier ungrouped submissions.");
+    await request(admin, `/groups/${alpha.id}/submissions?cursor=${page.nextCursor}`, { status: 400 });
     // Moving through a group editor must also invalidate the source group's dialog.
     const sourceBeforeGroupMove = (await request(admin, "/groups")).data.find((row) => row.id === beta.id);
     await patch(admin, `/groups/${alpha.id}`, { reviewerIds: [alice.id] });
@@ -263,11 +272,24 @@ if (process.argv.includes("--cleanup")) {
     groups = (await request(admin, "/groups")).data;
     equal(groups.find((row) => row.id === alpha.id).memberCount, 0);
     equal(groups.find((row) => row.id === beta.id).memberCount, 2);
-    equal(groups.find((row) => row.id === alpha.id).submissionCount, 3);
-    equal(groups.find((row) => row.id === beta.id).submissionCount, 3);
-    equal((await request(alice, "/progress/summary")).data.responseCount, 3);
+    equal(groups.find((row) => row.id === alpha.id).submissionCount, 0);
+    equal(groups.find((row) => row.id === beta.id).submissionCount, 7);
+    equal((await request(alice, "/progress/summary")).data.responseCount, 7);
     equal((await request(alice, "/progress/summary")).data.reviewerSubmissionGoal, 10);
 
+    equal(groups.reduce((sum, row) => sum + row.submissionCount, 0), 7);
+    equal((await request(admin, `/groups/${beta.id}/submissions`)).data.total, 7);
+    const updatedBoard = (await request(admin, "/progress/reviewer-board")).data.find((row) => row.reviewerId === alice.id);
+    equal(updatedBoard.submissionCount, 7); equal(updatedBoard.submissionPercent, 70);
+    equal((await request(alice, "/progress/summary")).data.reviewerSubmissionPercent, 70);
+    await patch(admin, `/members/${alice.id}`, { groupId: null });
+    equal((await request(admin, "/groups")).data.find((row) => row.id === beta.id).submissionCount, 0);
+    equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 0);
+    const ungroupedHistory = (await request(alice, "/progress/summary")).data;
+    equal(ungroupedHistory.lifetimeResponseCount, 7, "Leaving a group must preserve the reviewer's full history.");
+    equal((await request(alice, "/submissions?limit=100")).data.length, 7);
+    await patch(admin, `/members/${alice.id}`, { groupId: beta.id });
+    equal((await request(admin, `/groups/${beta.id}/submissions`)).data.total, 7);
     // DELETE assignment explicitly pauses a person; reviewer lifecycle auto-balance
     // must still assign ordinary unassigned people while leaving that person paused.
     const pausedTarget = await prisma.reviewTarget.create({ data: { organizationId: org, displayName: "Paused person" } });
@@ -294,7 +316,7 @@ if (process.argv.includes("--cleanup")) {
     equal((await prisma.submission.findUnique({ where: { id: legacyReceipt.id } })).groupId, null);
     await patch(admin, `/members/${alice.id}`, { groupId: alpha.id }, 404);
     await patch(admin, `/groups/${alpha.id}`, { name: "Archived edit" }, 404);
-    equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 3);
+    equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 7);
     equal((await request(admin, "/progress/summary")).data.groupGoalTotal, 30);
     progressSummarySchema.parse((await request(alice, "/progress/summary", { version: 1 })).data);
     await verifyBaseline(fixture.baseline, false);
