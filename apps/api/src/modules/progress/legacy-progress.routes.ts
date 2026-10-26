@@ -81,4 +81,3 @@ legacyProgressRouter.patch("/config", requirePermission("settings", "manage"), r
     response.json({ data: { targetCount: config.targetCount, completionRule: config.completionRule } });
   } catch (error) { next(error); }
 });
-
