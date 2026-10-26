@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { contrastRatioAgainstWhite, defaultWorkspaceTheme, themeAccentColors, themeCssVariables, themeSchema } from "../../../dist/modules/organization/theme.js";
+import { contrastRatioAgainstWhite, defaultWorkspaceTheme, resolvePlatformTheme, themeAccentColors, themeCssVariables, themeSchema } from "../../../dist/modules/organization/theme.js";
+
+test("platform themes independently override legacy appearance and safely fall back for existing organizations", () => {
+  const old = { ...defaultWorkspaceTheme, accentColor: "#2457A6" };
+  assert.deepEqual(resolvePlatformTheme(old, "admin"), old);
+  assert.deepEqual(resolvePlatformTheme(old, "reviewer"), old);
+  const reviewer = { ...old, accentColor: "#7A3E9D" };
+  assert.deepEqual(resolvePlatformTheme({ ...old, reviewerAppearance: reviewer }, "admin"), old);
+  assert.deepEqual(resolvePlatformTheme({ ...old, reviewerAppearance: reviewer }, "reviewer"), reviewer);
+  assert.deepEqual(resolvePlatformTheme({ ...old, adminAppearance: { arbitraryCss: "unsafe" } }, "admin"), old);
+});
 
 test("theme choices accept only the built-in colors and font presets", () => {
   assert.deepEqual(themeSchema.parse(defaultWorkspaceTheme), defaultWorkspaceTheme);

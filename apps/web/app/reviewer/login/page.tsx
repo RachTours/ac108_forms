@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { LoginForm } from "../../../src/features/auth/login-form";
 import { LanguageSwitcher } from "../../../src/components/language-switcher";
+import { PlatformThemeToggle } from "../../../src/components/platform-theme-toggle";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth");
@@ -12,7 +13,7 @@ export default async function ReviewerLoginPage() {
   const t = await getTranslations("auth");
   const navigation = await getTranslations("navigation");
   return <main className="login-page"><section className="login-card" aria-labelledby="login-title">
-    <LanguageSwitcher />
+    <div className="login-card-tools"><PlatformThemeToggle platform="reviewer" /><LanguageSwitcher /></div>
     <Brand label={navigation("reviewerPanel")} />
     <p className="eyebrow">{t("reviewerAccess")}</p>
     <h1 id="login-title">{t("reviewerTitle")}</h1>

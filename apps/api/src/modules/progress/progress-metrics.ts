@@ -12,8 +12,8 @@ export function getReviewerSubmissionGoal(submissionGoal: number, activeReviewer
   return submissionGoal / activeReviewerCount;
 }
 
-export function getReviewerSubmissionMetrics(submissionCount: number, submissionGoal: number, activeReviewerCount: number) {
-  const reviewerSubmissionGoal = getReviewerSubmissionGoal(submissionGoal, activeReviewerCount);
+export function getReviewerSubmissionMetrics(submissionCount: number, submissionGoal: number, activeReviewerCount: number, override?: number | null) {
+  const reviewerSubmissionGoal = override != null && Number.isInteger(override) && override > 0 ? override : getReviewerSubmissionGoal(submissionGoal, activeReviewerCount);
   if (reviewerSubmissionGoal === null) {
     return {
       reviewerSubmissionGoal: null,

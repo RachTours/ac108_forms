@@ -24,6 +24,70 @@ tags:
   - name: Settings
   - name: Audit
 paths:
+  /groups:
+    get:
+      tags: [Members]
+      summary: List reviewer groups with current active member totals and goals
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Organization-scoped group summaries without answer payloads. }
+    post:
+      tags: [Members]
+      summary: Create a named reviewer group
+      security: [{ adminSession: [] }]
+      responses:
+        '201': { description: Created group. }
+        '409': { description: A group with this name already exists. }
+  /groups/{groupId}:
+    parameters:
+      - { in: path, name: groupId, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Members]
+      summary: Rename a group in the authenticated workspace
+      security: [{ adminSession: [] }]
+      responses:
+        '200': { description: Updated group name. }
+    delete:
+      tags: [Members]
+      summary: Remove a group and ungroup its members while preserving submissions
+      security: [{ adminSession: [] }]
+      responses:
+        '204': { description: Group removed. }
+  /groups/{groupId}/submissions:
+    get:
+      tags: [Members]
+      summary: List only the submissions of a group's current active reviewers
+      security: [{ adminSession: [] }]
+      parameters:
+        - { in: path, name: groupId, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { in: query, name: cursor, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Bounded submission summaries and a group total; no answers included. }
+  /members/{membershipId}:
+    patch:
+      tags: [Members]
+      summary: Update team access or reviewer group, form assignments and submission goal
+      security: [{ adminSession: [] }]
+      parameters:
+        - { in: path, name: membershipId, required: true, schema: { type: string, format: uuid } }
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role: { type: string, enum: [ADMIN, REVIEWER] }
+                status: { type: string, enum: [ACTIVE, ARCHIVED] }
+                groupId: { type: [string, 'null'], format: uuid }
+                submissionGoalOverride: { type: [integer, 'null'], minimum: 1, maximum: 100000, description: Null restores the shared fractional goal. }
+                formIds: { type: [array, 'null'], maxItems: 100, items: { type: string, format: uuid }, description: Null restores all published forms; an empty array explicitly permits no forms. }
+      responses:
+        '200': { description: Updated membership; reviewer settings are available through the member list. }
+        '403': { description: Only owners can grant administrator access. }
   /health/live:
     get:
       tags: [Auth]
@@ -382,6 +446,8 @@ paths:
       responses:
         '200': { description: Updated progress configuration. }
   /organization/theme:
+    parameters:
+      - { in: query, name: platform, schema: { type: string, enum: [admin, reviewer] }, description: Omit to read the authenticated audience theme; legacy writes without this parameter update the legacy fallback. }
     get:
       tags: [Settings]
       summary: Read workspace theme
@@ -563,6 +629,7 @@ components:
             code: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,63}$' }
             message: { type: string, minLength: 1, maxLength: 500 }
             requestId: { type: string, maxLength: 128 }
+            fieldId: { type: string, format: uuid, description: Present for a validation error tied to a published form field. }
     ListQuery:
       type: object
       additionalProperties: false
@@ -583,6 +650,10 @@ components:
         user: { type: object, additionalProperties: false, required: [id, email, displayName, status] }
         assignedTargetCount: { type: integer, minimum: 0 }
         linkCount: { type: integer, minimum: 0 }
+        group: { type: [object, 'null'], properties: { id: { type: string, format: uuid }, name: { type: string, maxLength: 100 } } }
+        submissionGoalOverride: { type: [integer, 'null'], minimum: 1, maximum: 100000 }
+        formAssignmentsConfigured: { type: boolean, default: false }
+        assignedFormIds: { type: array, maxItems: 100, items: { type: string, format: uuid } }
     TargetSummary:
       type: object
       additionalProperties: false

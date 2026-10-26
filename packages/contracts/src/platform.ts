@@ -8,6 +8,7 @@ export const apiErrorSchema = z.object({
     code: stableErrorCodeSchema,
     message: z.string().min(1).max(500),
     requestId: z.string().min(1).max(128).optional(),
+    fieldId: z.string().uuid().optional(),
     details: z.array(z.object({ path: z.array(z.union([z.string(), z.number()])), code: z.string().max(64), message: z.string().max(240) }).strict()).max(50).optional(),
   }).strict(),
 }).strict();

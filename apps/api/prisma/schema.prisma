@@ -39,6 +39,7 @@ model Organization {
   auditEvents         AuditEvent[]
   passwordResetTokens PasswordResetToken[]
   theme               OrganizationTheme?
+  reviewerGroups      ReviewerGroup[]
 }
 
 model User {
@@ -70,10 +71,16 @@ model Membership {
   sessions            Session[]
   reviewedSubmissions Submission[]         @relation("SubmissionReviewer")
   passwordResetTokens PasswordResetToken[]
+  groupId             String?              @db.VarChar(36)
+  submissionGoalOverride Int?
+  formAssignmentsConfigured Boolean        @default(false)
+  reviewerGroup       ReviewerGroup?       @relation(fields: [organizationId, groupId], references: [organizationId, id], onDelete: Restrict, map: "Membership_reviewerGroup_org_fkey")
+  formAssignments     ReviewerFormGrant[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
   @@index([organizationId, role, status, id])
+  @@index([organizationId, groupId, role, status])
 }
 
 model Session {
@@ -106,8 +113,10 @@ model Form {
   versions           FormVersion[]
   submissions        Submission[]
   reviewLinks        ReviewLink[]
+  reviewerFormGrants ReviewerFormGrant[]
 
   @@index([organizationId, status, updatedAt, id])
+  @@unique([organizationId, id])
 }
 
 model FormVersion {
@@ -139,6 +148,33 @@ model ReviewTarget {
 
   @@unique([organizationId, id])
   @@index([organizationId, status, displayName, id])
+}
+
+model ReviewerGroup {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  name           String       @db.VarChar(100)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        Membership[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@index([organizationId, createdAt, id])
+}
+
+model ReviewerFormGrant {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  organizationId String       @db.VarChar(36)
+  reviewerId     String       @db.VarChar(36)
+  formId         String       @db.VarChar(36)
+  createdAt      DateTime     @default(now())
+  reviewer       Membership   @relation(fields: [organizationId, reviewerId], references: [organizationId, id], onDelete: Cascade, map: "ReviewerFormGrant_reviewer_org_fkey")
+  form           Form         @relation(fields: [organizationId, formId], references: [organizationId, id], onDelete: Cascade, map: "ReviewerFormGrant_form_org_fkey")
+
+  @@unique([organizationId, reviewerId, formId])
+  @@index([organizationId, formId, reviewerId])
 }
 
 model Assignment {
@@ -216,6 +252,8 @@ model OrganizationTheme {
   fontPreset     String       @default("sans") @db.VarChar(16)
   surfacePreset  String       @default("mist") @db.VarChar(16)
   formStyle      String       @default("clean") @db.VarChar(16)
+  adminAppearance Json?
+  reviewerAppearance Json?
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }

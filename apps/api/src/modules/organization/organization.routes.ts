@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { requireCsrf, requireSession } from "../../middleware/require-session.js";
 import { requirePermission } from "../../middleware/require-permission.js";
-import { defaultWorkspaceTheme, themeSchema } from "./theme.js";
+import { resolvePlatformTheme, themeSchema } from "./theme.js";
 
 export const organizationRouter = Router();
 organizationRouter.get("/", requireSession, async (request, response, next) => {
@@ -15,19 +15,22 @@ organizationRouter.get("/", requireSession, async (request, response, next) => {
 
 organizationRouter.get("/theme", requireSession, async (request, response, next) => {
   try {
-    const theme = await prisma.organizationTheme.findUnique({ where: { organizationId: request.auth!.organizationId }, select: { accentColor: true, fontPreset: true, surfacePreset: true, formStyle: true, updatedAt: true } });
-    response.json({ data: theme ?? { ...defaultWorkspaceTheme, updatedAt: null } });
+    const platform = z.enum(["admin", "reviewer"]).default(request.auth!.role === "REVIEWER" ? "reviewer" : "admin").parse(request.query.platform);
+    const theme = await prisma.organizationTheme.findUnique({ where: { organizationId: request.auth!.organizationId } });
+    response.json({ data: { ...resolvePlatformTheme(theme, platform), updatedAt: theme?.updatedAt ?? null } });
   } catch (error) { next(error); }
 });
 
 organizationRouter.put("/theme", requireSession, requirePermission("settings", "manage"), requireCsrf, async (request, response, next) => {
   try {
     const input = themeSchema.parse(request.body);
+    const platform = request.query.platform === undefined ? undefined : z.enum(["admin", "reviewer"]).parse(request.query.platform);
     const auth = request.auth!;
     const theme = await prisma.$transaction(async (transaction) => {
-      const saved = await transaction.organizationTheme.upsert({ where: { organizationId: auth.organizationId }, create: { organizationId: auth.organizationId, ...input }, update: input, select: { accentColor: true, fontPreset: true, surfacePreset: true, formStyle: true, updatedAt: true } });
+      const appearance = platform ? platform === "admin" ? { adminAppearance: input } : { reviewerAppearance: input } : input;
+      const saved = await transaction.organizationTheme.upsert({ where: { organizationId: auth.organizationId }, create: { organizationId: auth.organizationId, ...appearance }, update: appearance });
       await transaction.auditEvent.create({ data: { organizationId: auth.organizationId, actorId: auth.userId, action: "WORKSPACE_THEME_UPDATED", entityType: "Organization", entityId: auth.organizationId, metadata: input } });
-      return saved;
+      return { ...resolvePlatformTheme(saved, platform ?? "admin"), updatedAt: saved.updatedAt };
     });
     response.json({ data: theme });
   } catch (error) { next(error); }

@@ -6,7 +6,7 @@ import type { SignatureAnswer } from "@reviewroom/contracts/forms";
 import { normalizeSignaturePoint, shouldIgnoreMouseAfterTouch } from "./signature-input-model";
 import { useTranslations } from "next-intl";
 
-export function SignatureInput({ id, value, onChange }: { id: string; value: SignatureAnswer | undefined; onChange: (value: SignatureAnswer) => void }) {
+export function SignatureInput({ id, value, onChange, errorId }: { id: string; value: SignatureAnswer | undefined; onChange: (value: SignatureAnswer) => void; errorId?: string | undefined }) {
   const t = useTranslations("editor");
   const activeGesture = useRef<{ kind: "pointer" | "touch" | "mouse"; id: number } | null>(null);
   const lastTouchAt = useRef(0);
@@ -78,7 +78,7 @@ export function SignatureInput({ id, value, onChange }: { id: string; value: Sig
   const strokes = value?.mode === "drawn" ? value.strokes : [];
   return <div className="signature-control" id={id}>
     <span className="signature-instruction">{t("signaturePrompt")}</span>
-    <svg className="signature-pad" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label={`${t("drawSignature")}. ${t("signatureDrawingArea")}`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onTouchStart={startTouch} onTouchMove={moveTouch} onTouchEnd={endTouch} onTouchCancel={endTouch} onMouseDown={startMouse} onMouseMove={moveMouse} onMouseUp={endMouse} onMouseLeave={endMouse}>
+    <svg className="signature-pad" tabIndex={0} aria-describedby={errorId} viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label={`${t("drawSignature")}. ${t("signatureDrawingArea")}`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end} onTouchStart={startTouch} onTouchMove={moveTouch} onTouchEnd={endTouch} onTouchCancel={endTouch} onMouseDown={startMouse} onMouseMove={moveMouse} onMouseUp={endMouse} onMouseLeave={endMouse}>
       {strokes.map((stroke, index) => <polyline key={index} points={stroke.points.map((point) => `${point.x * 600},${point.y * 180}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
     </svg>
     <button className="button button-small" type="button" onClick={() => onChange({ mode: "drawn", strokes: [] })}>{t("clearSignature")}</button>

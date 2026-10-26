@@ -4,7 +4,7 @@ import { HttpError } from "../../http/errors.js";
 
 type JsonAnswer = string | number | boolean | string[] | { mode: "typed"; text: string } | { mode: "drawn"; strokes: Array<{ points: Array<{ x: number; y: number }> }> };
 function validateFieldValue(field: FormDefinition["fields"][number], value: unknown): JsonAnswer {
-  const invalid = (): never => { throw new HttpError(422, "INVALID_ANSWER", `Answer for “${field.label}” is invalid.`); };
+  const invalid = (): never => { throw new HttpError(422, "INVALID_ANSWER", `Answer for “${field.label}” is invalid.`, field.id); };
   switch (field.type) {
     case "shortText":
     case "longText": {
@@ -120,7 +120,7 @@ export function validateAnswers(definitionValue: unknown, answersValue: unknown)
   for (const field of definition.fields) {
     const value = answers.data[field.id];
     if (isBlankAnswer(field, value)) {
-      if (field.required) throw new HttpError(422, "REQUIRED_ANSWER_MISSING", `Answer “${field.label}” is required.`);
+      if (field.required) throw new HttpError(422, "REQUIRED_ANSWER_MISSING", `Answer “${field.label}” is required.`, field.id);
       continue;
     }
     normalized[field.id] = validateFieldValue(field, value);

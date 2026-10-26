@@ -1,4 +1,14 @@
 import test from "node:test";
+
+test("personal submission goals override the shared fraction without changing workspace totals", () => {
+  const metrics = getReviewerSubmissionMetrics(8, 50, 6, 10);
+  assert.equal(metrics.reviewerSubmissionGoal, 10);
+  assert.equal(metrics.submissionPercent, 80);
+  assert.equal(metrics.submissionsRemaining, 2);
+  assert.equal(metrics.submissionGoalMet, false);
+  assert.equal(getReviewerSubmissionMetrics(10, 50, 6, 10).submissionGoalMet, true);
+  assert.equal(getReviewerSubmissionMetrics(8, 50, 6, null).reviewerSubmissionGoal, 50 / 6);
+});
 import assert from "node:assert/strict";
 import {
   getReviewerSubmissionMetrics,

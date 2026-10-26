@@ -36,8 +36,27 @@ export const memberSummarySchema = z.object({
   user: z.object({ id: uuid, email, displayName: z.string().min(1).max(120), status: recordStatus }).strict(),
   assignedTargetCount: z.number().int().nonnegative(),
   linkCount: z.number().int().nonnegative(),
+  group: z.object({ id: uuid, name: z.string().min(1).max(100) }).strict().nullable().default(null),
+  submissionGoalOverride: z.number().int().min(1).max(100_000).nullable().default(null),
+  formAssignmentsConfigured: z.boolean().default(false),
+  assignedFormIds: z.array(uuid).max(100).default([]),
 }).strict();
 export const memberListResponseSchema = z.object({ data: z.array(memberSummarySchema).max(200) }).strict();
+
+export const reviewerSettingsRequestSchema = z.object({
+  role: z.enum(["ADMIN", "REVIEWER"]).optional(),
+  status: recordStatus.optional(),
+  groupId: uuid.nullable().optional(),
+  submissionGoalOverride: z.number().int().min(1).max(100_000).nullable().optional(),
+  formIds: z.array(uuid).max(100).nullable().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0);
+export const reviewerGroupNameSchema = z.object({ name: z.string().trim().min(1).max(100) }).strict();
+export const reviewerGroupSummarySchema = z.object({
+  id: uuid, name: z.string().min(1).max(100), memberCount: z.number().int().nonnegative(),
+  submissionCount: z.number().int().nonnegative(), submissionGoal: z.number().nonnegative(),
+  createdAt: isoDate.optional(), updatedAt: isoDate.optional(),
+}).strict();
+export const reviewerGroupListResponseSchema = z.object({ data: z.array(reviewerGroupSummarySchema) }).strict();
 
 export const invitationSummarySchema = z.object({
   id: uuid,

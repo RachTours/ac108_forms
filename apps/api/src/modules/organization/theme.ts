@@ -23,6 +23,14 @@ export type WorkspaceTheme = z.infer<typeof themeSchema>;
 
 export const defaultWorkspaceTheme: WorkspaceTheme = { accentColor: "#167354", fontPreset: "sans", surfacePreset: "mist", formStyle: "clean" };
 
+export function resolvePlatformTheme(record: unknown, platform: "admin" | "reviewer"): WorkspaceTheme {
+  const row = record && typeof record === "object" ? record as Record<string, unknown> : {};
+  const selected = themeSchema.safeParse(row[platform === "admin" ? "adminAppearance" : "reviewerAppearance"]);
+  if (selected.success) return selected.data;
+  const legacy = themeSchema.safeParse({ accentColor: row.accentColor, fontPreset: row.fontPreset, surfacePreset: row.surfacePreset, formStyle: row.formStyle });
+  return legacy.success ? legacy.data : defaultWorkspaceTheme;
+}
+
 export function themeCssVariables(theme: WorkspaceTheme) {
   const font = theme.fontPreset === "serif"
     ? 'Georgia, "Times New Roman", serif'

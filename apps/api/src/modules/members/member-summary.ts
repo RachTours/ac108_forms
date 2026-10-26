@@ -7,6 +7,10 @@ type MemberSummaryRecord = {
   createdAt: Date;
   user: { id: string; email: string; displayName: string; status: "ACTIVE" | "ARCHIVED" };
   _count: { assignments: number; reviewLinks: number };
+  reviewerGroup?: { id: string; name: string } | null;
+  submissionGoalOverride?: number | null;
+  formAssignmentsConfigured?: boolean;
+  formAssignments?: Array<{ formId: string }>;
 };
 
 export function toMemberSummary(member: MemberSummaryRecord) {
@@ -25,5 +29,9 @@ export function toMemberSummary(member: MemberSummaryRecord) {
     },
     assignedTargetCount: member._count.assignments,
     linkCount: member._count.reviewLinks,
+    group: member.reviewerGroup ?? null,
+    submissionGoalOverride: member.submissionGoalOverride ?? null,
+    formAssignmentsConfigured: member.formAssignmentsConfigured ?? false,
+    assignedFormIds: (member.formAssignments ?? []).map((assignment) => assignment.formId),
   };
 }

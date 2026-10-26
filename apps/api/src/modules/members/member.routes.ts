@@ -15,7 +15,7 @@ import { InvitationAcceptanceError, parseInvitationAcceptanceInput, resolveInvit
 import { toMemberSummary } from "./member-summary.js";
 import { toMemberUpdateSummary } from "./member-update-summary.js";
 import { activeAssignmentWhere, autoAssignUnassignedTargets, lockAssignmentReviewer, removeReviewerAssignments } from "../assignments/assignment.service.js";
-import { invitationCreateRequestSchema, memberListResponseSchema } from "@reviewroom/contracts";
+import { invitationCreateRequestSchema, memberListResponseSchema, reviewerSettingsRequestSchema } from "@reviewroom/contracts";
 import { loadMemberCounts } from "./member-counts.js";
 
 export const memberRouter = Router();
@@ -31,6 +31,9 @@ memberRouter.get("/", requireSession, requirePermission("members", "read"), asyn
       select: {
         id: true, organizationId: true, userId: true, role: true, status: true, createdAt: true,
         user: { select: { id: true, email: true, displayName: true, status: true } },
+        groupId: true, submissionGoalOverride: true, formAssignmentsConfigured: true,
+        reviewerGroup: { select: { id: true, name: true } },
+        formAssignments: { select: { formId: true }, orderBy: { formId: "asc" } },
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200,
     });
@@ -242,7 +245,7 @@ memberRouter.delete("/:membershipId/password-reset-tokens/:resetTokenId", requir
 memberRouter.patch("/:membershipId", requireSession, requirePermission("members", "update"), requireCsrf, async (request, response, next) => {
   try {
     const membershipId = memberIdSchema.parse(request.params.membershipId);
-    const input = z.object({ role: z.enum(["ADMIN", "REVIEWER"]).optional(), status: z.enum(["ACTIVE", "ARCHIVED"]).optional() }).strict().refine((value) => value.role !== undefined || value.status !== undefined).parse(request.body);
+    const input = reviewerSettingsRequestSchema.parse(request.body);
     const auth = request.auth!;
     const updated = await prisma.$transaction(async (transaction) => {
       await lockAssignmentReviewer(transaction, auth.organizationId, membershipId);
@@ -250,7 +253,26 @@ memberRouter.patch("/:membershipId", requireSession, requirePermission("members"
       if (!current) throw new HttpError(404, "MEMBER_NOT_FOUND", "Team member not found.");
       if (input.role === "ADMIN" && auth.role !== "OWNER") throw new HttpError(403, "FORBIDDEN", "Only the owner can grant administrator access.");
       if (current.role === "OWNER" && (input.role !== undefined || input.status === "ARCHIVED")) throw new HttpError(409, "OWNER_PROTECTED", "Transfer ownership before changing the owner account.");
-      const updateData = { ...(input.role !== undefined ? { role: input.role } : {}), ...(input.status !== undefined ? { status: input.status } : {}) };
+      if ((input.groupId !== undefined || input.submissionGoalOverride !== undefined || input.formIds !== undefined) && current.role !== "REVIEWER") throw new HttpError(400, "REVIEWER_SETTINGS_ONLY", "These settings apply to reviewers only.");
+      if (input.groupId) {
+        const group = await transaction.reviewerGroup.findFirst({ where: { id: input.groupId, organizationId: auth.organizationId }, select: { id: true } });
+        if (!group) throw new HttpError(404, "GROUP_NOT_FOUND", "Reviewer group not found.");
+      }
+      if (input.formIds) {
+        const formIds = [...new Set(input.formIds)];
+        const forms = await transaction.form.count({ where: { organizationId: auth.organizationId, id: { in: formIds }, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null } } });
+        if (forms !== formIds.length) throw new HttpError(400, "FORM_ASSIGNMENT_INVALID", "Only published forms in this workspace can be assigned.");
+        await transaction.reviewerFormGrant.deleteMany({ where: { organizationId: auth.organizationId, reviewerId: current.id } });
+        if (formIds.length) await transaction.reviewerFormGrant.createMany({ data: formIds.map((formId) => ({ organizationId: auth.organizationId, reviewerId: current.id, formId })) });
+      }
+      if (input.formIds === null) await transaction.reviewerFormGrant.deleteMany({ where: { organizationId: auth.organizationId, reviewerId: current.id } });
+      const updateData = {
+        ...(input.role !== undefined ? { role: input.role } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.groupId !== undefined ? { groupId: input.groupId } : {}),
+        ...(input.submissionGoalOverride !== undefined ? { submissionGoalOverride: input.submissionGoalOverride } : {}),
+        ...(input.formIds !== undefined ? { formAssignmentsConfigured: input.formIds !== null } : {}),
+      };
       const saved = await transaction.membership.update({ where: { id: current.id }, data: updateData });
       if (input.status === "ARCHIVED" || input.role === "ADMIN") {
         await transaction.session.deleteMany({ where: { membershipId: current.id } });

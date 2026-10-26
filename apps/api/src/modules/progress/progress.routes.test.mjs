@@ -57,6 +57,7 @@ test("reviewer board retains author submission credit after the current assignme
   assert.deepEqual(row, {
     reviewerId: "reviewer-a",
     displayName: "Amina",
+    groupId: null,
     assigned: 0,
     completed: 0,
     submissionCount: 9,

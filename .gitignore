@@ -5,6 +5,11 @@ apps/web/.next-verification/
 apps/web/.next-deployment-check/
 apps/web/.next-hostinger-*/
 apps/web/.next-production-check/
+apps/web/.next-groups-local-preview/
+.playwright-cli/
+output/groups-*
+output/backups/
+output/playwright/
 dist/
 coverage/
 .env

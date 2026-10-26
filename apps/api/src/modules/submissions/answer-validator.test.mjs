@@ -7,6 +7,13 @@ const uuid = (number) => `00000000-0000-4000-8000-${String(number).padStart(12, 
 const field = (id, type, extra = {}, required = false) => ({ id: uuid(id), type, label: `Question ${id}`, description: "", required, ...extra });
 const option = (id, label) => ({ id: uuid(id), label });
 
+test("validation errors identify the field without returning any submitted answer", () => {
+  const definition = { title: "Review", description: "", fields: [field(1, "email", {}, true)] };
+  for (const answers of [{}, { [uuid(1)]: "private-invalid-answer" }]) {
+    assert.throws(() => validateAnswers(definition, answers), (error) => error.fieldId === uuid(1) && !error.message.includes("private-invalid-answer"));
+  }
+});
+
 test("accepts a valid response for every supported field type", () => {
   const fields = [
     field(15, "name", { minLength: 2, maxLength: 160 }, true),

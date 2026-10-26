@@ -9,13 +9,14 @@ import { getReviewerSubmissionMetrics, getSubmissionCompletionPercent, getWorksp
 export const progressRouter = Router();
 progressRouter.use(requireSession);
 
-type ReviewerBoardQueryRow = { reviewerId: string; displayName: string; assigned: bigint; completed: bigint; submissionCount: bigint };
+type ReviewerBoardQueryRow = { reviewerId: string; displayName: string; assigned: bigint; completed: bigint; submissionCount: bigint; submissionGoalOverride?: number | null; groupId?: string | null };
 
 export function toReviewerBoardRow(row: ReviewerBoardQueryRow, submissionGoal: number, activeReviewerCount: number) {
-  const submissionMetrics = getReviewerSubmissionMetrics(Number(row.submissionCount), submissionGoal, activeReviewerCount);
+  const submissionMetrics = getReviewerSubmissionMetrics(Number(row.submissionCount), submissionGoal, activeReviewerCount, row.submissionGoalOverride);
   return {
     reviewerId: row.reviewerId,
     displayName: row.displayName,
+    groupId: row.groupId ?? null,
     assigned: Number(row.assigned),
     completed: Number(row.completed),
     submissionCount: Number(row.submissionCount),
@@ -38,10 +39,11 @@ export function toProgressSummaryResponse(input: {
   submissionGoal: number;
   activeReviewerCount: number;
   reviewerAudience: boolean;
+  reviewerGoalOverride?: number | null;
 }) {
   const submissionCompletionPercent = getSubmissionCompletionPercent(input.responseCount, input.submissionGoal);
   const reviewerSubmissionMetrics = input.reviewerAudience
-    ? getReviewerSubmissionMetrics(input.responseCount, input.submissionGoal, input.activeReviewerCount)
+    ? getReviewerSubmissionMetrics(input.responseCount, input.submissionGoal, input.activeReviewerCount, input.reviewerGoalOverride)
     : { reviewerSubmissionGoal: null, submissionRatio: null, submissionsRemaining: null, submissionPercent: 0, submissionGoalMet: false };
   return {
     activeTargets: input.activeTargets,
@@ -69,7 +71,7 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
     const reviewerOnly = auth.role === "REVIEWER";
     const [rows, activeReviewerCount, config] = await Promise.all([
       prisma.$queryRaw<ReviewerBoardQueryRow[]>`
-      SELECT m.id AS reviewerId, u.displayName AS displayName,
+      SELECT m.id AS reviewerId, u.displayName AS displayName, m.submissionGoalOverride, m.groupId,
         COUNT(DISTINCT t.id) AS assigned,
         COUNT(DISTINCT CASE WHEN s.id IS NOT NULL THEN t.id END) AS completed,
         (
@@ -85,7 +87,7 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
       LEFT JOIN Submission s ON s.targetId = t.id AND s.reviewerId = m.id AND s.organizationId = m.organizationId AND s.archivedAt IS NULL
       WHERE m.organizationId = ${auth.organizationId} AND m.role = 'REVIEWER' AND m.status = 'ACTIVE'
         AND (${!reviewerOnly} OR m.id = ${auth.membershipId})
-      GROUP BY m.id, u.displayName
+      GROUP BY m.id, u.displayName, m.submissionGoalOverride, m.groupId
       `,
       prisma.membership.count({ where: { organizationId: auth.organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } }),
       prisma.progressConfig.findUnique({ where: { organizationId: auth.organizationId }, select: { submissionGoal: true } }),
@@ -120,6 +122,7 @@ progressRouter.get("/summary", async (request, response, next) => {
       prisma.membership.count({ where: { organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } }),
     ]);
     const completedTargets = Number(completedRows[0]?.completed ?? 0n);
+    const reviewerConfig = reviewerScope ? await prisma.membership.findFirst({ where: { id: auth.membershipId, organizationId }, select: { submissionGoalOverride: true } }) : null;
     const targetCount = config?.targetCount ?? organizationTargetCount;
     const submissionGoal = getWorkspaceSubmissionGoal(config?.submissionGoal);
     response.json({ data: toProgressSummaryResponse({
@@ -133,6 +136,7 @@ progressRouter.get("/summary", async (request, response, next) => {
       submissionGoal,
       activeReviewerCount,
       reviewerAudience: Boolean(reviewerScope),
+      reviewerGoalOverride: reviewerConfig?.submissionGoalOverride ?? null,
     }) });
   } catch (error) { next(error); }
 });

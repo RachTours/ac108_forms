@@ -20,6 +20,7 @@ import { submissionRouter } from "./modules/submissions/submission.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 import { organizationRouter } from "./modules/organization/organization.routes.js";
 import { assignmentRouter } from "./modules/assignments/assignment.routes.js";
+import { reviewerGroupRouter } from "./modules/members/group.routes.js";
 
 export const app = express();
 
@@ -51,6 +52,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/forms", formRouter);
 app.use("/api/v1/progress", progressRouter);
 app.use("/api/v1/members", memberRouter);
+app.use("/api/v1/groups", reviewerGroupRouter);
 app.use("/api/v1/review-links", reviewLinkRouter);
 app.use("/api/v1/public/review", publicReviewRouter);
 app.use("/api/v1/review-targets", targetRouter);

@@ -2,6 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { errorHandler } from "../../dist/http/error-handler.js";
 
+test("answer errors expose a safe field identifier while generic errors keep the existing envelope", async () => {
+  const { HttpError } = await import("../../dist/http/errors.js");
+  const response = { locals: {}, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  const id = "11111111-1111-4111-8111-111111111111";
+  errorHandler(new HttpError(422, "INVALID_ANSWER", "Check this answer.", id), {}, response, () => {});
+  assert.equal(response.statusCode, 422);
+  assert.equal(response.body.error.fieldId, id);
+  assert.equal("answers" in response.body.error, false);
+});
+
 test("unexpected errors return a generic response and log safe request diagnostics", () => {
   const lines = [];
   const originalWrite = process.stderr.write;

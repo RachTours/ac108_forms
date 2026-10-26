@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { directionForLocale, type Locale } from "../src/lib/locale";
+import { PlatformThemePreferences } from "../src/components/platform-theme-toggle";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -21,5 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale() as Locale;
-  return <html lang={locale} dir={directionForLocale(locale)}><body><NextIntlClientProvider>{children}</NextIntlClientProvider></body></html>;
+  const requestHeaders = await headers();
+  const audience = requestHeaders.get("x-reviewroom-audience") === "reviewer" ? "reviewer" : "admin";
+  const store = await cookies();
+  const modes = { admin: store.get("rr_mode_admin")?.value === "dark" ? "dark" as const : "light" as const, reviewer: store.get("rr_mode_reviewer")?.value === "dark" ? "dark" as const : "light" as const };
+  return <html lang={locale} dir={directionForLocale(locale)} data-platform={audience} data-ui-theme={modes[audience]}><body><NextIntlClientProvider><PlatformThemePreferences initial={modes}>{children}</PlatformThemePreferences></NextIntlClientProvider></body></html>;
 }

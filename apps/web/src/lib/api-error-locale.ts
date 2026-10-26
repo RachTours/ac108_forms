@@ -1,6 +1,11 @@
 import type { Locale } from "./locale";
 
 const messages: Record<string, Record<Locale, string>> = {
+  GROUP_NAME_EXISTS: { en: 'A group with this name already exists.', fr: 'Un groupe porte déjà ce nom.', ar: 'توجد مجموعة بهذا الاسم بالفعل.' },
+  GROUP_NOT_FOUND: { en: 'Reviewer group not found. Refresh and try again.', fr: 'Groupe introuvable. Actualisez et réessayez.', ar: 'لم يتم العثور على المجموعة. حدّث الصفحة وحاول مرة أخرى.' },
+  FORM_ASSIGNMENT_INVALID: { en: 'Select published forms from this workspace only.', fr: 'Sélectionnez uniquement les formulaires publiés dans cet espace.', ar: 'اختر نماذج منشورة في مساحة العمل هذه فقط.' },
+  REVIEWER_SETTINGS_ONLY: { en: 'These settings apply to reviewers only.', fr: 'Ces paramètres concernent uniquement les réviseurs.', ar: 'تطبق هذه الإعدادات على المراجعين فقط.' },
+  INVALID_CURSOR: { en: 'Refresh the list and try again.', fr: 'Actualisez la liste et réessayez.', ar: 'حدّث القائمة وحاول مرة أخرى.' },
   ACCOUNT_UNAVAILABLE: { en: "This account is unavailable.", fr: "Ce compte n’est pas disponible.", ar: "هذا الحساب غير متاح." },
   ALREADY_MEMBER: { en: "This person is already a member of the workspace.", fr: "Cette personne est déjà membre de l’espace.", ar: "هذا الشخص عضو بالفعل في مساحة العمل." },
   ASSIGNMENT_CHANGED: { en: "The assignment changed. Refresh the page and try again.", fr: "L’affectation a changé. Actualisez la page et réessayez.", ar: "تغير التكليف. حدّث الصفحة وحاول مرة أخرى." },

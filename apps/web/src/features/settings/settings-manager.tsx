@@ -16,14 +16,22 @@ type Feedback = { kind: "success" | "error"; text: string };
 
 const accentChoices = [{ value: "#167354", label: "Forest" }, { value: "#2457A6", label: "Blue" }, { value: "#7A3E9D", label: "Violet" }, { value: "#B45309", label: "Amber" }, { value: "#B4233A", label: "Berry" }];
 
-export function SettingsManager({ summary, initialTheme }: { summary: Summary; initialTheme: Theme }) {
+export function SettingsManager({ summary, initialTheme, initialReviewerTheme }: { summary: Summary; initialTheme: Theme; initialReviewerTheme: Theme }) {
   const t = useTranslations("settings");
+  const platformLabels = useTranslations("platformTheme");
   const locale = useLocale();
   const api = useApi();
   const router = useRouter();
   const [targetCount, setTargetCount] = useState(summary.targetCount);
   const [submissionGoal, setSubmissionGoal] = useState(summary.submissionGoal);
   const [theme, setTheme] = useState<Theme>(() => themeUpdatePayload(initialTheme));
+  const [platform, setPlatform] = useState<"admin" | "reviewer">("admin");
+  const [appearanceDrafts, setAppearanceDrafts] = useState({ admin: themeUpdatePayload(initialTheme), reviewer: themeUpdatePayload(initialReviewerTheme) });
+  function switchPlatform(next: "admin" | "reviewer") {
+    setAppearanceDrafts((current) => ({ ...current, [platform]: theme }));
+    setTheme(appearanceDrafts[next]);
+    setPlatform(next);
+  }
   const [feedback, setFeedback] = useState<Partial<Record<SettingKey, Feedback>>>({});
   const [saving, setSaving] = useState<SettingKey | null>(null);
 
@@ -60,8 +68,9 @@ export function SettingsManager({ summary, initialTheme }: { summary: Summary; i
       <div className="setting-actions"><button type="submit" className="button button-primary" disabled={saving !== null}><Save size={14} />{saving === "submission" ? t("saving") : t("saveSubmissionGoal")}</button>{status("submission")}</div>
     </form>
 
-    <form className="panel workspace-setting appearance-setting" onSubmit={(event) => { event.preventDefault(); void submit("appearance", async () => { const result = await api<{ data: Theme }>("/organization/theme", { method: "PUT", body: JSON.stringify(themeUpdatePayload(theme)) }); setTheme(themeUpdatePayload(result.data)); router.refresh(); }); }}>
+    <form className="panel workspace-setting appearance-setting" onSubmit={(event) => { event.preventDefault(); void submit("appearance", async () => { const result = await api<{ data: Theme }>(`/organization/theme?platform=${platform}`, { method: "PUT", body: JSON.stringify(themeUpdatePayload(theme)) }); setTheme(themeUpdatePayload(result.data)); setAppearanceDrafts((current) => ({ ...current, [platform]: themeUpdatePayload(result.data) })); router.refresh(); }); }}>
       <div className="setting-heading"><span className="setting-icon"><Palette size={16} /></span><div><h2>{t("appearance")}</h2><p>{t("appearanceHelp")}</p></div></div>
+      <label htmlFor="appearance-platform">{platformLabels("platform")}</label><select id="appearance-platform" value={platform} disabled={saving !== null} onChange={(event) => switchPlatform(event.target.value as "admin" | "reviewer")}><option value="admin">{platformLabels("admin")}</option><option value="reviewer">{platformLabels("reviewer")}</option></select><p className="help-copy">{platformLabels("independentHelp")}</p>
       <div className="appearance-controls">
         <div><label htmlFor="theme-color">{t("brandColor")}</label><select id="theme-color" value={theme.accentColor} onChange={(event) => setTheme((current) => ({ ...current, accentColor: event.target.value }))}>{accentChoices.map((choice) => <option value={choice.value} key={choice.value}>{t(choice.label.toLowerCase())}</option>)}</select></div>
         <div><label htmlFor="theme-font">{t("typeStyle")}</label><select id="theme-font" value={theme.fontPreset} onChange={(event) => setTheme((current) => ({ ...current, fontPreset: event.target.value as Theme["fontPreset"] }))}><option value="sans">{t("cleanSans")}</option><option value="serif">{t("editorialSerif")}</option><option value="system">{t("systemFont")}</option></select></div>

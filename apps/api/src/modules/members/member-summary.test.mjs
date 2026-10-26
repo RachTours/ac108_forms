@@ -26,6 +26,10 @@ test("member response includes only the safe membership and user summary", () =>
     user: { id: "33333333-3333-4333-8333-333333333333", email: "reviewer@example.com", displayName: "Reviewer", status: "ACTIVE" },
     assignedTargetCount: 2,
     linkCount: 1,
+    group: null,
+    submissionGoalOverride: null,
+    formAssignmentsConfigured: false,
+    assignedFormIds: [],
   });
   assert.equal("passwordHash" in result, false);
   assert.equal("privateField" in result, false);

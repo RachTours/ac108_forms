@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Router } from "express";
+import { assertReviewerFormAccess, reviewerFormScope } from "../members/reviewer-form-access.js";
 import { z } from "zod";
 import { prisma } from "../../db/client.js";
 import { env } from "../../env.js";
@@ -26,8 +27,9 @@ reviewLinkRouter.get("/mine", requireSession, requirePermission("reviewLinks", "
 reviewLinkRouter.get("/mine/forms", requireSession, requirePermission("reviewLinks", "readOwn"), async (request, response, next) => {
   try {
     const auth = request.auth!;
+    const scope = await reviewerFormScope(prisma, auth.organizationId, auth.membershipId);
     const [forms, links] = await Promise.all([
-      prisma.form.findMany({ where: { organizationId: auth.organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null } }, select: { id: true, title: true, description: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 }),
+      prisma.form.findMany({ where: { organizationId: auth.organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null }, ...scope }, select: { id: true, title: true, description: true }, orderBy: [{ title: "asc" }, { id: "asc" }], take: 100 }),
       prisma.reviewLink.findMany({ where: { organizationId: auth.organizationId, reviewerId: auth.membershipId, formId: { not: null } }, select: { id: true, formId: true, createdAt: true, expiresAt: true, revokedAt: true, encryptedToken: true }, orderBy: { createdAt: "desc" }, take: 200 }),
     ]);
     const currentByForm = new Map<string, (typeof links)[number]>();
@@ -60,6 +62,7 @@ async function issueLink(organizationId: string, actorId: string, reviewerId: st
     const reviewer = await transaction.membership.findFirst({ where: { id: reviewerId, organizationId, role: "REVIEWER", status: "ACTIVE" } });
     if (!reviewer) throw new HttpError(404, "REVIEWER_NOT_FOUND", "Active reviewer not found.");
     if (formId) {
+      await assertReviewerFormAccess(transaction, organizationId, reviewerId, formId);
       const form = await transaction.form.findFirst({ where: { id: formId, organizationId, status: "PUBLISHED", archivedAt: null, currentPublishedId: { not: null } }, select: { id: true } });
       if (!form) throw new HttpError(404, "FORM_NOT_FOUND", "Published form not found.");
     }

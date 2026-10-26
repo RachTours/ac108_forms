@@ -11,6 +11,7 @@ import { workspaceThemeCssVariables, type safeWorkspaceTheme } from "../lib/work
 import { withSessionSelector, workspaceNavigationTarget } from "../lib/session-url";
 import { requestSignOut, signOutErrorMessage } from "../lib/sign-out";
 import { LanguageSwitcher } from "./language-switcher";
+import { PlatformThemeToggle } from "./platform-theme-toggle";
 
 const SessionContext = createContext<SessionResponse | null>(null);
 export function useWorkspaceSession(): SessionResponse {
@@ -76,7 +77,7 @@ export function WorkspaceShell({ session, theme, children }: { session: SessionR
       <div className="side-profile"><span className="avatar" aria-hidden="true">{initials || "U"}</span><div><strong>{session.user.displayName}</strong><small>{roleLabel}</small></div><button className="icon-button" onClick={() => void signOut()} type="button" aria-label={t("signOut")} title={signingOut ? t("signingOut") : t("signOut")} disabled={signingOut}><LogOut size={15} /></button>{signOutError && <p className="form-error signout-error" role="alert">{signOutError}</p>}</div>
     </aside>
     <main className="main-region">
-      <header className="topbar"><div className="breadcrumb" aria-label={t("breadcrumb")}>{panelName}&nbsp; / &nbsp;<strong>{active}</strong></div><div className="top-actions"><LanguageSwitcher /><span className="avatar" aria-hidden="true">{initials || "U"}</span></div></header>
+      <header className="topbar"><div className="breadcrumb" aria-label={t("breadcrumb")}>{panelName}&nbsp; / &nbsp;<strong>{active}</strong></div><div className="top-actions"><PlatformThemeToggle platform={session.role === "REVIEWER" ? "reviewer" : "admin"} /><LanguageSwitcher /><span className="avatar" aria-hidden="true">{initials || "U"}</span></div></header>
       {children}
       <nav className="mobile-nav" aria-label={t("main")}>{navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={withSessionSelector(href, session.sessionId)} aria-current={pathname === href ? "page" : undefined}><Icon size={17} /><span>{label}</span></Link>)}</nav>
     </main>
