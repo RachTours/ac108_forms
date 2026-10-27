@@ -12,10 +12,37 @@ zero vulnerabilities or bugs. Production readiness still depends on the
 Hostinger staging and infrastructure checks below. No Hostinger settings,
 production database, or production deployment was changed during this review.
 
-Do not treat a GitHub push as separate from deployment until Hostinger's
-auto-deployment configuration is known. `scripts/build-hostinger-api.mjs:39`
-onward runs integrity preflight and database migration as part of the build.
-The user's earlier instruction to wait for hosting access remains a release gate.
+A GitHub push can trigger hosting-side deployment automation.
+`scripts/build-hostinger-api.mjs:39` onward runs integrity preflight and database
+migration as part of the build. The initial review held the push under the user's
+earlier hosting-access instruction. The user subsequently explicitly authorized
+pushing the new code to GitHub main after the compatibility recheck below.
+No direct Hostinger deployment or configuration operations are included.
+
+## Final compatibility recheck before GitHub push
+
+- Fetched `RachTours/ac108_forms/main` again: it still points to `1c6fa72`, so the
+  reviewed changes can be pushed as a normal fast-forward without rewriting
+  history. The unrelated `origin` remote and desktop checkout are not modified.
+- Compared this release with that exact main revision: Prisma schema and
+  migrations, shared API contracts, dependency manifests/lockfile and API deploy
+  script are unchanged. This release introduces no database migration.
+- Local `prisma migrate status` reports all 16 existing migrations applied and
+  the schema up to date. This establishes compatibility with the schema already
+  required by current main; it does not support arbitrary historical databases
+  missing main's existing migrations or establish the live Hostinger schema.
+- The group-history endpoint preserves existing fields, pagination and sort
+  parameters. Reviewer metadata is additive and reviewer filtering is optional.
+  The client tolerates an absent reviewer-metadata array, retaining the history
+  list while the backend is rolled out. New filtering requires the updated API.
+- Fresh verification: 285 tests passed; typecheck, lint and full API/web production
+  build passed; production dependency audit returned zero known vulnerabilities.
+  Lint retains eight existing warnings. The local workflow suite passed 601
+  checks, including legacy v1 paths, and removed its fixtures while verifying
+  every original row/count. Assertion counts include preserved baseline rows and
+  can differ from earlier retained-fixture runs.
+- The generated local `next-env.d.ts` path change is excluded from the commit.
+  No `.env`, local credentials, database backups or QA session output is included.
 
 ## Scope and method
 
