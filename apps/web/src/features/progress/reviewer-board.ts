@@ -66,10 +66,11 @@ export function getTeamReviewerProgress(rows: Array<{ reviewerId: string; displa
 
 export function sortReviewerProgress(rows: ReviewerProgress[], sort: ReviewerSort): ReviewerProgress[] {
   const byName = (a: ReviewerProgress, b: ReviewerProgress) => a.displayName.localeCompare(b.displayName) || a.reviewerId.localeCompare(b.reviewerId);
+  const remaining = (row: ReviewerProgress) => row.submissionCount !== undefined && row.reviewerSubmissionGoal == null ? Number.POSITIVE_INFINITY : row.remaining;
   return [...rows].sort((a, b) => {
     if (sort === "name") return byName(a, b);
     if (sort === "completed") return (b.submissionCount ?? b.completed) - (a.submissionCount ?? a.completed) || byName(a, b);
-    if (sort === "fewest") return (a.submissionCount ?? a.completed) - (b.submissionCount ?? b.completed) || byName(a, b);
+    if (sort === "fewest") return remaining(a) - remaining(b) || byName(a, b);
     return (b.submissionRatio ?? b.percent / 100) - (a.submissionRatio ?? a.percent / 100) || byName(a, b);
   });
 }

@@ -169,6 +169,21 @@ html .settings-theme-preview { color: var(--ink); }
 html .settings-manager .settings-preview-light { --ink: #20382c; --muted: #596f61; }
 html .settings-manager .settings-preview-dark { --ink: #e8efeb; --muted: #afbeb5; }
 
+/* Keep accent feedback tied to the saved platform theme on every surface. */
+html :is(.app-shell, .public-page) { --status-surface: color-mix(in srgb, var(--green) 12%, var(--paper)); --status-ink: var(--accent-ink); }
+html :is(.app-shell, .public-page) :is(.brand-mark, .button-primary, .public-submit, .avatar, .progress-fill) { background-color: var(--green); }
+html :is(.app-shell, .public-page) :is(.button-primary:hover, .public-submit:hover) { border-color: var(--green-hover); background-color: var(--green-hover); }
+html :is(.app-shell, .public-page) :is(.button, .icon-button):not(.button-primary):hover { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); background-color: var(--hover-surface); }
+html :is(.app-shell, .public-page) :is(.status:not(.status-pending), .progress-status-complete, .avatar-soft, .public-meta-chip) { border-color: color-mix(in srgb, var(--green) 20%, var(--line)); background-color: var(--status-surface); color: var(--status-ink); }
+html :is(.app-shell, .public-page) .status:not(.status-pending)::before { background-color: var(--green); }
+html :is(.app-shell, .public-page) :is(.nav-link[aria-current="page"], .mobile-nav a[aria-current="page"]) { background-color: var(--green-soft); color: var(--accent-ink); }
+html :is(.app-shell, .public-page) :is(.nav-link:hover, .mobile-nav a:hover, .reviewer-progress-trigger:hover, .form-list-row:hover, .panel-row:hover, .reviewer-progress-row:hover, .group-review-trigger:hover, .public-option:has(input:checked)) { background-color: var(--hover-surface); }
+html :is(.app-shell, .public-page) :is(.setting-icon, .invite-intro, .language-switcher, .link-symbol, .empty-icon, .form-icon, .public-target-icon, .success-ring, .public-meta-dot) { color: var(--accent-ink); }
+html :is(.app-shell, .public-page) :is(.form-icon, .link-symbol, .public-target-icon, .success-ring) { background-color: var(--status-surface); }
+html :is(.app-shell, .public-page) .public-private-chip { border-color: color-mix(in srgb, var(--green) 24%, var(--line)); background-color: var(--status-surface); color: var(--accent-ink); }
+html :is(.app-shell, .public-page) .public-meta-dot { background-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+html :is(.app-shell, .public-page) :is(.reviewer-progress-trigger, .reviewer-drawer-row-trigger, .group-review-trigger):focus-visible { outline-color: var(--accent-ink); }
+
 /* Calm feedback animation; keyboard focus and reduced-motion users stay in control. */
 @media (prefers-reduced-motion: no-preference) {
   html :is(.button, .icon-button, .nav-link, .filter-pill, .platform-theme-toggle, select, input, textarea) {

@@ -24,8 +24,8 @@ if (!existsSync(reactDomPackage)) {
 }
 
 const staticSource = resolve(nextOutputRoot, "static");
-const staticDestination = resolve(standaloneAppRoot, ".next/static");
-await mkdir(resolve(standaloneAppRoot, ".next"), { recursive: true });
+const staticDestination = resolve(standaloneAppRoot, nextOutputDir, "static");
+await mkdir(resolve(standaloneAppRoot, nextOutputDir), { recursive: true });
 await cp(staticSource, staticDestination, { recursive: true, force: true });
 
 const publicSource = resolve(appRoot, "public");

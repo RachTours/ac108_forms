@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ClipboardList, X } from "lucide-react";
 import { getReviewerSortHint, sortReviewerProgress, toReviewerProgress, type ReviewerSort } from "./reviewer-board";
 import { useApi } from "../../lib/client-api";
@@ -22,6 +22,7 @@ function ReviewerReviewsDrawer({ reviewer, onClose }: { reviewer: Source; onClos
   const [cursor, setCursor] = useState<string | null>(null);
   const [loadedView, setLoadedView] = useState<"active" | "archived" | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const paginationRequest = useRef(0);
   const [error, setError] = useState("");
   const [view, setView] = useState<"active" | "archived">("active");
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
@@ -31,12 +32,14 @@ function ReviewerReviewsDrawer({ reviewer, onClose }: { reviewer: Source; onClos
 
   useEffect(() => {
     let current = true;
+    const invalidatePagination = () => { paginationRequest.current++; };
+    invalidatePagination();
     const endpoint = view === "archived" ? "/submissions/archived" : "/submissions";
     void api<{ data: Review[]; nextCursor: string | null }>(endpoint + "?limit=100&reviewerId=" + encodeURIComponent(reviewer.reviewerId))
-      .then((result) => { if (current) { setRows(result.data); setCursor(result.nextCursor); setLoadedView(view); setError(""); } })
-      .catch(() => { if (current) { setRows([]); setCursor(null); setError(submissions("loadFailed")); setLoadedView(view); } });
-    return () => { current = false; };
-  }, [api, reviewer.reviewerId, view]);
+      .then((result) => { if (current) { setRows(result.data); setCursor(result.nextCursor); setLoadedView(view); setLoadingMore(false); setError(""); } })
+      .catch(() => { if (current) { setRows([]); setCursor(null); setError(submissions("loadFailed")); setLoadedView(view); setLoadingMore(false); } });
+    return () => { current = false; invalidatePagination(); };
+  }, [api, reviewer.reviewerId, view, submissions]);
 
   useEffect(() => {
     if (!selectedReviewId) return;
@@ -46,7 +49,7 @@ function ReviewerReviewsDrawer({ reviewer, onClose }: { reviewer: Source; onClos
       .then((result) => { if (current) { setDetail({ id: selectedReviewId, data: result.data }); setError(""); } })
       .catch(() => { if (current) setError(submissions("loadFailed")); });
     return () => { current = false; };
-  }, [api, selectedReviewId, view]);
+  }, [api, selectedReviewId, view, submissions]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) { if (event.key === "Escape") onClose(); }
@@ -56,15 +59,17 @@ function ReviewerReviewsDrawer({ reviewer, onClose }: { reviewer: Source; onClos
 
   async function loadMore() {
     if (!cursor || loadingMore) return;
+    const requestId = ++paginationRequest.current;
     setLoadingMore(true);
     setError("");
     try {
       const endpoint = view === "archived" ? "/submissions/archived" : "/submissions";
       const result = await api<{ data: Review[]; nextCursor: string | null }>(endpoint + "?limit=100&reviewerId=" + encodeURIComponent(reviewer.reviewerId) + "&cursor=" + encodeURIComponent(cursor));
+      if (requestId !== paginationRequest.current) return;
       setRows((current) => [...current, ...result.data]);
       setCursor(result.nextCursor);
-    } catch { setError(submissions("moreReviewerReviewsFailed")); }
-    finally { setLoadingMore(false); }
+    } catch { if (requestId === paginationRequest.current) setError(submissions("moreReviewerReviewsFailed")); }
+    finally { if (requestId === paginationRequest.current) setLoadingMore(false); }
   }
 
   return <div className="reviewer-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>

@@ -14,6 +14,7 @@ const config: NextConfig = {
   transpilePackages: ["@reviewroom/contracts"],
   poweredByHeader: false,
   reactStrictMode: true,
+  allowedDevOrigins: ["127.0.0.1"],
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },

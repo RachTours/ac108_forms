@@ -52,7 +52,7 @@ export function InvitationAcceptance({ token, email, displayName, role }: { toke
     }
   }
 
-  return <form onSubmit={(event) => void accept(event)}>
+  return <form method="post" onSubmit={(event) => void accept(event)}>
     {!displayName && <><label htmlFor="display-name">{t("name")}</label><input id="display-name" name="displayName" autoComplete="name" minLength={1} maxLength={120} required /></>}
     {!email && <><label htmlFor="email">{t("email")}</label><input id="email" name="email" type="email" autoComplete="email" maxLength={254} required /></>}
     {displayName && <p className="help-copy">{t("preparedFor", { name: displayName })}</p>}

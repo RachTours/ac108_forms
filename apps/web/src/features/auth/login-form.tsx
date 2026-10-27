@@ -56,7 +56,7 @@ export function LoginForm({ audience }: { audience: "admin" | "reviewer" }) {
     }
   }
 
-  return <form onSubmit={submit} noValidate>
+  return <form method="post" onSubmit={submit} noValidate>
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     <label htmlFor="email">{t("email")}</label><input id="email" name="email" type="email" autoComplete="username" required maxLength={254} />
     <label htmlFor="password">{t("password")}</label><PasswordInput id="password" name="password" autoComplete="current-password" />

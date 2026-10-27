@@ -24,7 +24,10 @@ export function workspaceThemeCssVariables(theme: ReturnType<typeof safeWorkspac
   }[theme.surfacePreset];
   return {
     "--green": theme.accentColor,
-    "--green-soft": `color-mix(in srgb, ${theme.accentColor} 11%, white)`,
+    "--green-soft": `color-mix(in srgb, ${theme.accentColor} 11%, var(--paper))`,
+    "--green-hover": `color-mix(in srgb, ${theme.accentColor} 84%, black)`,
+    "--status-surface": `color-mix(in srgb, ${theme.accentColor} 12%, var(--paper))`,
+    "--status-ink": "var(--accent-ink)",
     "--canvas": surface.canvas,
     "--form-surface": theme.formStyle === "soft" ? surface.softForm : "#ffffff",
     "--form-border": theme.formStyle === "soft" ? surface.softBorder : "#e4e9e5",

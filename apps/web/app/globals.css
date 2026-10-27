@@ -99,11 +99,12 @@ html[data-ui-theme="dark"] .public-option, html[data-ui-theme="dark"] .public-ta
 .public-error-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 13px; margin-top: 8px; border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--danger) 8%, var(--paper)); color: var(--danger); font-size: 11px; }
 .public-error-summary .text-button { color: inherit; text-decoration: underline; }
 .platform-theme-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-html[data-ui-theme="dark"] .app-shell, html[data-ui-theme="dark"] .public-page { --canvas: #121a16 !important; --form-surface: #1d2923 !important; --form-border: #35443c !important; --green-soft: #243c31 !important; }
+html[data-ui-theme="dark"] .app-shell, html[data-ui-theme="dark"] .public-page { --canvas: #121a16 !important; --form-surface: #1d2923 !important; --form-border: #35443c !important; --green-soft: color-mix(in srgb, var(--green) 18%, var(--paper)) !important; --green-hover: color-mix(in srgb, var(--green) 75%, white) !important; --status-surface: color-mix(in srgb, var(--green) 20%, var(--paper)) !important; }
 html[data-ui-theme="dark"][data-platform="admin"] .app-shell { --canvas: #111b24 !important; }
 html[data-ui-theme="dark"] .reviewer-reviews-drawer, html[data-ui-theme="dark"] .reviewer-board-list, html[data-ui-theme="dark"] .table-wrap, html[data-ui-theme="dark"] .form-canvas, html[data-ui-theme="dark"] .preview-input, html[data-ui-theme="dark"] .field-button, html[data-ui-theme="dark"] .group-dialog { background: var(--paper); border-color: var(--line); color: var(--ink); }
 html[data-ui-theme="dark"] th, html[data-ui-theme="dark"] .permission-note, html[data-ui-theme="dark"] .rule-summary, html[data-ui-theme="dark"] .public-option:has(input:checked), html[data-ui-theme="dark"] .count-chip, html[data-ui-theme="dark"] .status { background: #25352c; color: var(--ink); border-color: var(--line); }
-html[data-ui-theme="dark"] .nav-link[aria-current="page"], html[data-ui-theme="dark"] .nav-link:hover { color: #e8efeb; background: #2d4336; }
+html[data-ui-theme="dark"] .nav-link[aria-current="page"] { color: var(--accent-ink); background: var(--green-soft); }
+html[data-ui-theme="dark"] .nav-link:hover { color: var(--ink); background: var(--hover-surface); }
 html[data-ui-theme="dark"] .form-error { background: #482722; color: #ffc0b7; }
 html[data-ui-theme="dark"] .signature-pad { background: #f9fbfa; color: #17231f; }
 .group-dialog .settings-panel>.text-button { display: block; margin-block: 7px; }
@@ -868,15 +869,24 @@ html[data-ui-theme=dark] .assignment-workspace-row, html[data-ui-theme=dark] .gr
 .group-card .button-row { flex-wrap: wrap; gap: 8px; }
 .group-card .button-row .button { min-height: 38px; }
 .group-progress-percent { justify-self: end; margin-top: -6px; font-weight: 650; color: var(--ink); }
-.group-history-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; color: var(--muted); font-size: 12px; }
-.group-history-sort select { min-width: 190px; max-width: 100%; }
+.group-reviewer-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
+.group-reviewer-filter { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.group-reviewer-filter > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.group-reviewer-filter:hover { border-color: var(--green); }
+.group-reviewer-filter.active { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+.group-reviewer-filter:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.group-reviewer-filter:disabled { cursor: progress; opacity: .65; }
+.group-reviewer-filter-count { flex: 0 0 auto; min-width: 22px; padding: 2px 6px; border-radius: 999px; background: var(--canvas); text-align: center; font-variant-numeric: tabular-nums; }
+.group-submission-number { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--green-soft); color: var(--green); font-size: 12px; font-variant-numeric: tabular-nums; }
 .group-review-trigger { width: 100%; text-align: start; }
 .group-review-trigger .panel-row-main { min-width: 0; }
 .group-review-trigger strong, .group-review-trigger small { overflow-wrap: anywhere; }
 @media (max-width: 620px) {
   .group-create-form { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .group-create-form input, .group-create-form > .button, .group-card .button-row .button { min-height: 44px; }
-  .group-history-sort select { flex: 1 1 100%; width: 100%; }
+  .group-reviewer-filters { gap: 6px; }
+  .group-reviewer-filter { min-height: 40px; }
+  .group-review-trigger { gap: 10px; align-items: center; }
 }
 
 /* Stable identity and wrapping actions prevent permission text from crushing link titles. */

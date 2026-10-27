@@ -222,6 +222,7 @@ if (process.argv.includes("--cleanup")) {
     equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 4);
     const page = (await request(admin, `/groups/${alpha.id}/submissions?limit=2`)).data;
     equal(page.total, 4); equal(page.submissions.length, 2); assert.ok(page.nextCursor);
+    equal(page.reviewers, [{ reviewerId: alice.id, reviewerName: "Amina", submissionCount: 4 }], "Group history should expose every member inline with their real submission total.");
     equal(page.submissions[0].reviewedPersonName, "Local respondent", "Group history should show the reviewed person from the submitted form.");
     equal(page.submissions[0].reviewerName, "Amina", "Group history should identify who submitted the review.");
     const legacyPage = (await request(admin, `/groups/${alpha.id}/submissions?limit=1`, { version: 1 })).data;
@@ -288,9 +289,12 @@ if (process.argv.includes("--cleanup")) {
     await patch(admin, `/groups/${sortGroup.id}`, { reviewerIds: [alice.id, bob.id] });
     const sortSubmissions = await Promise.all([bob, alice].map((reviewer, index) => prisma.submission.create({ data: { organizationId: org, formId: first.id, formVersionId: first.versionId, targetId: target.id, reviewerId: reviewer.id, groupId: sortGroup.id, idempotencyKey: uuid(), payloadHash: "b".repeat(64), answers, submittedAt: new Date(Date.now() - index * 60_000) } })));
     const memberPage = (await request(admin, `/groups/${sortGroup.id}/submissions?limit=1&sort=member`)).data;
+    equal(memberPage.reviewers.map((row) => row.reviewerName), ["Adam", "Amina"], "Inline reviewer filters should be ordered by reviewer name.");
     equal(memberPage.submissions.map((row) => row.reviewerName), ["Adam"], "Member sorting should order group history by reviewer name.");
     const memberNext = (await request(admin, `/groups/${sortGroup.id}/submissions?limit=1&sort=member&cursor=${memberPage.nextCursor}`)).data;
     equal(memberNext.submissions.map((row) => row.reviewerName), ["Amina"], "Member sorting should retain stable pagination across reviewers.");
+    const reviewerFiltered = (await request(admin, `/groups/${sortGroup.id}/submissions?limit=100&reviewerId=${alice.id}`)).data;
+    equal(reviewerFiltered.total, 8); equal(reviewerFiltered.submissions.map((row) => row.reviewerName), Array(8).fill("Amina"), "Selecting an inline reviewer name should show that reviewer’s full active history, including submissions made before joining the group.");
     await prisma.submission.deleteMany({ where: { id: { in: sortSubmissions.map((row) => row.id) } } });
     await request(admin, `/groups/${sortGroup.id}`, { method: "DELETE", status: 204 });
     await patch(admin, `/members/${alice.id}`, { groupId: beta.id }); await patch(admin, `/members/${bob.id}`, { groupId: beta.id });

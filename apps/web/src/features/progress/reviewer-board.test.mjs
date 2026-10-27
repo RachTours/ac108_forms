@@ -34,7 +34,7 @@ test("review board has deterministic default and user-selected sorts without ord
   assert.deepEqual(sortReviewerProgress(rows, "completion").map((row) => row.reviewerId), ["b", "c", "a"]);
   assert.deepEqual(sortReviewerProgress(rows, "name").map((row) => row.reviewerId), ["a", "b", "c"]);
   assert.deepEqual(sortReviewerProgress(rows, "completed").map((row) => row.reviewerId), ["b", "c", "a"]);
-  assert.deepEqual(sortReviewerProgress(rows, "fewest").map((row) => row.reviewerId), ["a", "c", "b"]);
+  assert.deepEqual(sortReviewerProgress(rows, "fewest").map((row) => row.reviewerId), ["a", "b", "c"]);
 });
 
 test("reviewer board percentages use the shared target goal when it is provided", () => {
@@ -73,7 +73,7 @@ test("reviewer progress uses submission goals while keeping assignment completio
   assert.equal(rows.find((row) => row.reviewerId === "a").percent, 100);
 });
 
-test("reviewer sorting orders fewest submissions first with stable ties", () => {
+test("reviewer sorting orders fewest submissions left first with stable ties", () => {
   const rows = toReviewerProgress([
     { reviewerId: "z", displayName: "Alex", assigned: 0, completed: 0, submissionCount: 4, reviewerSubmissionGoal: 10, submissionRatio: 0.4, submissionsRemaining: 6, submissionPercent: 40, submissionGoalMet: false },
     { reviewerId: "a", displayName: "Alex", assigned: 0, completed: 0, submissionCount: 9, reviewerSubmissionGoal: 10, submissionRatio: 0.9, submissionsRemaining: 1, submissionPercent: 90, submissionGoalMet: false },
@@ -83,7 +83,17 @@ test("reviewer sorting orders fewest submissions first with stable ties", () => 
   assert.deepEqual(sortReviewerProgress(rows, "completion").map((row) => row.reviewerId), ["a", "b", "z"]);
   assert.deepEqual(sortReviewerProgress(rows, "name").map((row) => row.reviewerId), ["a", "z", "b"]);
   assert.deepEqual(sortReviewerProgress(rows, "completed").map((row) => row.reviewerId), ["a", "b", "z"]);
-  assert.deepEqual(sortReviewerProgress(rows, "fewest").map((row) => row.reviewerId), ["z", "b", "a"]);
+  assert.deepEqual(sortReviewerProgress(rows, "fewest").map((row) => row.reviewerId), ["a", "b", "z"]);
+});
+
+test("fewest left compares different personal goals and puts unconfigured goals last", () => {
+  const rows = toReviewerProgress([
+    { reviewerId: "far", displayName: "Far", assigned: 0, completed: 0, submissionCount: 1, reviewerSubmissionGoal: 100, submissionsRemaining: 99 },
+    { reviewerId: "near", displayName: "Near", assigned: 0, completed: 0, submissionCount: 9, reviewerSubmissionGoal: 10, submissionsRemaining: 1 },
+    { reviewerId: "none", displayName: "Ada", assigned: 0, completed: 0, submissionCount: 0, reviewerSubmissionGoal: null, submissionsRemaining: null },
+    { reviewerId: "met", displayName: "Met", assigned: 0, completed: 0, submissionCount: 25, reviewerSubmissionGoal: 20, submissionsRemaining: 0 },
+  ]);
+  assert.deepEqual(sortReviewerProgress(rows, "fewest").map((row) => row.reviewerId), ["met", "near", "far", "none"]);
 });
 
 test("completion sort compares unrounded ratios and resolves exact ties by name then ID", () => {
