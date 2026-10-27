@@ -91,7 +91,7 @@ if (process.argv.includes("--cleanup")) {
   try {
     // Store only hashes, never real row contents, in the optional retained fixture.
     fixture.baseline = await snapshot();
-    const passwordHash = await hashPassword(randomBytes(24).toString("base64url"));
+    const passwordHash = await hashPassword(process.env.GROUP_QA_PASSWORD || randomBytes(24).toString("base64url"));
     async function member(organizationId, displayName, role = "REVIEWER") {
       const user = await prisma.user.create({ data: { email: `${prefix}${uuid()}@reviewroom.test`, displayName } });
       fixture.userIds.push(user.id);
@@ -222,6 +222,11 @@ if (process.argv.includes("--cleanup")) {
     equal((await request(admin, "/progress/summary")).data.groupSubmissionCount, 4);
     const page = (await request(admin, `/groups/${alpha.id}/submissions?limit=2`)).data;
     equal(page.total, 4); equal(page.submissions.length, 2); assert.ok(page.nextCursor);
+    equal(page.submissions[0].reviewedPersonName, "Local respondent", "Group history should show the reviewed person from the submitted form.");
+    equal(page.submissions[0].reviewerName, "Amina", "Group history should identify who submitted the review.");
+    const legacyPage = (await request(admin, `/groups/${alpha.id}/submissions?limit=1`, { version: 1 })).data;
+    equal(legacyPage.submissions[0].reviewedPersonName, "Local respondent", "The additive group-history fields should also work through the legacy API route.");
+    equal(legacyPage.submissions[0].reviewerName, "Amina");
     equal(page.submissions.some((row) => "answers" in row), false);
     const next = (await request(admin, `/groups/${alpha.id}/submissions?limit=2&cursor=${page.nextCursor}`)).data;
     equal(next.submissions.length, 2); equal(new Set([...page.submissions, ...next.submissions].map((row) => row.id)).size, 4);
@@ -279,6 +284,16 @@ if (process.argv.includes("--cleanup")) {
 
     equal(groups.reduce((sum, row) => sum + row.submissionCount, 0), 7);
     equal((await request(admin, `/groups/${beta.id}/submissions`)).data.total, 7);
+    const sortGroup = (await post(admin, "/groups", { name: "Sort verification", submissionGoal: 10 }, 201)).data;
+    await patch(admin, `/groups/${sortGroup.id}`, { reviewerIds: [alice.id, bob.id] });
+    const sortSubmissions = await Promise.all([bob, alice].map((reviewer, index) => prisma.submission.create({ data: { organizationId: org, formId: first.id, formVersionId: first.versionId, targetId: target.id, reviewerId: reviewer.id, groupId: sortGroup.id, idempotencyKey: uuid(), payloadHash: "b".repeat(64), answers, submittedAt: new Date(Date.now() - index * 60_000) } })));
+    const memberPage = (await request(admin, `/groups/${sortGroup.id}/submissions?limit=1&sort=member`)).data;
+    equal(memberPage.submissions.map((row) => row.reviewerName), ["Adam"], "Member sorting should order group history by reviewer name.");
+    const memberNext = (await request(admin, `/groups/${sortGroup.id}/submissions?limit=1&sort=member&cursor=${memberPage.nextCursor}`)).data;
+    equal(memberNext.submissions.map((row) => row.reviewerName), ["Amina"], "Member sorting should retain stable pagination across reviewers.");
+    await prisma.submission.deleteMany({ where: { id: { in: sortSubmissions.map((row) => row.id) } } });
+    await request(admin, `/groups/${sortGroup.id}`, { method: "DELETE", status: 204 });
+    await patch(admin, `/members/${alice.id}`, { groupId: beta.id }); await patch(admin, `/members/${bob.id}`, { groupId: beta.id });
     const updatedBoard = (await request(admin, "/progress/reviewer-board")).data.find((row) => row.reviewerId === alice.id);
     equal(updatedBoard.submissionCount, 7); equal(updatedBoard.submissionPercent, 70);
     equal((await request(alice, "/progress/summary")).data.reviewerSubmissionPercent, 70);
@@ -321,7 +336,10 @@ if (process.argv.includes("--cleanup")) {
     progressSummarySchema.parse((await request(alice, "/progress/summary", { version: 1 })).data);
     await verifyBaseline(fixture.baseline, false);
     fixture.admin = admin; fixture.reviewer = alice; fixture.fieldIds = fieldIds;
+    fixture.adminEmail = (await prisma.membership.findUniqueOrThrow({ where: { id: admin.id }, select: { user: { select: { email: true } } } })).user.email;
+    fixture.reviewerEmail = (await prisma.membership.findUniqueOrThrow({ where: { id: alice.id }, select: { user: { select: { email: true } } } })).user.email;
     fixture.publicUrl = `${env.WEB_ORIGIN}/r/${specific}`;
+    fixture.publicToken = new URL(fixture.publicUrl).pathname.split("/").at(-1);
     fixture.browserOrigin = env.WEB_ORIGIN;
     success = true;
   } finally {

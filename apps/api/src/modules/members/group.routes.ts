@@ -9,6 +9,7 @@ import { reviewerGroupWriteSchema } from "@reviewroom/contracts";
 
 import { currentGroupSubmissionWhere } from "./group-history.js";
 import { bumpGroupVersions } from "./group-version.js";
+import { getReviewedPersonName } from "../submissions/submission-display.js";
 
 export const reviewerGroupRouter = Router();
 reviewerGroupRouter.use(requireSession);
@@ -156,15 +157,16 @@ reviewerGroupRouter.get("/:groupId/submissions", requirePermission("members", "r
     const auth = request.auth!, groupId = idSchema.parse(request.params.groupId);
     const limit = z.coerce.number().int().min(1).max(100).default(25).parse(request.query.limit);
     const cursor = request.query.cursor ? idSchema.parse(request.query.cursor) : undefined;
+    const sort = z.enum(["date", "member"]).default("date").parse(request.query.sort);
     const group = await prisma.reviewerGroup.findFirst({ where: { id: groupId, organizationId: auth.organizationId }, select: { id: true, name: true, archivedAt: true } });
     if (!group) throw new HttpError(404, "GROUP_NOT_FOUND", "Reviewer group not found.");
     const where = group.archivedAt ? { organizationId: auth.organizationId, groupId, archivedAt: null } : currentGroupSubmissionWhere(auth.organizationId, groupId);
     if (cursor && !await prisma.submission.findFirst({ where: { ...where, id: cursor }, select: { id: true } })) throw new HttpError(400, "INVALID_CURSOR", "Refresh this list.");
     const [rows, total] = await Promise.all([
-      prisma.submission.findMany({ where, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), orderBy: [{ submittedAt: "desc" }, { id: "desc" }], take: limit + 1, select: { id: true, submittedAt: true, reviewedAt: true, target: { select: { displayName: true } }, form: { select: { title: true } }, formVersion: { select: { version: true } }, reviewer: { select: { user: { select: { displayName: true } } } } } }),
+      prisma.submission.findMany({ where, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), orderBy: sort === "member" ? [{ reviewer: { user: { displayName: "asc" } } }, { reviewerId: "asc" }, { submittedAt: "desc" }, { id: "desc" }] : [{ submittedAt: "desc" }, { id: "desc" }], take: limit + 1, select: { id: true, submittedAt: true, reviewedAt: true, answers: true, target: { select: { displayName: true } }, form: { select: { title: true } }, formVersion: { select: { version: true, definition: true } }, reviewer: { select: { user: { select: { displayName: true } } } } } }),
       prisma.submission.count({ where }),
     ]);
-    const data = rows.slice(0, limit).map((row) => ({ id: row.id, submittedAt: row.submittedAt, reviewedAt: row.reviewedAt, targetName: row.target.displayName, formTitle: row.form.title, formVersion: row.formVersion.version, reviewerName: row.reviewer.user.displayName }));
+    const data = rows.slice(0, limit).map((row) => ({ id: row.id, submittedAt: row.submittedAt, reviewedAt: row.reviewedAt, targetName: row.target.displayName, reviewedPersonName: getReviewedPersonName(row.formVersion.definition, row.answers, row.target.displayName), formTitle: row.form.title, formVersion: row.formVersion.version, reviewerName: row.reviewer.user.displayName }));
     response.json({ data: { group, total, submissions: data, nextCursor: rows.length > limit ? data.at(-1)?.id ?? null : null } });
   } catch (error) { next(error); }
 });

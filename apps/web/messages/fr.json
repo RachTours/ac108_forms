@@ -633,7 +633,11 @@
     "linkSortForm": "Formulaire, puis évaluateur",
     "linkGenerationUnavailable": "Les nouveaux liens sont indisponibles avec les accès actuels aux formulaires. Les liens actifs existants restent utilisables.",
     "linkPolicyLoadFailed": "Impossible de charger les accès aux formulaires. La création et le remplacement des liens sont temporairement indisponibles.",
-    "noEligibleFormLinks": "Aucun formulaire ne permet de créer de nouveaux liens pour les évaluateurs sélectionnés."
+    "noEligibleFormLinks": "Aucun formulaire ne permet de créer de nouveaux liens pour les évaluateurs sélectionnés.",
+    "linkActions": "Actions du lien",
+    "assignGroupFormFirst": "Attribuez ce formulaire au groupe de l’évaluateur avant de créer ou remplacer des liens. Les liens actifs existants restent valides.",
+    "assignReviewerFormFirst": "Attribuez ce formulaire dans les paramètres de l’évaluateur avant de créer ou remplacer des liens. Les liens actifs existants restent valides.",
+    "manageFormAccess": "Gérer l’accès aux formulaires"
   },
   "settings": {
     "title": "Paramètres",
@@ -887,12 +891,24 @@
     "disableGroups": "Utiliser le mode antérieur",
     "activateGroups": "Activer les objectifs de groupe",
     "setupIncomplete": "Définissez l’objectif de chaque groupe actif et attribuez chaque évaluateur avant activation.",
-    "activateConfirm": "Activer les objectifs de groupe ? Les nouvelles soumissions seront associées au groupe lors de leur envoi. Les liens et l’historique restent disponibles.",
+    "activateConfirm": "Activer les objectifs et formulaires de groupe ? Chaque évaluateur utilisera l’objectif et les formulaires de son groupe actuel. Les anciennes réponses compteront dans la progression et les liens existants resteront valides.",
     "disableConfirm": "Revenir aux objectifs antérieurs ? L’historique des groupes sera conservé.",
     "removeGroup": "Retirer le groupe",
     "removeNamedGroup": "Retirer le groupe {name}",
     "removeHelp": "Retirer des groupes actifs sans supprimer les comptes, réponses ni liens partagés.",
     "recordedSubmissionCount": "Réponses enregistrées : {count}",
-    "recordedGroupHistory": "Ce groupe retiré affiche les réponses qui y ont été enregistrées à l’origine. L’historique complet reste disponible dans Réponses."
+    "recordedGroupHistory": "Ce groupe retiré affiche les réponses qui y ont été enregistrées à l’origine. L’historique complet reste disponible dans Réponses.",
+    "backToGroupReviews": "Retour aux réponses du groupe",
+    "loadingReview": "Chargement de l’évaluation…",
+    "activationPurpose": "Activez ce mode pour appliquer à chaque évaluateur l’objectif et les formulaires de son groupe. Les liens existants restent valides.",
+    "activationBlocked": "Terminez la configuration avant d’activer les objectifs de groupe",
+    "missingGroupGoals": "{count} groupes actifs ont besoin d’un objectif de soumission.",
+    "missingReviewerGroups": "{count} évaluateurs actifs doivent rejoindre un groupe.",
+    "configureNamedGroup": "Configurer {name}",
+    "assignNamedReviewer": "Attribuer un groupe à {name}",
+    "submittedBy": "Envoyée par {name}",
+    "sortBy": "Trier les réponses par",
+    "sortByDate": "Plus récentes d’abord",
+    "sortByMember": "Nom du réviseur (A–Z)"
   }
 }

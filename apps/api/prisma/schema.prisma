@@ -256,6 +256,7 @@ model Submission {
   @@index([organizationId, targetId, submittedAt, id])
   @@index([organizationId, reviewerId, submittedAt, id])
   @@index([organizationId, reviewerId, archivedAt, submittedAt, id], map: "Submission_review_filter_idx")
+  @@index([organizationId, targetId, reviewerId, archivedAt], map: "Submission_org_target_reviewer_archive_idx")
   @@index([organizationId, formId])
   @@index([organizationId, archivedAt, submittedAt, id])
   @@index([organizationId, groupId, archivedAt, submittedAt, id], map: "Submission_group_filter_idx")

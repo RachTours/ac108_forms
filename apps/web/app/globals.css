@@ -867,7 +867,53 @@ html[data-ui-theme=dark] .assignment-workspace-row, html[data-ui-theme=dark] .gr
 .group-create-form > .button { min-height: 42px; white-space: nowrap; }
 .group-card .button-row { flex-wrap: wrap; gap: 8px; }
 .group-card .button-row .button { min-height: 38px; }
+.group-progress-percent { justify-self: end; margin-top: -6px; font-weight: 650; color: var(--ink); }
+.group-history-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; color: var(--muted); font-size: 12px; }
+.group-history-sort select { min-width: 190px; max-width: 100%; }
+.group-review-trigger { width: 100%; text-align: start; }
+.group-review-trigger .panel-row-main { min-width: 0; }
+.group-review-trigger strong, .group-review-trigger small { overflow-wrap: anywhere; }
 @media (max-width: 620px) {
   .group-create-form { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .group-create-form input, .group-create-form > .button, .group-card .button-row .button { min-height: 44px; }
+  .group-history-sort select { flex: 1 1 100%; width: 100%; }
+}
+
+/* Stable identity and wrapping actions prevent permission text from crushing link titles. */
+.reviewer-link-row { display: grid; grid-template-columns: minmax(0,1fr); align-items: start; gap: 12px; padding: 16px; }
+.reviewer-link-identity { display: grid; grid-template-columns: 35px minmax(0,1fr) auto; align-items: center; min-width: 0; gap: 10px; }
+.reviewer-link-identity .panel-row-main { min-width: 0; overflow-wrap: anywhere; }
+.reviewer-link-identity .panel-row-main strong { display: block; font-size: 12px; line-height: 1.5; }
+.reviewer-link-identity .panel-row-main small { display: block; margin-block-start: 4px; font-size: 11px; line-height: 1.5; }
+.reviewer-link-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.reviewer-link-actions .button, .reviewer-link-actions .icon-button { min-height: 38px; }
+.link-access-note { display: grid; grid-template-columns: 16px minmax(0,1fr) auto; grid-column: 1 / -1; gap: 8px; align-items: start; padding: 12px; border-radius: 8px; background: var(--canvas); color: var(--muted); }
+.link-access-note p { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.link-access-note .text-button { padding: 0; text-align: start; font-size: 12px; line-height: 1.6; }
+.button:disabled, .icon-button:disabled { cursor: not-allowed; }
+.button[aria-busy=true]:disabled { cursor: progress; }
+.group-readiness { padding: 14px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--canvas); font-size: 12px; line-height: 1.6; }
+.group-readiness:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.group-readiness ul { padding-inline-start: 20px; margin: 8px 0; }
+.group-readiness-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 12px; }
+.group-review-trigger { display: flex; width: 100%; color: var(--ink); background: transparent; text-align: start; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.group-review-trigger:hover { background: var(--canvas); }
+.group-review-trigger:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.group-review-back { margin-block: 0 18px; }
+[dir=rtl] .group-review-back svg { transform: scaleX(-1); }
+.group-review-detail { min-width: 0; padding-block-start: 4px; }
+.group-review-detail .detail-header h1 { overflow-wrap: anywhere; font-size: clamp(22px, 4vw, 32px); }
+.group-review-detail .answer-sheet { min-width: 0; }
+.group-review-detail .answer-block p { overflow-wrap: anywhere; }
+@media(min-width:1200px) { .reviewer-link-row { grid-template-columns: minmax(280px,1fr) auto; align-items: center; } }
+@media(max-width:620px) {
+  .reviewer-link-row { padding: 12px; }
+  .reviewer-link-identity { grid-template-columns: 32px minmax(0,1fr); }
+  .reviewer-link-identity > .status { grid-column: 2; justify-self: start; }
+  .reviewer-link-actions > .button { flex: 1 1 100px; min-height: 44px; }
+  .reviewer-link-actions > .icon-button { min-width: 44px; min-height: 44px; }
+  .link-access-note { grid-template-columns: 16px minmax(0,1fr); }
+  .link-access-note .text-button { grid-column: 2; }
+  .group-submissions-dialog { padding: 16px; }
+  .group-review-detail .answer-sheet { padding: 14px; }
 }

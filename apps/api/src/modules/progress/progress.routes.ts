@@ -77,22 +77,31 @@ progressRouter.get("/reviewer-board", async (request, response, next) => {
     const [rows, activeReviewerCount, config] = await Promise.all([
       prisma.$queryRaw<ReviewerBoardQueryRow[]>`
       SELECT m.id AS reviewerId, u.displayName AS displayName, m.submissionGoalOverride, m.groupId,
-        COUNT(DISTINCT t.id) AS assigned,
-        COUNT(DISTINCT CASE WHEN s.id IS NOT NULL THEN t.id END) AS completed,
-        (
-          SELECT COUNT(*) FROM Submission authored
-          WHERE authored.organizationId = m.organizationId
-            AND authored.reviewerId = m.id
-            AND authored.archivedAt IS NULL
-        ) AS submissionCount
+        COALESCE(assignmentStats.assigned, 0) AS assigned,
+        COALESCE(assignmentStats.completed, 0) AS completed,
+        COALESCE(submissionStats.submissionCount, 0) AS submissionCount
       FROM Membership m
       INNER JOIN User u ON u.id = m.userId AND u.status = 'ACTIVE'
-      LEFT JOIN Assignment a ON a.reviewerId = m.id AND a.organizationId = m.organizationId
-      LEFT JOIN ReviewTarget t ON t.id = a.targetId AND t.organizationId = m.organizationId AND t.status = 'ACTIVE' AND t.archivedAt IS NULL
-      LEFT JOIN Submission s ON s.targetId = t.id AND s.reviewerId = m.id AND s.organizationId = m.organizationId AND s.archivedAt IS NULL
+      LEFT JOIN (
+        SELECT a.organizationId, a.reviewerId, COUNT(*) AS assigned,
+          SUM(EXISTS (
+            SELECT 1 FROM Submission s
+            WHERE s.organizationId = a.organizationId AND s.targetId = t.id
+              AND s.reviewerId = a.reviewerId AND s.archivedAt IS NULL
+          )) AS completed
+        FROM Assignment a
+        INNER JOIN ReviewTarget t ON t.id = a.targetId AND t.organizationId = a.organizationId
+          AND t.status = 'ACTIVE' AND t.archivedAt IS NULL
+        WHERE a.organizationId = ${auth.organizationId}
+        GROUP BY a.organizationId, a.reviewerId
+      ) assignmentStats ON assignmentStats.organizationId = m.organizationId AND assignmentStats.reviewerId = m.id
+      LEFT JOIN (
+        SELECT organizationId, reviewerId, COUNT(*) AS submissionCount
+        FROM Submission WHERE organizationId = ${auth.organizationId} AND archivedAt IS NULL
+        GROUP BY organizationId, reviewerId
+      ) submissionStats ON submissionStats.organizationId = m.organizationId AND submissionStats.reviewerId = m.id
       WHERE m.organizationId = ${auth.organizationId} AND m.role = 'REVIEWER' AND m.status = 'ACTIVE'
         AND (${!reviewerOnly} OR m.id = ${auth.membershipId})
-      GROUP BY m.id, u.displayName, m.submissionGoalOverride, m.groupId
       `,
       prisma.membership.count({ where: { organizationId: auth.organizationId, role: "REVIEWER", status: "ACTIVE", user: { status: "ACTIVE" } } }),
       prisma.progressConfig.findUnique({ where: { organizationId: auth.organizationId }, select: { submissionGoal: true } }),

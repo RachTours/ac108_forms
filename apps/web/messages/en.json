@@ -633,7 +633,11 @@
     "linkSortForm": "Form, then reviewer",
     "linkGenerationUnavailable": "New links are unavailable with the current form access. Existing active links remain usable.",
     "linkPolicyLoadFailed": "Form access could not be loaded. Creating or replacing links is temporarily unavailable.",
-    "noEligibleFormLinks": "No forms are available for new links for the selected reviewers."
+    "noEligibleFormLinks": "No forms are available for new links for the selected reviewers.",
+    "linkActions": "Link actions",
+    "assignGroupFormFirst": "Assign this form to the reviewer’s group before creating or replacing links. Existing active links still work.",
+    "assignReviewerFormFirst": "Assign this form in the reviewer’s settings before creating or replacing links. Existing active links still work.",
+    "manageFormAccess": "Manage form access"
   },
   "settings": {
     "title": "Settings",
@@ -887,12 +891,24 @@
     "disableGroups": "Use legacy mode",
     "activateGroups": "Activate group goals",
     "setupIncomplete": "Set a goal for every active group and assign every active reviewer before activation.",
-    "activateConfirm": "Activate group goals? New submissions will be recorded against their submission-time group. Existing links and history remain available.",
+    "activateConfirm": "Activate group goals and assigned forms? Reviewers will use their current group’s goal and form access. Past submissions count toward progress, and existing shared links remain valid.",
     "disableConfirm": "Switch back to legacy goals? Group history will be preserved.",
     "removeGroup": "Remove group",
     "removeNamedGroup": "Remove group {name}",
     "removeHelp": "Remove from active groups; keep reviewer accounts, submissions and shared links.",
     "recordedSubmissionCount": "Recorded submissions: {count}",
-    "recordedGroupHistory": "This removed group shows submissions originally recorded here. All reviewers’ full histories remain available in Submissions."
+    "recordedGroupHistory": "This removed group shows submissions originally recorded here. All reviewers’ full histories remain available in Submissions.",
+    "backToGroupReviews": "Back to group submissions",
+    "loadingReview": "Loading review…",
+    "activationPurpose": "Activate to use each group’s submission goal and assigned forms for its reviewers. Existing shared links remain valid.",
+    "activationBlocked": "Finish setup before activating group goals",
+    "missingGroupGoals": "{count} active groups need a submission goal.",
+    "missingReviewerGroups": "{count} active reviewers need a group.",
+    "configureNamedGroup": "Set up {name}",
+    "assignNamedReviewer": "Assign {name} to a group",
+    "submittedBy": "Submitted by {name}",
+    "sortBy": "Sort submissions by",
+    "sortByDate": "Newest first",
+    "sortByMember": "Reviewer name (A–Z)"
   }
 }

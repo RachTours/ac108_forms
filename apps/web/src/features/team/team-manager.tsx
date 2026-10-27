@@ -100,14 +100,19 @@ export function TeamManager({ initialMembers, initialLinks, initialInvitations, 
           const active = links.find((link) => link.reviewer.id === member.id && link.formId === form.id && link.active);
           const key = `${member.id}:${form.id}`;
           const issuedUrl = issuedLinks[key];
+          const accessHelpId = `link-access-${member.id}-${form.id}`;
+          const accessHelp = !linkPolicy ? t(policyFailed ? "linkPolicyLoadFailed" : "loadingForms") : t(linkPolicy.enabled ? "assignGroupFormFirst" : "assignReviewerFormFirst");
           return <div className="panel-row reviewer-link-row" key={key}>
-            <span className="link-symbol"><Link2 size={15} /></span>
-            <span className="panel-row-main"><strong>{form.title} · {member.user.displayName}</strong><small>{active ? `${t("active")} · ${t("expires", { date: active.expiresAt ? formatDate(active.expiresAt, locale) : t("never") })}` : t("noActiveLink")}</small>{issuedUrl && <span className="issued-link-value">{issuedUrl}</span>}</span>
-            <span className={`status ${active ? "" : "status-pending"}`}>{active ? t("active") : t("noLink")}</span>
-            {active && (active.canReveal || issuedUrl) && <button className="button button-small" disabled={busy} onClick={() => void (issuedUrl ? copy(issuedUrl) : revealFormLink(active))}><Copy size={12} /> {t("copyLink")}</button>}
-            {!canGenerate && <small className="muted-caption">{t("linkGenerationUnavailable")}</small>}
-            <button className="button button-small" title={!canGenerate ? t("linkGenerationUnavailable") : undefined} disabled={busy || !canGenerate} onClick={() => void rotateForm(member, form)}><RefreshCw size={12} /> {active ? t("replaceLink") : t("createLink")}</button>
-            {active && <button className="icon-button" aria-label={t("revoke")} disabled={busy} onClick={() => void revoke(active)}><X size={14} /></button>}
+            <div className="reviewer-link-identity"><span className="link-symbol" aria-hidden="true"><Link2 size={15} /></span>
+              <div className="panel-row-main"><strong dir="auto">{form.title} · {member.user.displayName}</strong><small>{active ? t("expires", { date: active.expiresAt ? formatDate(active.expiresAt, locale) : t("never") }) : t("noActiveLink")}</small>{issuedUrl && <span className="issued-link-value">{issuedUrl}</span>}</div>
+              <span className={`status ${active ? "" : "status-pending"}`}>{active ? t("active") : t("noLink")}</span>
+            </div>
+            <div className="reviewer-link-actions" role="group" aria-label={t("linkActions")}>
+              {active && (active.canReveal || issuedUrl) && <button type="button" className="button button-small" disabled={busy} onClick={() => void (issuedUrl ? copy(issuedUrl) : revealFormLink(active))}><Copy size={12} />{t("copyLink")}</button>}
+              <button type="button" className="button button-small" title={!canGenerate ? accessHelp : undefined} aria-describedby={!canGenerate ? accessHelpId : undefined} disabled={busy || !canGenerate} onClick={() => void rotateForm(member, form)}><RefreshCw size={12} />{active ? t("replaceLink") : t("createLink")}</button>
+              {active && <button type="button" className="icon-button" aria-label={t("revoke")} disabled={busy} onClick={() => void revoke(active)}><X size={14} /></button>}
+            </div>
+            {!canGenerate && <div className="link-access-note" id={accessHelpId}><Shield size={15} aria-hidden="true" /><p>{accessHelp}</p>{linkPolicy && <button type="button" className="text-button" onClick={() => document.getElementById("reviewer-groups-heading")?.scrollIntoView({ behavior: "smooth", block: "start" })}>{t("manageFormAccess")}</button>}</div>}
           </div>;
         })}
         {!sectionErrors.links && !sectionErrors.forms && linkPolicy && shareRows.length === 0 && forms.length > 0 && eligibleReviewers.length > 0 && <div className="empty-inline">{t("noEligibleFormLinks")}</div>}
@@ -120,7 +125,14 @@ export function TeamManager({ initialMembers, initialLinks, initialInvitations, 
         <div className="panel">{legacyLinks.map((link) => {
           const issuedUrl = issuedLinks[`legacy:${link.reviewer.id}`];
           const canRotate = !!linkPolicy && !linkPolicy.enabled && eligibleReviewers.some((member) => member.id === link.reviewer.id);
-          return <div className="panel-row reviewer-link-row" key={link.id}><span className="link-symbol"><Link2 size={15} /></span><span className="panel-row-main"><strong>{t("allPublishedForms")} · {link.reviewer.name}</strong><small>{link.revokedAt ? t("revoked") : `${t("created", { date: formatDate(link.createdAt, locale) })} · ${t("expires", { date: link.expiresAt ? formatDate(link.expiresAt, locale) : t("never") })}`}</small>{issuedUrl && <span className="issued-link-value">{issuedUrl}</span>}</span><span className={`status ${link.active ? "" : "status-pending"}`}>{link.active ? t("active") : t("inactive")}</span>{link.active && (link.canReveal || issuedUrl) && <button className="button button-small" disabled={busy} onClick={() => void (issuedUrl ? copy(issuedUrl) : revealFormLink(link))}><Copy size={12} /> {t("copyLink")}</button>}{link.active && !link.canReveal && !issuedUrl && <button type="button" className="button button-small" title={!canRotate ? t("linkGenerationUnavailable") : undefined} disabled={busy || !canRotate} onClick={() => void rotateLegacyLink(link)}><RefreshCw size={12} /> {t("replaceAndCopy")}</button>}{link.active && <button className="icon-button" aria-label={t("revoke")} disabled={busy} onClick={() => void revoke(link)}><X size={14} /></button>}{!link.active && <button type="button" className="button button-small" title={!canRotate ? t("linkGenerationUnavailable") : undefined} disabled={busy || !canRotate} onClick={() => void rotateLegacyLink(link)}><RefreshCw size={12} /> {t("replaceAndCopy")}</button>}</div>;
+          return <div className="panel-row reviewer-link-row" key={link.id}>
+            <div className="reviewer-link-identity"><span className="link-symbol" aria-hidden="true"><Link2 size={15} /></span><div className="panel-row-main"><strong dir="auto">{t("allPublishedForms")} · {link.reviewer.name}</strong><small>{link.revokedAt ? t("revoked") : `${t("created", { date: formatDate(link.createdAt, locale) })} · ${t("expires", { date: link.expiresAt ? formatDate(link.expiresAt, locale) : t("never") })}`}</small>{issuedUrl && <span className="issued-link-value">{issuedUrl}</span>}</div><span className={`status ${link.active ? "" : "status-pending"}`}>{link.active ? t("active") : t("inactive")}</span></div>
+            <div className="reviewer-link-actions" role="group" aria-label={t("linkActions")}>
+              {link.active && (link.canReveal || issuedUrl) && <button type="button" className="button button-small" disabled={busy} onClick={() => void (issuedUrl ? copy(issuedUrl) : revealFormLink(link))}><Copy size={12} />{t("copyLink")}</button>}
+              {((link.active && !link.canReveal && !issuedUrl) || !link.active) && <button type="button" className="button button-small" title={!canRotate ? t("linkGenerationUnavailable") : undefined} disabled={busy || !canRotate} onClick={() => void rotateLegacyLink(link)}><RefreshCw size={12} />{t("replaceAndCopy")}</button>}
+              {link.active && <button type="button" className="icon-button" aria-label={t("revoke")} disabled={busy} onClick={() => void revoke(link)}><X size={14} /></button>}
+            </div>
+          </div>;
         })}</div>
       </>}
     </section>
